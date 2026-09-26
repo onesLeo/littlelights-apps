@@ -20,7 +20,7 @@ Requires Node.js 18 or newer.
 ```bash
 npm install      # installs Playwright for the tests and icon rendering
 npm start        # http://localhost:8080
-npm test         # smoke test at phone and computer sizes; screenshots in test-results/
+npm test         # app smoke test + Studio test; screenshots in test-results/
 ```
 
 There is no build step. Open `index.html` through the local server (the offline service worker does not run from `file://`).
@@ -30,7 +30,11 @@ There is no build step. Open `index.html` through the local server (the offline 
 ```
 index.html              the whole app shell
 css/app.css             styles: phone layout first, computer layout at 900px and wider
-js/content.js           every post (devotions, audio, reels, verses, journeys)
+js/content.js           built-in posts shown alongside Studio posts
+js/config.js            Supabase connection (empty = local mode)
+js/store.js             data layer shared by the app and the Studio
+studio/                 the Studio (sign in, posts, editor, media, team)
+supabase/schema.sql     database tables, security rules and file storage
 js/app.js               tabs, feed, player, verse images, sharing, install, offline
 sw.js                   offline cache (bump VERSION when a cached file changes)
 manifest.webmanifest    app name, colours and icons for installing
@@ -40,7 +44,11 @@ tests/smoke.mjs         end-to-end smoke test
 docs/                   improvements and roadmap
 ```
 
-## Adding content
+## Posting with the Studio
+
+Open **`/studio/`** to write, schedule and publish verses, devotions, audio, reels and game updates, with a live preview. It runs in **local mode** out of the box (posts stay in your browser) and switches to a real shared database when you connect Supabase. Setup and security: [docs/studio.md](docs/studio.md).
+
+## Adding built-in content
 
 Edit `js/content.js`. Each devotion, episode, reel and verse is one entry.
 

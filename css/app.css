@@ -500,3 +500,15 @@ img, svg { max-width: 100%; }
 /* Keep the empty notification fully hidden until it has something to say */
 .p-toast { opacity: 0; visibility: hidden; transition: translate .3s ease, opacity .3s ease, visibility .3s; }
 .p-toast.on { opacity: 1; visibility: visible; }
+
+/* ---------- Posts from the Studio ---------- */
+.p-slide.has-hint { padding-bottom: 58px; }
+.p-yt { justify-self: start; color: #fff; font-size: 12px; font-weight: 700; }
+.p-gamenews { display: grid; gap: 10px; padding: 12px 14px 4px; }
+.p-newscard { background: #fff8e6; border-radius: 16px; padding: 14px; display: grid; gap: 6px; }
+.p-newscard small { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .65; }
+.p-newscard b { font-size: 17px; line-height: 1.2; }
+.p-newscard p { font-size: 14px; line-height: 1.5; }
+.p-newscard .p-btn { justify-self: start; }
+.p-app.night .p-newscard { background: #1a2920; }
+.p-txt .meta { margin: 0; }

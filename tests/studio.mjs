@@ -1,0 +1,168 @@
+// Studio test (local mode): sign in, write, validate, upload, publish, schedule,
+// manage the team, then check the posts appear in the app.
+// Run: npm test   (screenshots go to test-results/)
+import { chromium } from 'playwright';
+import { mkdirSync } from 'node:fs';
+import { serve } from '../scripts/serve.mjs';
+
+const server = await serve(0);
+const base = `http://localhost:${server.address().port}/`;
+mkdirSync('test-results', { recursive: true });
+const browser = await chromium.launch();
+const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+await context.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+const page = await context.newPage();
+const errors = [];
+page.on('pageerror', (e) => errors.push(e.message));
+let failures = 0;
+function check(ok, label) {
+  console.log(`${ok ? 'ok  ' : 'FAIL'} ${label}`);
+  if (!ok) failures++;
+}
+const text = (sel) => page.$eval(sel, (el) => el.textContent);
+const rowStatus = (title) => page.$$eval('.row', (rows, t) => {
+  const r = rows.find((x) => x.querySelector('b').textContent === t);
+  return r ? r.querySelector('.pill').textContent : null;
+}, title);
+
+// One second of silence as a WAV file, so the upload and length detection run for real.
+function silentWav(seconds = 2, rate = 8000) {
+  const n = seconds * rate, buf = Buffer.alloc(44 + n);
+  buf.write('RIFF', 0); buf.writeUInt32LE(36 + n, 4); buf.write('WAVE', 8); buf.write('fmt ', 12);
+  buf.writeUInt32LE(16, 16); buf.writeUInt16LE(1, 20); buf.writeUInt16LE(1, 22); buf.writeUInt32LE(rate, 24);
+  buf.writeUInt32LE(rate, 28); buf.writeUInt16LE(1, 32); buf.writeUInt16LE(8, 34); buf.write('data', 36); buf.writeUInt32LE(n, 40);
+  buf.fill(128, 44);
+  return buf;
+}
+
+// ---------- sign in ----------
+await page.goto(base + 'studio/');
+await page.waitForSelector('#signinForm');
+check(await page.$('.modebar') !== null, 'studio: local mode is explained on the sign-in page');
+await page.fill('#email', 'not-an-email');
+await page.click('#signinForm button[type=submit]');
+check((await text('.errmsg')).includes('Enter an email'), 'studio: a bad email is explained');
+await page.fill('#email', 'Owner@Example.org');
+await page.click('#signinForm button[type=submit]');
+await page.waitForSelector('.shell');
+check((await text('.me')).includes('owner@example.org'), 'studio: first sign-in becomes the owner');
+
+// ---------- verse: validation, then publish ----------
+await page.click('.side [data-view="new"]');
+await page.click('[data-new="verse"]');
+await page.click('#postForm button[type=submit]');
+check((await page.$$('.errmsg')).length === 2, 'verse: missing text and reference are both flagged');
+await page.fill('#f_verse', 'The LORD is my shepherd; I shall lack nothing.');
+check((await text('#preview')).includes('The LORD is my shepherd'), 'verse: preview updates while typing');
+await page.fill('#f_ref', 'Psalm 23:1');
+await page.click('[data-topic="Trust"]');
+await page.click('#postForm button[type=submit]');
+await page.waitForSelector('.list .row');
+check(await rowStatus('Psalm 23:1') === 'Published', 'verse: published');
+
+// ---------- devotion: draft, then publish after fixing ----------
+await page.click('.side [data-view="new"]');
+await page.click('[data-new="devotion"]');
+await page.fill('#f_title', 'Rest for the weary <img src=x onerror=alert(1)>');
+await page.click('#saveDraft');
+await page.waitForSelector('.list .row');
+check(await rowStatus('Rest for the weary <img src=x onerror=alert(1)>') === 'Draft', 'devotion: saved as a draft with just a title');
+await page.click('.row >> text=Rest for the weary');
+await page.click('#postForm button[type=submit]');
+const devErrors = await page.$$eval('.errmsg', (e) => e.map((x) => x.textContent).join(' | '));
+check(devErrors.includes('Write the devotion') && devErrors.includes('one-line summary'), 'devotion: publishing without the reading or summary is blocked');
+await page.fill('#f_teaser', 'Jesus invites tired people to come to him.');
+await page.fill('#f_body', 'When the week feels long, **Jesus** says come.\n\nHe does not say _hurry_.');
+await page.fill('#f_prayer', 'Lord, give us rest tonight. Amen.');
+await page.click('#postForm button[type=submit]');
+await page.waitForSelector('.list .row');
+check(await rowStatus('Rest for the weary <img src=x onerror=alert(1)>') === 'Published', 'devotion: published after fixing');
+
+// ---------- audio: upload a real file ----------
+await page.click('.side [data-view="new"]');
+await page.click('[data-new="audio"]');
+await page.fill('#f_title', 'Evening prayer');
+await page.click('#postForm button[type=submit]');
+check((await text('.errmsg')).includes('Upload the recording'), 'audio: publishing without a recording is blocked');
+await page.setInputFiles('#f_file', { name: 'evening-prayer.wav', mimeType: 'audio/wav', buffer: silentWav() });
+await page.waitForFunction(() => document.querySelector('.upload b')?.textContent === 'evening-prayer.wav');
+await page.waitForFunction(() => document.getElementById('f_minutes')?.value, null, { timeout: 5000 }).catch(() => {});
+check((await page.inputValue('#f_minutes')) === '0:02', 'audio: length is read from the file');
+await page.click('#postForm button[type=submit]');
+await page.waitForSelector('.list .row');
+check(await rowStatus('Evening prayer') === 'Published', 'audio: published with its file');
+
+// ---------- game update: scheduled for tomorrow ----------
+await page.click('.side [data-view="new"]');
+await page.click('[data-new="game"]');
+await page.fill('#f_title', 'Jonah is coming soon');
+await page.fill('#f_text', 'Journey 5 is being built.');
+await page.click('[data-mode="schedule"]');
+await page.fill('#f_when', '2020-01-01T08:00');
+await page.click('#postForm button[type=submit]');
+check((await text('.errmsg')).includes('future'), 'game: a past schedule time is rejected');
+const tomorrow = new Date(Date.now() + 86400000);
+const local = new Date(tomorrow - tomorrow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+await page.fill('#f_when', local);
+await page.click('#postForm button[type=submit]');
+await page.waitForSelector('.list .row');
+check(await rowStatus('Jonah is coming soon') === 'Scheduled', 'game: scheduled for tomorrow');
+await page.screenshot({ path: 'test-results/studio-posts.png', fullPage: true });
+
+// ---------- media and team ----------
+await page.click('.side [data-view="media"]');
+check((await page.$$('.media')).length === 1, 'media: the uploaded recording is listed');
+await page.click('.side [data-view="team"]');
+await page.fill('#inviteEmail', 'helper@example.org');
+await page.selectOption('#inviteRole', 'contributor');
+await page.click('#inviteForm button[type=submit]');
+await page.waitForFunction(() => document.body.textContent.includes('helper@example.org'));
+check(true, 'team: owner adds a contributor');
+
+// ---------- the app shows the posts ----------
+const app = await context.newPage();
+app.on('pageerror', (e) => errors.push(e.message));
+await app.goto(base + '#today');
+await app.waitForSelector('.v-today.on');
+await app.waitForTimeout(300);
+const firstSlide = await app.$eval('#pFeed .p-slide', (s) => s.textContent);
+check(firstSlide.includes('Psalm 23') || firstSlide.includes('Rest for the weary') || firstSlide.includes('Evening prayer'), 'app: Studio posts lead the Today feed');
+check(!(await app.$('#pFeed img')), 'app: text from the Studio is shown as text, never as HTML');
+await app.click('.p-tab[data-tab="verses"]');
+await app.waitForTimeout(150);
+check((await app.$eval('#pGrid', (g) => g.textContent)).includes('The LORD is my shepherd'), 'app: new verse is in Verses');
+await app.click('.p-tab[data-tab="read"]');
+await app.waitForTimeout(150);
+check((await app.$eval('#pCards', (g) => g.textContent)).includes('Rest for the weary'), 'app: new devotion is in Read');
+await app.click('#pCards .p-card');
+await app.waitForTimeout(250);
+check((await app.$eval('#pArticle', (a) => a.innerHTML)).includes('<b>Jesus</b>'), 'app: devotion formatting (bold) is shown');
+await app.screenshot({ path: 'test-results/app-studio-article.png' });
+await app.keyboard.press('Escape');
+await app.click('.p-tab[data-tab="listen"]');
+await app.waitForTimeout(150);
+check((await app.$eval('#pEps', (g) => g.textContent)).includes('Evening prayer'), 'app: new audio is in Listen');
+await app.click('.p-tab[data-tab="play"]');
+await app.waitForTimeout(150);
+check(!(await app.$eval('#pGameNews', (g) => g.textContent)).includes('Jonah is coming soon'), 'app: scheduled post stays hidden until its time');
+await app.close();
+
+// ---------- delete, sign out, strangers stay out ----------
+await page.click('.side [data-view="posts"]');
+await page.click('.row >> text=Jonah is coming soon');
+await page.click('#del');
+await page.click('#delYes');
+await page.waitForSelector('.list');
+check(await rowStatus('Jonah is coming soon') === null, 'posts: delete asks first, then removes the post');
+await page.click('#signout');
+await page.waitForSelector('#signinForm');
+await page.fill('#email', 'stranger@example.org');
+await page.click('#signinForm button[type=submit]');
+await page.waitForSelector('.errmsg');
+check((await text('.errmsg')).includes('isn’t on the Little Light team'), 'sign-in: people not on the team are turned away');
+
+check(errors.length === 0, `no script errors ${errors.join(' | ')}`);
+await browser.close();
+server.close();
+console.log(failures ? `\n${failures} check(s) failed` : '\nAll studio checks passed');
+process.exit(failures ? 1 : 0);
