@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Little Light</title>
+  <meta name="description" content="Encouragement for families: Bible verses, short devotions, audio prayers, reels and the Little Light Bible game.">
+  <meta name="theme-color" content="#0f0d20">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta property="og:title" content="Little Light">
+  <meta property="og:description" content="Encouragement for families: verses, devotions, audio, reels and a gentle Bible game.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400;1,6..72,500&display=swap">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="p-app" id="app">
+  <noscript><p class="p-noscript">Little Light needs JavaScript turned on to show this week’s posts.</p></noscript>
+
+  <!-- TODAY -->
+  <section class="p-view v-today on" data-view="today" aria-label="Today">
+    <div class="p-stage">
+    <div class="p-rings">
+      <button class="p-ring" type="button" data-go="verses" style="--rc:var(--t-verse)"><i><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></svg></i>Verse</button>
+      <button class="p-ring" type="button" data-go="read" style="--rc:var(--t-read)"><i><svg viewBox="0 0 24 24"><path d="M4 5h6a2 2 0 012 2v12a2 2 0 00-2-2H4zM20 5h-6a2 2 0 00-2 2v12a2 2 0 012-2h6z"/></svg></i>Read</button>
+      <button class="p-ring" type="button" data-go="watch" style="--rc:var(--t-watch)"><i><svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg></i>Watch</button>
+      <button class="p-ring" type="button" data-go="listen" style="--rc:var(--t-listen)"><i><svg viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0116 0v3M4 15h3v5H4zM17 15h3v5h-3z"/></svg></i>Listen</button>
+      <button class="p-ring" type="button" data-go="play" style="--rc:var(--t-play)"><i><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="11" rx="5"/><path d="M8 11v3M6.5 12.5h3M15.5 12h.01M17.5 14h.01"/></svg></i>Play</button>
+      <button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button>
+    </div>
+    <div class="p-rail" aria-hidden="true"><b id="pLight"></b></div>
+    <div class="p-feed" id="pFeed">
+      <article class="p-slide s1" data-c="#fffaf0" data-cn="#dfe6ff">
+        <div class="p-hint" id="pHint" aria-hidden="true"><i></i>Swipe up</div>
+        <div class="p-stars"></div><div class="p-stars b"></div>
+        <div class="p-orb" aria-hidden="true"><div class="rips"><span class="rip"></span><span class="rip"></span><span class="rip"></span><span class="rip"></span><span class="rip"></span><span class="rip"></span></div><div class="core"><div class="craters"></div></div></div>
+        <div class="p-clouds" aria-hidden="true"><div class="p-cloud" style="--y:96px;--w:120px;--d:46s;--dl:-8s;--o:.95"><svg viewBox="0 0 120 52"><circle cx="30" cy="34" r="17"/><circle cx="54" cy="24" r="22"/><circle cx="80" cy="31" r="18"/><circle cx="98" cy="38" r="12"/><rect x="18" y="34" width="88" height="17" rx="8.5"/></svg></div><div class="p-cloud" style="--y:168px;--w:84px;--d:62s;--dl:-40s;--o:.8"><svg viewBox="0 0 120 52"><circle cx="30" cy="34" r="17"/><circle cx="54" cy="24" r="22"/><circle cx="80" cy="31" r="18"/><circle cx="98" cy="38" r="12"/><rect x="18" y="34" width="88" height="17" rx="8.5"/></svg></div><div class="p-cloud" style="--y:250px;--w:150px;--d:78s;--dl:-22s;--o:.7"><svg viewBox="0 0 120 52"><circle cx="30" cy="34" r="17"/><circle cx="54" cy="24" r="22"/><circle cx="80" cy="31" r="18"/><circle cx="98" cy="38" r="12"/><rect x="18" y="34" width="88" height="17" rx="8.5"/></svg></div><div class="p-cloud" style="--y:60px;--w:70px;--d:54s;--dl:-30s;--o:.6"><svg viewBox="0 0 120 52"><circle cx="30" cy="34" r="17"/><circle cx="54" cy="24" r="22"/><circle cx="80" cy="31" r="18"/><circle cx="98" cy="38" r="12"/><rect x="18" y="34" width="88" height="17" rx="8.5"/></svg></div></div>
+        <button class="p-owl" type="button" id="pOwl" aria-label="Say hello to the owl">
+          <svg viewBox="0 0 150 140" aria-hidden="true">
+            <path d="M-30 124 Q40 112 150 120" stroke="#3a2a22" stroke-width="9" fill="none" stroke-linecap="round"/>
+            <path d="M118 118 q14 -12 26 -6 q-10 12 -26 6z" fill="#2f4a3a"/>
+            <g class="body">
+              <ellipse cx="68" cy="84" rx="31" ry="37" fill="#6b5570"/>
+              <path class="wing l" d="M40 64 q-12 22 -2 50 q12 -6 14 -28z" fill="#54405a"/>
+              <path class="wing r" d="M96 64 q12 22 2 50 q-12 -6 -14 -28z" fill="#54405a"/>
+              <ellipse cx="68" cy="94" rx="19" ry="23" fill="#c9b7c9"/>
+              <path d="M60 86 l3 3 l3 -3 M70 86 l3 3 l3 -3 M64 96 l3 3 l3 -3 M60 106 l3 3 l3 -3 M72 106 l3 3 l3 -3" stroke="#8f7a92" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+              <circle cx="60" cy="121" r="4" fill="#f0a93c"/><circle cx="76" cy="121" r="4" fill="#f0a93c"/>
+              <g class="head">
+                <ellipse cx="68" cy="52" rx="31" ry="26" fill="#6b5570"/>
+                <path d="M42 36 L37 16 L55 30Z M94 36 L99 16 L81 30Z" fill="#54405a"/>
+                <circle cx="56" cy="52" r="13" fill="#eadcc6"/><circle cx="80" cy="52" r="13" fill="#eadcc6"/>
+                <circle cx="56" cy="52" r="9" fill="#ffc94a"/><circle cx="80" cy="52" r="9" fill="#ffc94a"/>
+                <g class="pupil"><circle cx="56" cy="52" r="4.6" fill="#1a1020"/><circle cx="80" cy="52" r="4.6" fill="#1a1020"/>
+                <circle cx="57.6" cy="50.4" r="1.6" fill="#fff"/><circle cx="81.6" cy="50.4" r="1.6" fill="#fff"/></g>
+                <rect class="lid" x="46" y="42" width="20" height="20" rx="10" fill="#6b5570"/>
+                <rect class="lid" x="70" y="42" width="20" height="20" rx="10" fill="#6b5570"/>
+                <path d="M64 60 L72 60 L68 69Z" fill="#f0a93c"/>
+              </g>
+            </g>
+          </svg>
+        </button>
+        <div class="p-hootbub" id="pHoot" aria-live="polite">Hoo! Goodnight</div>
+        <div class="p-kicker">Verse of the week</div>
+        <div class="verse">“Be strong and courageous. Don’t be afraid. Don’t be dismayed, for Yahweh your God is with you wherever you go.”</div>
+        <div class="ref">JOSHUA 1:9 · WEB</div>
+        <div class="p-btns"><button class="p-btn" type="button" data-go="verses">More verses</button><button class="p-btn ghost" type="button" data-save-verse="0">Save image</button></div>
+      </article>
+      <article class="p-slide s2" data-c="#fff5f9" data-cn="#f6b3cb">
+        <div class="p-blob" style="width:240px;height:240px;left:-70px;top:60px;background:#f6b3cb"></div>
+        <div class="p-kicker">Devotion · 3 min</div>
+        <div class="big">You don’t have to feel brave to be brave.</div>
+        <p>David wasn’t calm in the valley. God was with him. That was enough.</p>
+        <div class="p-btns"><button class="p-btn" type="button" data-sheet="0">Read ↑</button><button class="p-btn ghost" type="button" data-ep="0">▶ Listen</button></div>
+      </article>
+      <article class="p-slide s3" data-c="#fff" data-cn="#ffc9b8">
+        <svg viewBox="0 0 300 260" style="position:absolute;left:0;top:90px;width:100%" aria-hidden="true">
+          <circle cx="110" cy="130" r="26" fill="#2b0d05" opacity=".85"/><rect x="84" y="160" width="52" height="80" rx="20" fill="#2b0d05" opacity=".85"/>
+          <circle cx="200" cy="130" r="26" fill="#fff" opacity=".9"/><rect x="174" y="160" width="52" height="80" rx="20" fill="#fff" opacity=".9"/>
+          <path class="drift" d="M140 175 l30 -12 l10 40 l-34 8z" fill="#f7c23f"/>
+        </svg>
+        <div class="p-kicker">Reel · 0:48</div>
+        <div class="big">Why Jonathan gave David his robe.</div>
+        <div class="p-btns"><button class="p-btn" type="button" data-reel="0">▶ Watch</button></div>
+      </article>
+      <article class="p-slide s4" data-c="#fff" data-cn="#d9c8f7">
+        <div class="p-wave" aria-hidden="true"><i style="animation-delay:-.1s"></i><i style="animation-delay:-.5s"></i><i style="animation-delay:-.2s"></i><i style="animation-delay:-.8s"></i><i style="animation-delay:-.3s"></i><i style="animation-delay:-.6s"></i><i style="animation-delay:-.9s"></i><i style="animation-delay:-.4s"></i><i style="animation-delay:-.7s"></i><i style="animation-delay:0s"></i><i style="animation-delay:-.55s"></i><i style="animation-delay:-.25s"></i></div>
+        <div class="p-kicker">Audio · 1:30</div>
+        <div class="big">Bedtime prayer: stay close tonight.</div>
+        <p>A calm prayer to listen to with your children before sleep.</p>
+        <div class="p-btns"><button class="p-btn" type="button" data-ep="3">▶ Play</button><button class="p-btn ghost" type="button" data-go="listen">All audio</button></div>
+      </article>
+      <article class="p-slide s5" data-c="#fff3c4" data-cn="#cfeed6">
+        <div class="p-stars"></div>
+        <div class="p-clouds" aria-hidden="true"><div class="p-cloud" style="--y:104px;--w:110px;--d:50s;--dl:-14s;--o:.9"><svg viewBox="0 0 120 52"><circle cx="30" cy="34" r="17"/><circle cx="54" cy="24" r="22"/><circle cx="80" cy="31" r="18"/><circle cx="98" cy="38" r="12"/><rect x="18" y="34" width="88" height="17" rx="8.5"/></svg></div><div class="p-cloud" style="--y:150px;--w:76px;--d:66s;--dl:-44s;--o:.75"><svg viewBox="0 0 120 52"><circle cx="30" cy="34" r="17"/><circle cx="54" cy="24" r="22"/><circle cx="80" cy="31" r="18"/><circle cx="98" cy="38" r="12"/><rect x="18" y="34" width="88" height="17" rx="8.5"/></svg></div></div>
+        <div class="p-flyowl" aria-hidden="true"><svg viewBox="0 0 60 30">
+          <path class="wing l" d="M30 14 q-14 -12 -29 -4 q14 2 29 8z" fill="#cfc3e6"/>
+          <path class="wing r" d="M30 14 q14 -12 29 -4 q-14 2 -29 8z" fill="#cfc3e6"/>
+          <ellipse cx="30" cy="16" rx="7" ry="9" fill="#e6dcf5"/><circle cx="27.5" cy="13" r="1.5" fill="#1a1330"/><circle cx="32.5" cy="13" r="1.5" fill="#1a1330"/>
+        </svg></div>
+        <svg viewBox="0 0 300 220" style="position:absolute;left:0;top:90px;width:100%" aria-hidden="true">
+          <path d="M0 150 Q80 90 160 135 T300 120 V220 H0Z" fill="#3f8a55"/>
+          <path d="M0 175 Q100 140 200 165 T300 160 V220 H0Z" fill="#2f6e43"/>
+          <circle class="p-sunmoon" cx="230" cy="60" r="22" fill="#fff3c4"/>
+          <circle class="bob" cx="120" cy="128" r="7" fill="#fff6d1"/>
+        </svg>
+        <div class="p-kicker">Game</div>
+        <div class="big">Walk into David’s Valley.</div>
+        <p>A gentle Bible adventure for ages 5–8. No ads. Read aloud.</p>
+        <div class="p-btns"><button class="p-btn" type="button" data-go="play">See the game</button></div>
+      </article>
+    </div>
+    </div>
+    <aside class="p-side" aria-label="This week">
+      <div class="p-sidecard sc-verse">
+        <div class="p-kicker">Verse of the week</div>
+        <div class="verse">“Be strong and courageous. Don’t be afraid.”</div>
+        <div class="ref">JOSHUA 1:9 · WEB</div>
+        <div class="p-btns"><button class="p-btn" type="button" data-save-verse="0">Save image</button><button class="p-btn ghost" type="button" data-share-verse="0">Share</button></div>
+      </div>
+      <form class="p-sidecard sc-news" id="pNews">
+        <div class="p-kicker">Weekly encouragement</div>
+        <b>One verse, one devotion and one family idea, every Monday.</b>
+        <label class="sr" for="pNewsEmail">Email address</label>
+        <input id="pNewsEmail" type="email" required placeholder="you@example.com" autocomplete="email">
+        <button class="p-btn" type="submit">Join the list</button>
+        <small>For grown-ups. No spam, unsubscribe any time.</small>
+      </form>
+      <div class="p-sidecard sc-game">
+        <div class="p-kicker">The game</div>
+        <b>Little Light: Bible Journeys</b>
+        <span>Five gentle Bible stories to play and hear. Ages 5–8.</span>
+        <button class="p-btn" type="button" data-go="play">See the game</button>
+      </div>
+    </aside>
+  </section>
+
+  <!-- WATCH -->
+  <section class="p-view v-watch" data-view="watch" aria-label="Watch">
+    <div class="p-feed" id="pReels"></div>
+  </section>
+
+  <!-- LISTEN -->
+  <section class="p-view v-listen" data-view="listen" aria-label="Listen">
+    <div class="p-head"><h3>Listen</h3><div class="p-headr"><div class="p-logo"><i></i>Little Light</div><button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button></div></div>
+    <div class="p-now">
+      <div class="p-kicker">This week · Courage</div>
+      <b>You don’t have to feel brave to be brave</b>
+      <span style="font-size:13px">The devotion, read aloud. 3 min.</span>
+      <button class="p-btn" type="button" data-ep="0">▶ Play</button>
+    </div>
+    <div class="p-sec">All episodes</div>
+    <div class="p-list" id="pEps"></div>
+  </section>
+
+  <!-- READ -->
+  <section class="p-view v-read" data-view="read" aria-label="Read">
+    <div class="p-head"><h3>Read</h3><div class="p-headr"><div class="p-logo" style="color:#2a1f33"><i></i>Little Light</div><button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button></div></div>
+    <div class="p-cards" id="pCards"></div>
+  </section>
+
+  <!-- VERSES -->
+  <section class="p-view v-verses" data-view="verses" aria-label="Verses">
+    <div class="p-head"><h3>Verses</h3><div class="p-headr"><div class="p-logo"><i style="background:#f7c23f"></i>Little Light</div><button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button></div></div>
+    <div class="p-chips" id="pChips"></div>
+    <div class="p-grid" id="pGrid"></div>
+  </section>
+
+  <!-- PLAY -->
+  <section class="p-view v-play" data-view="play" aria-label="Play">
+    <div class="p-head"><h3>Play</h3><div class="p-headr"><div class="p-logo"><i></i>Little Light</div><button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button></div></div>
+    <div class="p-gamehero">
+      <svg viewBox="0 0 320 190" aria-hidden="true">
+        <rect width="320" height="190" fill="#8fd0a0"/>
+        <circle class="p-sunmoon" cx="250" cy="48" r="24" fill="#fff3c4"/>
+        <path d="M0 120 Q80 70 170 110 T320 95 V190 H0Z" fill="#69ba7e"/>
+        <path d="M0 150 Q100 115 210 140 T320 135 V190 H0Z" fill="#3f8a55"/>
+        <path d="M150 190 Q170 160 150 140 Q135 125 160 110" fill="none" stroke="#fbf3dd" stroke-width="8" stroke-linecap="round" opacity=".7"/>
+        <circle class="bob" cx="160" cy="104" r="8" fill="#fff6d1"/>
+        <ellipse cx="80" cy="132" rx="14" ry="9" fill="#fff"/><circle cx="92" cy="127" r="5" fill="#fff"/>
+      </svg>
+      <div class="p-clouds" aria-hidden="true"><div class="p-cloud" style="--y:14px;--w:80px;--d:40s;--dl:-6s;--o:.95"><svg viewBox="0 0 120 52"><circle cx="30" cy="34" r="17"/><circle cx="54" cy="24" r="22"/><circle cx="80" cy="31" r="18"/><circle cx="98" cy="38" r="12"/><rect x="18" y="34" width="88" height="17" rx="8.5"/></svg></div><div class="p-cloud" style="--y:40px;--w:56px;--d:55s;--dl:-30s;--o:.8"><svg viewBox="0 0 120 52"><circle cx="30" cy="34" r="17"/><circle cx="54" cy="24" r="22"/><circle cx="80" cy="31" r="18"/><circle cx="98" cy="38" r="12"/><rect x="18" y="34" width="88" height="17" rx="8.5"/></svg></div></div>
+    </div>
+    <div class="p-gameinfo">
+      <div class="p-kicker" style="color:#3f8a55">Little Light: Bible Journeys</div>
+      <h4>Five gentle Bible stories to play and hear.</h4>
+      <p>Explore, find three Wonder Items, meet the Bible character, and hear the verse read aloud. Nothing to fail, nothing to buy inside.</p>
+      <button class="p-cta" type="button" data-preview>Play the free preview</button>
+    </div>
+    <div class="p-trust">
+      <div>No ads, ever</div><div>Every line read aloud</div><div>No accounts or tracking</div><div>Ages 5–8</div>
+    </div>
+    <div class="p-sec" style="color:#7a5a2a">The five journeys</div>
+    <div class="p-map" id="pMap"></div>
+    <div class="p-stores"><div>App Store<br>coming soon</div><div>Google Play<br>coming soon</div></div>
+  </section>
+
+  <!-- mini player -->
+  <div class="p-mini" id="pMini">
+    <button class="open" type="button" id="pMiniOpen" aria-label="Open player"><span class="p-art" id="pMiniArt"><i></i></span><span style="min-width:0"><b id="pMiniTitle">—</b><small id="pMiniTime">0:00</small></span></button>
+    <button class="ctl" type="button" id="pMiniPP" aria-label="Pause"></button>
+    <button class="x" type="button" id="pMiniX" aria-label="Close player">✕</button>
+    <div class="prog" id="pMiniProg"></div>
+  </div>
+
+  <!-- tabs -->
+  <nav class="p-tabs" aria-label="Main menu">
+    <a class="p-brand" href="#today"><i></i>Little Light</a>
+    <a class="p-tab on" href="#today" data-tab="today" style="--tc:var(--t-today)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Today</a>
+    <a class="p-tab" href="#watch" data-tab="watch" style="--tc:var(--t-watch)"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M10 9l5 3-5 3z"/></svg>Watch</a>
+    <a class="p-tab" href="#listen" data-tab="listen" style="--tc:var(--t-listen)"><svg viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0116 0v3M4 15h3v5H4zM17 15h3v5h-3z"/></svg>Listen</a>
+    <a class="p-tab" href="#read" data-tab="read" style="--tc:var(--t-read)"><svg viewBox="0 0 24 24"><path d="M4 5h6a2 2 0 012 2v12a2 2 0 00-2-2H4zM20 5h-6a2 2 0 00-2 2v12a2 2 0 012-2h6z"/></svg>Read</a>
+    <a class="p-tab" href="#verses" data-tab="verses" style="--tc:var(--t-verse)"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></svg>Verses</a>
+    <a class="p-tab" href="#play" data-tab="play" style="--tc:var(--t-play)"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="11" rx="5"/><path d="M8 11v3M6.5 12.5h3M15.5 12h.01M17.5 14h.01"/></svg>Play</a>
+    <div class="p-tools"><button class="p-mode" type="button" data-install hidden>Install app</button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button><button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button></div>
+  </nav>
+
+  <!-- overlays -->
+  <div class="p-over p-sheetwrap" id="pSheetWrap">
+    <div class="p-sheet" role="dialog" aria-label="Devotion">
+      <button class="grab" type="button" id="pSheetClose" aria-label="Close"><i></i></button>
+      <div class="scroll" id="pSheetBody"></div>
+    </div>
+  </div>
+  <article class="p-over p-article" id="pArticle" role="dialog" aria-label="Article"></article>
+  <div class="p-over p-full" id="pFull" role="dialog" aria-label="Audio player"></div>
+  <div class="p-over p-story" id="pStory" role="dialog" aria-label="Verse"></div>
+  <div class="p-toast" id="pToast" role="status"></div>
+</div>
+
+<script src="js/content.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
