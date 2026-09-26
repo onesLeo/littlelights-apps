@@ -6,6 +6,6 @@
 // Fill both in to use SUPABASE MODE (see docs/studio.md). The anon key is meant to
 // be public: the database's row-level security rules decide who may write.
 window.LL_CONFIG = {
-  supabaseUrl: '',
-  supabaseAnonKey: ''
+  supabaseUrl: 'https://svlvlmyugyadmehjwudm.supabase.co',
+  supabaseAnonKey: 'sb_publishable_PpHntUeaf4RbeeYWStKpVw_RlYdUQFV'
 };

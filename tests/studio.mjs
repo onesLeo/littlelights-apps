@@ -11,6 +11,8 @@ mkdirSync('test-results', { recursive: true });
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 await context.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+// Tests run in local mode so they never touch the real database.
+await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
 const page = await context.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
@@ -123,7 +125,7 @@ check(true, 'team: owner adds a contributor');
 const app = await context.newPage();
 app.on('pageerror', (e) => errors.push(e.message));
 await app.goto(base + '#today');
-await app.waitForSelector('.v-today.on');
+await app.waitForSelector('#app[data-ready]');
 await app.waitForTimeout(300);
 const firstSlide = await app.$eval('#pFeed .p-slide', (s) => s.textContent);
 check(firstSlide.includes('Psalm 23') || firstSlide.includes('Rest for the weary') || firstSlide.includes('Evening prayer'), 'app: Studio posts lead the Today feed');

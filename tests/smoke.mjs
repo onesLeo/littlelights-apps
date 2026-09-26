@@ -19,11 +19,13 @@ async function openApp(viewport) {
   const context = await browser.newContext({ viewport, acceptDownloads: true });
   // Block external font requests so the test does not depend on the network.
   await context.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  // Tests run in local mode so they never touch the real database.
+  await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(base);
-  await page.waitForSelector('.v-today.on');
+  await page.waitForSelector('#app[data-ready]');
   return { context, page, errors };
 }
 
@@ -71,7 +73,7 @@ async function openApp(viewport) {
   await page.click('.p-tab[data-tab="today"]');
   await page.click('.p-rings [data-mode]');
   await page.reload();
-  await page.waitForSelector('.v-today.on');
+  await page.waitForSelector('#app[data-ready]');
   check((await page.$eval('#app', (a) => a.classList.contains('night'))) === !night, 'phone: day/night choice is remembered');
   await page.screenshot({ path: 'test-results/phone-today-toggled.png' });
 

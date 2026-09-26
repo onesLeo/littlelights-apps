@@ -9,17 +9,29 @@ create table if not exists public.team_members (
   invited_at timestamptz not null default now()
 );
 
--- Helpers used by the security rules. SECURITY DEFINER lets them read team_members
+-- Helpers used by the security rules. They live in a private schema so the public
+-- API cannot call them directly. SECURITY DEFINER lets them read team_members
 -- without being blocked by that table's own rules.
-create or replace function public.team_role() returns text
-language sql stable security definer set search_path = public as $$
-  select role from public.team_members where email = lower(auth.jwt() ->> 'email')
+create schema if not exists private;
+grant usage on schema private to anon, authenticated;
+
+create or replace function private.team_role() returns text
+language sql stable security definer set search_path = '' as $$
+  select role from public.team_members where email = lower((select auth.jwt()) ->> 'email')
 $$;
 
-create or replace function public.is_team() returns boolean
-language sql stable security definer set search_path = public as $$
-  select public.team_role() is not null
+create or replace function private.is_team() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select private.team_role() is not null
 $$;
+
+create or replace function private.my_email() returns text
+language sql stable set search_path = '' as $$
+  select lower((select auth.jwt()) ->> 'email')
+$$;
+
+revoke all on function private.team_role(), private.is_team(), private.my_email() from public;
+grant execute on function private.team_role(), private.is_team(), private.my_email() to anon, authenticated;
 
 -- ---------- posts ----------
 create table if not exists public.posts (
@@ -50,32 +62,32 @@ create policy "Live posts are public" on public.posts for select
 -- The team can read everything, including drafts.
 drop policy if exists "Team reads all posts" on public.posts;
 create policy "Team reads all posts" on public.posts for select
-  using (public.is_team());
+  using (private.is_team());
 
 -- Owners and editors can publish; contributors can only write drafts, and only their own.
 drop policy if exists "Team creates posts" on public.posts;
 create policy "Team creates posts" on public.posts for insert
-  with check (public.team_role() in ('owner', 'editor')
-              or (public.team_role() = 'contributor' and status = 'draft'));
+  with check (private.team_role() in ('owner', 'editor')
+              or (private.team_role() = 'contributor' and status = 'draft' and author_email = private.my_email()));
 
 drop policy if exists "Team edits posts" on public.posts;
 create policy "Team edits posts" on public.posts for update
-  using (public.team_role() in ('owner', 'editor')
-         or (public.team_role() = 'contributor' and status = 'draft' and author_email = lower(auth.jwt() ->> 'email')))
-  with check (public.team_role() in ('owner', 'editor')
-              or (public.team_role() = 'contributor' and status = 'draft'));
+  using (private.team_role() in ('owner', 'editor')
+         or (private.team_role() = 'contributor' and status = 'draft' and author_email = private.my_email()))
+  with check (private.team_role() in ('owner', 'editor')
+              or (private.team_role() = 'contributor' and status = 'draft' and author_email = private.my_email()));
 
 drop policy if exists "Owners and editors delete posts" on public.posts;
 create policy "Owners and editors delete posts" on public.posts for delete
-  using (public.team_role() in ('owner', 'editor'));
+  using (private.team_role() in ('owner', 'editor'));
 
 -- Team list: the team can see it; only owners can change it.
 drop policy if exists "Team sees the team" on public.team_members;
-create policy "Team sees the team" on public.team_members for select using (public.is_team());
+create policy "Team sees the team" on public.team_members for select using (private.is_team());
 drop policy if exists "Owners invite" on public.team_members;
-create policy "Owners invite" on public.team_members for insert with check (public.team_role() = 'owner');
+create policy "Owners invite" on public.team_members for insert with check (private.team_role() = 'owner');
 drop policy if exists "Owners remove" on public.team_members;
-create policy "Owners remove" on public.team_members for delete using (public.team_role() = 'owner' and email <> lower(auth.jwt() ->> 'email'));
+create policy "Owners remove" on public.team_members for delete using (private.team_role() = 'owner' and email <> private.my_email());
 
 -- ---------- file storage: audio and video ----------
 insert into storage.buckets (id, name, public, file_size_limit)
@@ -84,11 +96,11 @@ on conflict (id) do nothing;
 
 drop policy if exists "Team uploads media" on storage.objects;
 create policy "Team uploads media" on storage.objects for insert
-  with check (bucket_id = 'media' and public.is_team());
+  with check (bucket_id = 'media' and private.is_team());
 
 drop policy if exists "Owners and editors delete media" on storage.objects;
 create policy "Owners and editors delete media" on storage.objects for delete
-  using (bucket_id = 'media' and public.team_role() in ('owner', 'editor'));
+  using (bucket_id = 'media' and private.team_role() in ('owner', 'editor'));
 
 -- ---------- make yourself the owner (change the email) ----------
 -- insert into public.team_members (email, role) values ('you@example.com', 'owner');

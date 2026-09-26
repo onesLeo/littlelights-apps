@@ -11,7 +11,8 @@
   'use strict';
   var cfg = window.LL_CONFIG || {};
   var remote = !!(cfg.supabaseUrl && cfg.supabaseAnonKey);
-  var SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js';
+  // Bundled copy of supabase-js (MIT), so the Studio does not depend on a CDN.
+  var SUPABASE_JS = (document.currentScript && document.currentScript.src ? new URL('vendor/supabase-2.117.2.js', document.currentScript.src).href : 'js/vendor/supabase-2.117.2.js');
   var POSTS_KEY = 'll.posts.v1', SESSION_KEY = 'll.studio.session', TEAM_KEY = 'll.studio.team';
 
   function nowIso() { return new Date().toISOString(); }
@@ -151,7 +152,13 @@
       return client;
     });
   }
-  function must(res) { if (res.error) throw new Error(res.error.message); return res.data; }
+  function friendly(msg) {
+    msg = String(msg || '');
+    if (/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) return 'Could not reach the database. Check your internet connection and try again.';
+    if (/rate limit|too many/i.test(msg)) return 'Too many sign-in emails were sent just now. Please wait a few minutes and try again.';
+    return msg;
+  }
+  function must(res) { if (res.error) throw new Error(friendly(res.error.message)); return res.data; }
   var redirectTo = function () { return location.origin + location.pathname; };
 
   var supa = {
@@ -212,6 +219,15 @@
       }).then(must);
     }
   };
+
+  // Turn network errors thrown by the client into plain messages too.
+  Object.keys(supa).forEach(function (k) {
+    var fn = supa[k];
+    if (typeof fn !== 'function' || k === 'onAuthChange') return;
+    supa[k] = function () {
+      return fn.apply(supa, arguments).catch(function (err) { throw new Error(friendly(err && err.message)); });
+    };
+  });
 
   window.LLStore = remote ? supa : local;
   window.LLStore.resolveMedia = resolveMedia;

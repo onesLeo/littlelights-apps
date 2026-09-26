@@ -655,6 +655,7 @@
   });
 
   route();
+  app.dataset.ready = '1';
   }
   mergeStudioPosts().then(startApp);
 

@@ -41,6 +41,12 @@ Local mode is for trying the Studio and for development. Use Supabase mode befor
    The anon key is designed to be public. What anyone can do is decided by the security rules in `schema.sql`.
 7. Bump `VERSION` in `sw.js`, publish, open `/studio/`, and sign in with your email.
 
+## This project's database
+
+The Studio is connected to the Supabase project **svlvlmyugyadmehjwudm** (region ap-northeast-2). `supabase/schema.sql` has been applied to it as the migration `little_light_studio`, and the security rules were checked with test accounts (visitor, owner, contributor, and a signed-in stranger) before the test data was removed.
+
+The Supabase client library is bundled in `js/vendor/` (MIT licence), so the Studio does not load code from a CDN.
+
 ## How the security works
 
 The rules live in the database (`supabase/schema.sql`), so they hold even if someone calls the database directly instead of using the Studio:
@@ -49,6 +55,7 @@ The rules live in the database (`supabase/schema.sql`), so they hold even if som
 - Only people in `team_members` can read drafts or upload files.
 - Owners and editors can publish and delete. Contributors can only create and edit their **own drafts**.
 - Only owners can add or remove team members, and an owner cannot remove themself.
+- The helper functions the rules use live in a private schema, so the public API cannot call them.
 
 Scheduled posts need no server job: a post appears as soon as its time has passed, because the app only asks for posts whose time is due.
 
