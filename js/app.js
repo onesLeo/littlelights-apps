@@ -7,6 +7,7 @@
   if (!app || !C) return;
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function isLongVerse(v) { return String(v && v.text || '').trim().length > 200; }
 
   // ---------- posts from the Studio ----------
   // Text from the Studio is escaped; **bold**, _italic_ and "> quote" lines are the only formatting.
@@ -147,9 +148,10 @@
     C.today.forEach(function (t) {
       if (t.type === 'verse') {
         var v = C.verses[t.i];
+        var longVerse = isLongVerse(v);
         html += '<article class="p-slide s1 s-studio" data-c="#fffaf0" data-cn="#dfe6ff"><div class="p-stars"></div><div class="p-kicker">Verse</div>' +
-          '<div class="verse">“' + esc(v.text) + '”</div><div class="ref">' + esc(v.ref.toUpperCase()) + ' · ' + esc(v.translation) + '</div>' +
-          '<div class="p-btns"><button class="p-btn" type="button" data-go="verses">More verses</button><button class="p-btn ghost" type="button" data-save-verse="' + t.i + '">Save image</button></div></article>';
+          '<div class="verse' + (longVerse ? ' preview' : '') + '">“' + esc(v.text) + '”</div><div class="ref">' + esc(v.ref.toUpperCase()) + ' · ' + esc(v.translation) + '</div>' +
+          '<div class="p-btns"><button class="p-btn" type="button" ' + (longVerse ? 'data-open-verse="' + t.i + '">Read full passage' : 'data-go="verses">More verses') + '</button><button class="p-btn ghost" type="button" data-save-verse="' + t.i + '">Save image</button></div></article>';
       } else if (t.type === 'devotion') {
         var d = C.devotions[t.i];
         html += '<article class="p-slide s2 s-studio" data-c="#fff5f9" data-cn="#f6b3cb"><div class="p-kicker">' + esc(d.kicker.replace(' read', '')) + '</div>' +
@@ -471,7 +473,7 @@
   function renderGrid() {
     $('#pGrid').innerHTML = shown().map(function (i, k) {
       var v = C.verses[i];
-      return '<button class="p-tile vt' + (i % 3) + (k % 4 === 0 ? ' tall' : '') + '" type="button" data-verse="' + k + '"><small>' + esc(v.topics[0]) + '</small><em>“' + esc(v.text) + '”</em><small>' + esc(v.ref) + '</small></button>';
+      return '<button class="p-tile vt' + (i % 3) + (k % 4 === 0 ? ' tall' : '') + (isLongVerse(v) ? ' long' : '') + '" type="button" data-verse="' + k + '"><small>' + esc(v.topics[0]) + '</small><em>“' + esc(v.text) + '”</em><small>' + esc(v.ref) + '</small></button>';
     }).join('');
   }
   renderGrid();
@@ -482,19 +484,21 @@
     $$('.p-chip').forEach(function (b) { b.classList.toggle('on', b === c); b.setAttribute('aria-pressed', b === c); });
     renderGrid();
   });
-  var story = { list: [], k: 0, timer: null };
+  var story = { list: [], k: 0, timer: null, single: false };
   function renderStory() {
     var el = $('#pStory'), i = story.list[story.k], v = C.verses[i], style = i % 3;
+    var single = story.single || isLongVerse(v);
     el.style.background = style === 0 ? '#f7c23f' : style === 1 ? '#1b1638' : '#fdf8ea';
     el.style.color = style === 1 ? '#fbe6a6' : '#3b2412';
     el.classList.toggle('dark', style === 1);
-    el.innerHTML = '<div class="bars">' + story.list.map(function (_, n) { return '<i class="' + (n < story.k ? 'done' : n === story.k ? 'now' : '') + '"></i>'; }).join('') + '</div>' +
+    el.classList.toggle('long', single);
+    el.innerHTML = (single ? '' : '<div class="bars">' + story.list.map(function (_, n) { return '<i class="' + (n < story.k ? 'done' : n === story.k ? 'now' : '') + '"></i>'; }).join('') + '</div>') +
       '<button class="close" type="button" data-close aria-label="Close">✕</button>' +
-      '<div class="tap"><button type="button" data-step="-1" aria-label="Previous verse"></button><button type="button" data-step="1" aria-label="Next verse"></button></div>' +
+      (single ? '' : '<div class="tap"><button type="button" data-step="-1" aria-label="Previous verse"></button><button type="button" data-step="1" aria-label="Next verse"></button></div>') +
       '<div class="tag">' + esc(v.topics[0]) + '</div><div class="verse">“' + esc(v.text) + '”</div><div class="ref">' + esc(v.ref.toUpperCase()) + ' · ' + esc(v.translation || 'WEB') + '</div>' +
       '<div class="acts"><button class="p-btn" type="button" data-save-verse="' + i + '">Save image</button><button class="p-btn ghost" type="button" data-share-verse="' + i + '">Share</button></div>';
     clearTimeout(story.timer);
-    story.timer = setTimeout(function () { stepStory(1); }, 6000);
+    if (!single) story.timer = setTimeout(function () { stepStory(1); }, 6000);
   }
   function stepStory(d) {
     story.k += d;
@@ -506,10 +510,15 @@
   $('#pGrid').addEventListener('click', function (e) {
     var t = e.target.closest('[data-verse]');
     if (!t) return;
-    story.list = shown(); story.k = +t.dataset.verse;
+    story.list = shown(); story.k = +t.dataset.verse; story.single = isLongVerse(C.verses[story.list[story.k]]);
     $('#pStory').classList.add('on');
     renderStory();
   });
+  function openFullVerse(i) {
+    story.list = [i]; story.k = 0; story.single = true;
+    $('#pStory').classList.add('on');
+    renderStory();
+  }
   $('#pStory').addEventListener('click', function (e) {
     if (e.target.closest('[data-close]')) closeStory();
     else if (e.target.closest('[data-step]')) stepStory(+e.target.closest('[data-step]').dataset.step);
@@ -557,12 +566,6 @@
     var cv = verseImage(i), name = 'little-light-' + C.verses[i].ref.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.png';
     cv.toBlob(function (blob) {
       if (!blob) { toast('Could not create the image'); return; }
-      var file;
-      try { file = new File([blob], name, { type: 'image/png' }); } catch (err) { file = null; }
-      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file], title: C.verses[i].ref }).catch(function () {});
-        return;
-      }
       var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = name;
@@ -634,6 +637,7 @@
     else if (d.go) go(d.go);
     else if (d.ep != null && !b.closest('#pFull')) playEp(+d.ep);
     else if (d.sheet != null) openSheet(+d.sheet);
+    else if (d.openVerse != null) openFullVerse(+d.openVerse);
     else if (d.read != null) openArticle(+d.read);
     else if (d.reel != null) openReel(+d.reel);
     else if (d.saveVerse != null) saveVerse(+d.saveVerse);

@@ -58,10 +58,15 @@ async function openApp(viewport) {
   check((await page.$$('#pGrid .p-tile')).length === 2, 'phone: topic filter shows 2 Trust verses');
   await page.click('#pGrid .p-tile');
   check(await page.$eval('#pStory', (s) => s.classList.contains('on')), 'phone: verse opens as a story');
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true });
+    Object.defineProperty(navigator, 'share', { configurable: true, value: () => { window.__shareCalled = true; return Promise.resolve(); } });
+  });
   const dl = page.waitForEvent('download', { timeout: 5000 }).catch(() => null);
   await page.click('#pStory [data-save-verse]');
   const download = await dl;
   check(!!download && download.suggestedFilename().endsWith('.png'), 'phone: Save image downloads a PNG');
+  check(await page.evaluate(() => window.__shareCalled !== true), 'phone: Save image does not open the share sheet');
   await page.keyboard.press('Escape');
 
   await page.goto(base + '#read/brave');
@@ -79,6 +84,14 @@ async function openApp(viewport) {
 
   await page.click('.p-rings [data-calm]');
   check(await page.$eval('#app', (a) => a.classList.contains('calm')), 'phone: calm mode turns on');
+
+  await page.click('.p-tab[data-tab="watch"]');
+  await page.click('.p-reel .save');
+  check(await page.$eval('.p-reel .save', (b) => b.classList.contains('saved')), 'phone: Watch Save marks a reel on this device');
+  check((await page.evaluate(() => localStorage.getItem('ll.savedReels') || '')).includes('true'), 'phone: Watch Save is remembered in local storage');
+  await page.reload();
+  await page.waitForSelector('#app[data-ready]');
+  check(await page.$eval('.p-reel .save', (b) => b.classList.contains('saved')), 'phone: Watch Save stays marked after reload');
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   check(!overflow, 'phone: no sideways scrolling');

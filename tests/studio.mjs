@@ -50,17 +50,18 @@ await page.waitForSelector('.shell');
 check((await text('.me')).includes('owner@example.org'), 'studio: first sign-in becomes the owner');
 
 // ---------- verse: validation, then publish ----------
+const longVerse = 'Be strong in the Lord and in the strength of his might. Put on the whole armor of God, that you may be able to stand against the schemes of the devil. For our wrestling is not against flesh and blood, but against the principalities, against the powers, against the world’s rulers of the darkness of this age, and against the spiritual forces of wickedness in the heavenly places. Therefore put on the whole armor of God, that you may be able to withstand in the evil day, and, having done all, to stand. Stand firm therefore, having the belt of truth buckled around your waist, and having put on the breastplate of righteousness, and having fitted your feet with the readiness that comes from the Good News of peace. Above all, taking up the shield of faith, with which you will be able to quench all the fiery darts of the evil one. Take the helmet of salvation, and the sword of the Spirit, which is the word of God. Pray in the Spirit at all times, with all kinds of prayer and requests. To that end, keep alert and always persevere in making supplication for all the saints.';
 await page.click('.side [data-view="new"]');
 await page.click('[data-new="verse"]');
 await page.click('#postForm button[type=submit]');
 check((await page.$$('.errmsg')).length === 2, 'verse: missing text and reference are both flagged');
-await page.fill('#f_verse', 'The LORD is my shepherd; I shall lack nothing.');
-check((await text('#preview')).includes('The LORD is my shepherd'), 'verse: preview updates while typing');
-await page.fill('#f_ref', 'Psalm 23:1');
+await page.fill('#f_verse', longVerse);
+check((await text('#preview')).includes('Be strong in the Lord'), 'verse: preview updates while typing');
+await page.fill('#f_ref', 'Ephesians 6:10-18');
 await page.click('[data-topic="Trust"]');
 await page.click('#postForm button[type=submit]');
 await page.waitForSelector('.list .row');
-check(await rowStatus('Psalm 23:1') === 'Published', 'verse: published');
+check(await rowStatus('Ephesians 6:10-18') === 'Published', 'verse: published');
 
 // ---------- devotion: draft, then publish after fixing ----------
 await page.click('.side [data-view="new"]');
@@ -130,9 +131,18 @@ await app.waitForTimeout(300);
 const firstSlide = await app.$eval('#pFeed .p-slide', (s) => s.textContent);
 check(firstSlide.includes('Psalm 23') || firstSlide.includes('Rest for the weary') || firstSlide.includes('Evening prayer'), 'app: Studio posts lead the Today feed');
 check(!(await app.$('#pFeed img')), 'app: text from the Studio is shown as text, never as HTML');
+check(await app.$('#pFeed [data-open-verse]') !== null, 'app: long Today verse offers a full-passage action');
+await app.click('#pFeed [data-open-verse]');
+check(await app.$eval('#pStory', (el) => el.classList.contains('long')), 'app: long verse opens in a readable passage view');
+check((await app.$eval('#pStory .verse', (el) => el.textContent)).includes('for all the saints.'), 'app: full passage remains available when opened');
+check(!(await app.$eval('#pStory', (el) => el.querySelector('.verse').getBoundingClientRect().bottom > el.querySelector('.acts').getBoundingClientRect().top)), 'app: passage and Save image/Share buttons do not overlap');
+await app.keyboard.press('Escape');
 await app.click('.p-tab[data-tab="verses"]');
 await app.waitForTimeout(150);
-check((await app.$eval('#pGrid', (g) => g.textContent)).includes('The LORD is my shepherd'), 'app: new verse is in Verses');
+check((await app.$eval('#pGrid', (g) => g.textContent)).includes('Be strong in the Lord'), 'app: new verse is in Verses');
+await app.click('#pGrid .p-tile.long');
+check((await app.$eval('#pStory .verse', (el) => el.textContent)).includes('for all the saints.'), 'app: long verse tile opens the complete passage');
+await app.keyboard.press('Escape');
 await app.click('.p-tab[data-tab="read"]');
 await app.waitForTimeout(150);
 check((await app.$eval('#pCards', (g) => g.textContent)).includes('Rest for the weary'), 'app: new devotion is in Read');
