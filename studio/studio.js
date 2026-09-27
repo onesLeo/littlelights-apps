@@ -84,7 +84,7 @@
   function toEditing(p) {
     var e = { id: p.id, type: p.type, status: p.status, title: p.title, show_on_today: p.show_on_today !== false,
       media_url: p.media_url || '', publish_at: p.publish_at || '', when: toLocalInput(p.status === 'scheduled' ? p.publish_at : ''),
-      slug: p.slug, created_at: p.created_at, author_email: p.author_email };
+      slug: p.slug, created_at: p.created_at, author_email: p.author_email, _fields: p.fields || {} };
     FIELDS[p.type].forEach(function (k) { e[k] = (p.fields || {})[k]; });
     if (p.type === 'verse') { e.topics = e.topics || []; e.translation = e.translation || 'WEB'; }
     e._mode = p.status === 'scheduled' && !S.isLive(p) ? 'schedule' : 'now';
@@ -93,6 +93,8 @@
   function fromEditing(e, status) {
     var p = { type: e.type, status: status, title: (e.type === 'verse' ? (e.ref || 'Verse') : e.title || '').trim(),
       show_on_today: e.show_on_today !== false, media_url: e.media_url || null, fields: {} };
+    // Fields the form doesn't show (such as `builtin` and `look` on posts moved from js/content.js) are kept.
+    Object.keys(e._fields || {}).forEach(function (k) { if (FIELDS[e.type].indexOf(k) < 0) p.fields[k] = e._fields[k]; });
     if (e.id) { p.id = e.id; p.slug = e.slug; p.created_at = e.created_at; p.author_email = e.author_email; }
     FIELDS[e.type].forEach(function (k) {
       var v = e[k];

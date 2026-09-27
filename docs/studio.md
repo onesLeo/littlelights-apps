@@ -59,6 +59,10 @@ The rules live in the database (`supabase/schema.sql`), so they hold even if som
 
 Scheduled posts need no server job: a post appears as soon as its time has passed, because the app only asks for posts whose time is due.
 
+## Posts moved from the built-in content
+
+The devotions, audio, reels and verses that used to live only in `js/content.js` are in the Studio as **drafts**. Until a draft is published, the app keeps showing the built-in version; once it is published, the Studio version takes its place (same address, for example `#read/brave`), so nothing is shown twice. These posts carry a hidden `builtin` field that links them to the original; the Studio keeps it when you edit the post.
+
 ## Writing tips built into the Studio
 
 - The phone preview shows exactly how the post will look on the Today feed.

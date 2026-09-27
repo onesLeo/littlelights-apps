@@ -53,12 +53,16 @@
       })).then(function () { return posts; });
     }).then(function (posts) {
       var eps = [], devs = [], reels = [], verses = [], news = [], audioAt = {}, today = [];
+      // Posts moved from js/content.js carry `fields.builtin` (for example "devotion:brave"); once
+      // published they replace the built-in item they came from.
+      var copyOf = {};
       var pinks = ['#ee8fb2', '#f6c9d8', '#fde0e9'], reelLook = [['#e46a4c', 'robe'], ['#3d7fc4', 'rain'], ['#1f3a6e', 'sea']];
       posts.forEach(function (p) {
         if (p.type !== 'audio') return;
         var f = p.fields || {};
         audioAt[p.id] = eps.length;
-        eps.push({ title: p.title, meta: f.kind || 'Audio', dur: f.seconds || toSeconds(f.minutes), color: '#a07fd6', src: p._src || '', _id: p.id });
+        eps.push({ title: p.title, meta: f.kind || 'Audio', dur: f.seconds || toSeconds(f.minutes), color: f.color || '#a07fd6', src: p._src || '', _id: p.id });
+        if (f.builtin) copyOf[f.builtin] = eps.length - 1;
       });
       posts.forEach(function (p) {
         var f = p.fields || {};
@@ -71,13 +75,16 @@
             html: mdToHtml(f.body) + (f.ref ? '<p class="meta">' + esc(f.ref) + '</p>' : '') +
               (f.family ? '<p><b>For families tonight:</b> ' + esc(f.family) + '</p>' : '') +
               (f.prayer ? '<div class="pray">' + esc(f.prayer) + '</div>' : '') });
+          if (f.builtin) copyOf[f.builtin] = devs.length - 1;
           if (p.show_on_today) today.push({ type: 'devotion', i: devs.length - 1 });
         } else if (p.type === 'reel') {
-          var look = reelLook[reels.length % 3];
+          var look = reelLook.filter(function (l) { return l[1] === f.look; })[0] || reelLook[reels.length % 3];
           reels.push({ title: p.title, len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '' });
+          if (f.builtin) copyOf[f.builtin] = reels.length - 1;
           if (p.show_on_today) today.push({ type: 'reel', i: reels.length - 1 });
         } else if (p.type === 'verse') {
           verses.push({ text: f.verse || '', ref: f.ref || '', topics: f.topics && f.topics.length ? f.topics : ['Verse'], translation: f.translation || 'WEB' });
+          if (f.builtin) copyOf[f.builtin] = verses.length - 1;
           if (p.show_on_today) today.push({ type: 'verse', i: verses.length - 1 });
         } else if (p.type === 'game') {
           news.push({ title: p.title, text: f.text || '', button: f.button || '', date: p.publish_at });
@@ -86,13 +93,38 @@
           today.push({ type: 'audio', i: audioAt[p.id] });
         }
       });
-      // Studio posts come first; shift the built-in cross references past them.
-      C.devotions.forEach(function (d) { d.episode += eps.length; });
-      C.episodes.forEach(function (e) { if (e.devotion != null) e.devotion += devs.length; });
-      C.episodes = eps.concat(C.episodes);
-      C.devotions = devs.concat(C.devotions);
-      C.reels = reels.concat(C.reels);
-      C.verses = verses.concat(C.verses);
+      // Studio posts come first, then the built-in items that have no published copy yet.
+      // map[i] is where built-in item i ends up: its Studio copy, or its new position.
+      function merge(studio, builtins, kind, key) {
+        var map = [], kept = [];
+        builtins.forEach(function (b, i) {
+          var copy = copyOf[kind + ':' + key(b)];
+          if (copy != null) map[i] = copy; else { map[i] = studio.length + kept.length; kept.push(b); }
+        });
+        return { list: studio.concat(kept), map: map };
+      }
+      var E = merge(eps, C.episodes, 'audio', function (e) { return S.slugify(e.title); });
+      var D = merge(devs, C.devotions, 'devotion', function (d) { return d.slug; });
+      var R = merge(reels, C.reels, 'reel', function (r) { return S.slugify(r.title); });
+      var V = merge(verses, C.verses, 'verse', function (v) { return S.slugify(v.ref); });
+      // Keep devotions and their recordings linked across the move. A Studio copy keeps its own
+      // link if it has one; otherwise it inherits the built-in item's.
+      C.episodes.forEach(function (e, i) {
+        if (e.devotion == null) return;
+        var at = E.map[i], to = D.map[e.devotion];
+        if (at >= eps.length) e.devotion = to; else if (eps[at].devotion == null) eps[at].devotion = to;
+      });
+      C.devotions.forEach(function (d, i) {
+        if (d.episode < 0) return;
+        var at = D.map[i], to = E.map[d.episode];
+        if (at >= devs.length) d.episode = to; else if (devs[at].episode < 0) devs[at].episode = to;
+      });
+      C.episodes = E.list;
+      C.devotions = D.list;
+      C.reels = R.list;
+      C.verses = V.list;
+      // Buttons written in index.html point at built-in items by position (see startApp).
+      C.builtinAt = { 'ep': E.map, 'sheet': D.map, 'read': D.map, 'share-dev': D.map, 'reel': R.map, 'save-verse': V.map, 'share-verse': V.map };
       C.news = news;
       C.today = today.slice(0, 5);
       // Topics added in the Studio get their own chip in Verses.
@@ -104,6 +136,13 @@
 
   var $ = function (s, r) { return (r || app).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || app).querySelectorAll(s)); };
+  // Point the buttons written in index.html at where their built-in items are now.
+  if (C.builtinAt) Object.keys(C.builtinAt).forEach(function (attr) {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-' + attr + ']'), function (b) {
+      var to = C.builtinAt[attr][+b.getAttribute('data-' + attr)];
+      if (to != null) b.setAttribute('data-' + attr, to);
+    });
+  });
   var ICON_PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg>';
   var ICON_PAUSE = '<svg viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
   var ICON_SUN = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';

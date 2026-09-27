@@ -79,7 +79,7 @@ These look finished but don't work yet. Each one points to the item that fixes i
 | # | Item | Owner | Depends on | Done when | Status |
 |---|---|---|---|---|---|
 | 7.1 | **Keep Studio posts offline**: save the last posts the app loaded, and show them when there's no connection or Supabase takes over 4 seconds. Tested in `tests/offline.mjs`. | Dev | – | Studio posts show in airplane mode after one online visit | Done 2026-09-27 |
-| 7.2 | **Move the built-in content into the Studio**, so every devotion, verse, audio and reel is edited in one place instead of `js/content.js`. | Dev | – | `content.js` holds no posts | To do |
+| 7.2 | **Move the built-in content into the Studio**, so every devotion, verse, audio and reel is edited in one place instead of `js/content.js`. Copies were added to Supabase as drafts (2026-09-27); each one replaces its built-in item as soon as it is published. **Next:** review and publish them in the Studio, then Dev removes the posts from `content.js` (the journeys and `gamePreviewUrl` stay). | You, then Dev | – | `content.js` holds no posts | In progress |
 
 ## 8. Instagram and Facebook
 

@@ -40,7 +40,7 @@ sw.js                   offline cache (bump VERSION when a cached file changes)
 manifest.webmanifest    app name, colours and icons for installing
 icons/                  SVG sources and rendered PNG icons (npm run icons)
 scripts/serve.mjs       tiny static server used by npm start and the tests
-tests/                  end-to-end tests (app, Studio, offline)
+tests/                  end-to-end tests (app, Studio, offline, built-in content)
 docs/                   studio setup, backlog, improvements and roadmap
 ```
 

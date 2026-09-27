@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node scripts/serve.mjs",
-    "test": "node tests/smoke.mjs && node tests/studio.mjs && node tests/offline.mjs",
+    "test": "node tests/smoke.mjs && node tests/studio.mjs && node tests/offline.mjs && node tests/builtin.mjs",
     "icons": "node scripts/render-icons.mjs"
   },
   "devDependencies": {
