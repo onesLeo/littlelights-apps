@@ -13,10 +13,19 @@
   var remote = !!(cfg.supabaseUrl && cfg.supabaseAnonKey);
   // Bundled copy of supabase-js (MIT), so the Studio does not depend on a CDN.
   var SUPABASE_JS = (document.currentScript && document.currentScript.src ? new URL('vendor/supabase-2.117.2.js', document.currentScript.src).href : 'js/vendor/supabase-2.117.2.js');
-  var POSTS_KEY = 'll.posts.v1', SESSION_KEY = 'll.studio.session', TEAM_KEY = 'll.studio.team';
+  var POSTS_KEY = 'll.posts.v1', SESSION_KEY = 'll.studio.session', TEAM_KEY = 'll.studio.team', HISTORY_KEY = 'll.history.v1';
 
   function nowIso() { return new Date().toISOString(); }
   function isLive(p) { return (p.status === 'published' || p.status === 'scheduled') && p.publish_at && new Date(p.publish_at) <= new Date(); }
+  // What a change did, for the post history. Same rules as private.record_post_revision() in supabase/schema.sql.
+  function changeAction(before, after) {
+    if (!after) return 'deleted';
+    var to = after.status;
+    if (!before) return to === 'published' || to === 'scheduled' ? to : 'created';
+    if (to !== before.status) return to === 'published' || to === 'scheduled' ? to : 'unpublished';
+    if (to === 'scheduled' && after.publish_at !== before.publish_at) return 'scheduled';
+    return 'edited';
+  }
   function slugify(s) {
     return String(s || 'post').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
       .replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'post';
@@ -88,8 +97,20 @@
       var all = readJSON(POSTS_KEY, []);
       return Promise.resolve(all.slice().sort(function (a, b) { return (b.publish_at || b.updated_at || '').localeCompare(a.publish_at || a.updated_at || ''); }));
     },
+    _record: function (before, after, email) {
+      var list = readJSON(HISTORY_KEY, []), snap = after || before;
+      var strip = function (p) { var c = JSON.parse(JSON.stringify(p || {})); delete c.updated_at; return JSON.stringify(c); };
+      if (before && after && strip(before) === strip(after)) return;
+      list.push({ id: list.length ? list[list.length - 1].id + 1 : 1, post_id: snap.id, action: changeAction(before, after),
+        snapshot: JSON.parse(JSON.stringify(snap)), changed_by: email || '', changed_at: nowIso() });
+      writeJSON(HISTORY_KEY, list);
+    },
+    listRevisions: function (postId) {
+      return Promise.resolve(readJSON(HISTORY_KEY, []).filter(function (r) { return r.post_id === postId; }).reverse());
+    },
     savePost: function (post, email) {
       var all = readJSON(POSTS_KEY, []), stamp = nowIso(), rec = JSON.parse(JSON.stringify(post));
+      var before = rec.id ? all.filter(function (p) { return p.id === rec.id; })[0] : null;
       rec.updated_at = stamp;
       rec.slug = uniqueSlug(rec, all);
       if (rec.id) {
@@ -101,10 +122,13 @@
         all.push(rec);
       }
       if (!writeJSON(POSTS_KEY, all)) return Promise.reject(new Error('The browser’s storage is full. Delete some posts or files and try again.'));
+      local._record(before, rec, email);
       return Promise.resolve(rec);
     },
-    deletePost: function (id) {
-      writeJSON(POSTS_KEY, readJSON(POSTS_KEY, []).filter(function (p) { return p.id !== id; }));
+    deletePost: function (id, email) {
+      var all = readJSON(POSTS_KEY, []);
+      local._record(all.filter(function (p) { return p.id === id; })[0], null, email);
+      writeJSON(POSTS_KEY, all.filter(function (p) { return p.id !== id; }));
       return Promise.resolve();
     },
     uploadMedia: function (file) {
@@ -203,6 +227,12 @@
       }).then(must);
     },
     deletePost: function (id) { return loadClient().then(function (c) { return c.from('posts').delete().eq('id', id); }).then(must); },
+    // History is written by a database trigger (supabase/schema.sql), so it can't be skipped or edited.
+    listRevisions: function (postId) {
+      return loadClient().then(function (c) {
+        return c.from('post_revisions').select('*').eq('post_id', postId).order('changed_at', { ascending: false }).order('id', { ascending: false });
+      }).then(must);
+    },
     uploadMedia: function (file) {
       var path = new Date().toISOString().slice(0, 10) + '/' + Date.now() + '-' + slugify(file.name.replace(/\.[^.]+$/, '')) + (file.name.match(/\.[^.]+$/) || [''])[0].toLowerCase();
       return loadClient().then(function (c) { return c.storage.from('media').upload(path, file, { contentType: file.type, upsert: false }); })

@@ -89,6 +89,57 @@ create policy "Owners invite" on public.team_members for insert with check (priv
 drop policy if exists "Owners remove" on public.team_members;
 create policy "Owners remove" on public.team_members for delete using (private.team_role() = 'owner' and email <> private.my_email());
 
+-- ---------- post history ----------
+-- Every change to a post is kept by a trigger: the whole post after the change (or just before it
+-- was deleted), who made it and when. The trigger runs for every change, including ones made
+-- outside the Studio. Nobody can edit or delete history through the API.
+create table if not exists public.post_revisions (
+  id          bigint generated always as identity primary key,
+  post_id     bigint not null,          -- no foreign key, so the history outlives a deleted post
+  action      text not null check (action in ('created', 'edited', 'published', 'scheduled', 'unpublished', 'deleted')),
+  snapshot    jsonb not null,
+  changed_by  text,                     -- the team member's email, or 'database' for changes made in the SQL editor
+  changed_at  timestamptz not null default now()
+);
+create index if not exists post_revisions_post_idx on public.post_revisions (post_id, changed_at desc);
+
+alter table public.post_revisions enable row level security;
+revoke insert, update, delete on public.post_revisions from anon, authenticated;
+drop policy if exists "Team reads history" on public.post_revisions;
+create policy "Team reads history" on public.post_revisions for select using (private.is_team());
+
+-- Same rules as changeAction() in js/store.js.
+create or replace function private.record_post_revision() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  act text;
+  snap public.posts;
+begin
+  if tg_op = 'DELETE' then
+    act := 'deleted'; snap := old;
+  elsif tg_op = 'INSERT' then
+    act := case when new.status in ('published', 'scheduled') then new.status else 'created' end; snap := new;
+  else
+    -- A save that changed nothing but the timestamp is not a new version.
+    if (to_jsonb(new) - 'updated_at') = (to_jsonb(old) - 'updated_at') then return null; end if;
+    snap := new;
+    if new.status is distinct from old.status then
+      act := case when new.status in ('published', 'scheduled') then new.status else 'unpublished' end;
+    elsif new.status = 'scheduled' and new.publish_at is distinct from old.publish_at then
+      act := 'scheduled';
+    else
+      act := 'edited';
+    end if;
+  end if;
+  insert into public.post_revisions (post_id, action, snapshot, changed_by)
+  values (snap.id, act, to_jsonb(snap), coalesce(private.my_email(), 'database'));
+  return null;
+end $$;
+
+drop trigger if exists posts_history on public.posts;
+create trigger posts_history after insert or update or delete on public.posts
+  for each row execute function private.record_post_revision();
+
 -- ---------- file storage: audio and video ----------
 insert into storage.buckets (id, name, public, file_size_limit)
 values ('media', 'media', true, 52428800)            -- public read, 50 MB per file

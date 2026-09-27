@@ -78,6 +78,73 @@
   }
   function canPublish() { return state.session && (state.session.role === 'owner' || state.session.role === 'editor'); }
   function isOwner() { return state.session && state.session.role === 'owner'; }
+  // ---------- history ----------
+  var ACTION = { created: 'Created', edited: 'Edited', published: 'Published', scheduled: 'Scheduled', unpublished: 'Moved to drafts', deleted: 'Deleted' };
+  var LABEL = { title: 'Title', status: 'Status', publish_at: 'Publish time', show_on_today: 'Show on Today', media_url: 'File',
+    verse: 'Verse text', ref: 'Reference', translation: 'Translation', topics: 'Topics', teaser: 'Summary', body: 'Reading',
+    family: 'For families', prayer: 'Prayer', audioId: 'Audio version', kind: 'Kind', minutes: 'Length', caption: 'Caption',
+    youtube: 'YouTube link', text: 'Text', button: 'Button label' };
+  // One flat list of what a reader would notice, from a stored post.
+  function flat(p) {
+    var out = { status: p.status, publish_at: p.publish_at, show_on_today: p.show_on_today, media_url: p.media_url };
+    if (p.type !== 'verse') out.title = p.title;
+    Object.keys(p.fields || {}).forEach(function (k) { if (LABEL[k]) out[k] = p.fields[k]; });
+    return out;
+  }
+  function shown(k, v) {
+    if (v == null || v === '' || (Array.isArray(v) && !v.length)) return '(empty)';
+    if (k === 'publish_at') return fmtWhen(v);
+    if (k === 'show_on_today') return v ? 'Yes' : 'No';
+    if (k === 'audioId') { var a = state.posts.filter(function (x) { return String(x.id) === String(v); })[0]; return a ? a.title : 'Audio #' + v; }
+    if (k === 'media_url') return String(v).split('/').pop();
+    var t = Array.isArray(v) ? v.join(', ') : String(v);
+    return t.length > 160 ? t.slice(0, 157) + '…' : t;
+  }
+  function changes(older, newer) {
+    var a = flat(older), b = flat(newer), keys = Object.keys(LABEL).filter(function (k) { return k in a || k in b; });
+    return keys.filter(function (k) { return JSON.stringify(a[k] == null ? null : a[k]) !== JSON.stringify(b[k] == null ? null : b[k]); })
+      .map(function (k) { return { label: LABEL[k], from: shown(k, a[k]), to: shown(k, b[k]) }; });
+  }
+  function historyView() {
+    var list = state.history;
+    if (!state.editing || !state.editing.id) return '';
+    var body = list == null ? '<p class="role-note">Loading…</p>'
+      : !list.length ? '<p class="role-note">No changes recorded yet.</p>'
+      : '<ol>' + list.map(function (r, i) {
+        var older = list[i + 1], diff = older ? changes(older.snapshot, r.snapshot) : [];
+        var pill = r.action === 'published' ? 'published' : r.action === 'scheduled' ? 'scheduled' : 'draft';
+        return '<li><div class="h-head"><span class="pill ' + pill + '">' + (ACTION[r.action] || r.action) + '</span>' +
+          '<span class="h-when">' + esc(fmtWhen(r.changed_at)) + ' · ' + esc(r.changed_by || 'unknown') + (i === 0 ? ' · <b>current</b>' : '') + '</span></div>' +
+          (!older ? '<small>First recorded version</small>'
+            : diff.length ? '<details><summary>' + diff.length + ' change' + (diff.length > 1 ? 's' : '') + '</summary><dl>' +
+              diff.map(function (c) { return '<dt>' + c.label + '</dt><dd><del>' + esc(c.from) + '</del> <ins>' + esc(c.to) + '</ins></dd>'; }).join('') + '</dl></details>'
+            : '<small>Saved with no changes to the content</small>') +
+          (i > 0 ? '<button class="btn ghost small" type="button" data-restore="' + r.id + '">Restore this version</button>' : '') + '</li>';
+      }).join('') + '</ol>';
+    return '<section class="history" id="history" aria-label="History"><h3>History</h3>' + body + '</section>';
+  }
+  function loadHistory(id) {
+    state.history = null;
+    S.listRevisions(id).then(function (list) {
+      if (!state.editing || state.editing.id !== id) return;
+      state.history = list || [];
+      var box = document.getElementById('history'); if (box) box.outerHTML = historyView();
+    }).catch(function (err) {
+      state.history = [];
+      var box = document.getElementById('history'); if (box) box.innerHTML = '<h3>History</h3><p class="errmsg">History could not be loaded: ' + esc(err.message) + '</p>';
+    });
+  }
+  // Load an older version into the form. Nothing is saved until the post is updated or saved.
+  function restore(revId) {
+    var r = (state.history || []).filter(function (x) { return String(x.id) === String(revId); })[0];
+    if (!r) return;
+    var cur = state.editing, e = toEditing(r.snapshot);
+    ['id', 'status', 'publish_at', 'when', '_mode', 'slug', 'created_at', 'author_email'].forEach(function (k) { e[k] = cur[k]; });
+    state.editing = e; state.errors = {};
+    render(); window.scrollTo(0, 0);
+    toast('Loaded the version from ' + fmtWhen(r.changed_at) + '. ' + (cur.status === 'draft' ? 'Save' : 'Update') + ' the post to keep it.');
+  }
+
   function statusOf(p) { return p.status === 'scheduled' && S.isLive(p) ? 'published' : p.status; }
 
   // post (stored shape) <-> editing (flat form shape)
@@ -249,7 +316,7 @@
     var canDelete = p.id && (canPublish());
     return '<div class="top"><div><h2>' + (p.id ? 'Edit ' : 'New ') + t.name.toLowerCase() + '</h2><p>' + t.hint + '. The preview updates as you type.</p></div>' +
       '<button class="btn ghost" type="button" data-view="posts">← All posts</button></div>' +
-      '<div class="editor"><form class="form" id="postForm" novalidate><h3>' + t.name + '</h3>' + f +
+      '<div class="editor"><div class="edit-col"><form class="form" id="postForm" novalidate><h3>' + t.name + '</h3>' + f +
       '<label class="toggle"><input type="checkbox" id="f_today" data-check="show_on_today"' + (p.show_on_today ? ' checked' : '') + '> Show on the Today feed</label>' +
       '<div class="publish">' +
       (pub ? '<div class="seg" role="group" aria-label="When to publish">' +
@@ -257,15 +324,15 @@
         '<button type="button" data-mode="schedule" class="' + (mode === 'schedule' ? 'on' : '') + '" aria-pressed="' + (mode === 'schedule') + '">Schedule</button></div>' +
         (mode === 'schedule' ? '<label class="field"><span>Date and time</span><input class="input' + (state.errors.when ? ' err' : '') + '" type="datetime-local" id="f_when" data-f="when" value="' + esc(p.when) + '">' +
           (state.errors.when ? '<span class="errmsg" role="alert">' + state.errors.when + '</span>' : '<small>Your local time. Good slots: 6:30 in the morning, 19:30 before bedtime.</small>') + '</label>' : '')
-        : '<p class="role-note">Contributors save drafts. An owner or editor publishes them.</p>') +
+        : '<p class="role-note">' + (p.id && p.status !== 'draft' ? 'This post is live or scheduled. Only an owner or editor can change it.' : 'Contributors save drafts. An owner or editor publishes them.') + '</p>') +
       '<div class="actions">' +
         (canDelete ? (state.confirmDelete
           ? '<span class="confirm">Delete this post for everyone? <button class="btn danger" type="button" id="delYes">Delete</button><button class="btn ghost" type="button" id="delNo">Keep it</button></span>'
           : '<button class="btn danger" type="button" id="del">Delete</button>') : '') +
-        (p.status === 'published' || (p.status === 'scheduled') ? '<button class="btn soft" type="button" id="unpublish"' + (state.busy ? ' disabled' : '') + '>Move to drafts</button>'
+        (p.status === 'published' || (p.status === 'scheduled') ? (pub ? '<button class="btn soft" type="button" id="unpublish"' + (state.busy ? ' disabled' : '') + '>Move to drafts</button>' : '')
           : '<button class="btn soft" type="button" id="saveDraft"' + (state.busy || state.uploading ? ' disabled' : '') + '>Save draft</button>') +
         primary +
-      '</div></div></form>' +
+      '</div></div></form>' + historyView() + '</div>' +
       '<div class="preview-col"><span class="label">Preview on Today</span><div class="phone"><div class="screen" id="preview">' + preview(p) + '</div></div>' +
       '<p class="pv-note">This is how the post will look in the app’s feed.</p></div></div>';
   }
@@ -364,7 +431,8 @@
     state.busy = true; render();
     S.savePost(fromEditing(e, status), state.email).then(function (rec) {
       state.busy = false;
-      toast(status === 'draft' ? 'Draft saved' : status === 'scheduled' ? 'Scheduled for ' + fmtWhen(rec.publish_at) : 'Published. It’s in the app now.');
+      toast(status === 'draft' ? 'Draft saved' : status === 'scheduled' ? 'Scheduled for ' + fmtWhen(rec.publish_at)
+        : e.status === 'published' ? 'Updated. The app shows the new version.' : 'Published. It’s in the app now.');
       state.filter = 'all';
       return loadAll().then(function () { go('posts'); });
     }).catch(fail);
@@ -452,7 +520,8 @@
     else if (d.edit) {
       var src = state.posts.filter(function (x) { return String(x.id) === d.edit; })[0];
       if (!src) return;
-      state.editing = toEditing(src); state.view = 'edit'; state.errors = {}; state.confirmDelete = false; render(); window.scrollTo(0, 0);
+      state.editing = toEditing(src); state.view = 'edit'; state.errors = {}; state.confirmDelete = false; state.history = null;
+      render(); window.scrollTo(0, 0); loadHistory(src.id);
     }
     else if (d.mode) { syncFields(); state.editing._mode = d.mode; delete state.errors.when; render(); }
     else if (d.topic) {
@@ -465,13 +534,14 @@
       ta.value = m === '> ' ? ta.value.slice(0, s) + '> ' + sel + ta.value.slice(en) : ta.value.slice(0, s) + m + sel + m + ta.value.slice(en);
       state.editing.body = ta.value; ta.focus();
     }
+    else if (d.restore) restore(d.restore);
     else if (b.id === 'addTopic') addTopic();
     else if (b.id === 'saveDraft') save('draft');
     else if (b.id === 'unpublish') save('draft');
     else if (b.id === 'del') { syncFields(); state.confirmDelete = true; render(); }
     else if (b.id === 'delNo') { state.confirmDelete = false; render(); }
     else if (b.id === 'delYes') {
-      S.deletePost(state.editing.id).then(function () { toast('Post deleted'); return loadAll(); }).then(function () { go('posts'); }).catch(fail);
+      S.deletePost(state.editing.id, state.email).then(function () { toast('Post deleted'); return loadAll(); }).then(function () { go('posts'); }).catch(fail);
     }
     else if (d.remove) S.removeMember(d.remove).then(function () { toast(d.remove + ' was removed from the team.'); return loadAll(); }).then(render).catch(fail);
   });

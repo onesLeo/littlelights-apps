@@ -59,6 +59,14 @@ The rules live in the database (`supabase/schema.sql`), so they hold even if som
 
 Scheduled posts need no server job: a post appears as soon as its time has passed, because the app only asks for posts whose time is due.
 
+## Editing and history
+
+Published posts can be edited: open the post, change it and press **Update**. The app shows the new version on the next visit, at the same address.
+
+Every change is kept in the post's **History** (under the form): created, edited, published, scheduled, moved to drafts and deleted, with who made the change and when. Open **changes** on a version to see what changed, before and after. **Restore this version** loads an older version into the form; nothing changes until you press **Update** or **Save draft**, and the restore itself becomes a new version, so no history is ever lost.
+
+In Supabase mode the history is written by a database trigger (`post_revisions` in `supabase/schema.sql`), so it is kept even for changes made outside the Studio, and nobody can edit or delete it. The team can read it; visitors can't. A deleted post disappears from the Studio, but its last version stays in `post_revisions` and can be recovered from the SQL Editor. Only owners and editors can change a published or scheduled post; contributors see a note instead.
+
 ## Posts moved from the built-in content
 
 The devotions, audio, reels and verses that used to live only in `js/content.js` are in the Studio as **drafts**. Until a draft is published, the app keeps showing the built-in version; once it is published, the Studio version takes its place (same address, for example `#read/brave`), so nothing is shown twice. These posts carry a hidden `builtin` field that links them to the original; the Studio keeps it when you edit the post.

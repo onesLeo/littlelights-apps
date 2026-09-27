@@ -9,7 +9,8 @@ const server = await serve(0);
 const base = `http://localhost:${server.address().port}/`;
 mkdirSync('test-results', { recursive: true });
 const browser = await chromium.launch();
-const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+// Service workers are blocked: they would fetch the real js/config.js past the route below.
+const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' });
 await context.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
 // Tests run in local mode so they never touch the real database.
 await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
@@ -168,6 +169,37 @@ await app.waitForTimeout(150);
 check(!(await app.$eval('#pGameNews', (g) => g.textContent)).includes('Jonah is coming soon'), 'app: scheduled post stays hidden until its time');
 await app.close();
 
+// ---------- edit a published post, with history ----------
+await page.click('.side [data-view="posts"]');
+await page.click('.row >> text=Ephesians 6:10-18');
+await page.waitForSelector('#history li');
+check((await text('#history')).includes('Published'), 'history: the first version is listed');
+check((await page.$eval('#postForm button[type=submit]', (b) => b.textContent)) === 'Update', 'edit: a published post can be updated');
+await page.fill('#f_verse', 'Finally, be strong in the Lord (edited).');
+await page.click('#postForm button[type=submit]');
+await page.waitForSelector('.list .row');
+check(await rowStatus('Ephesians 6:10-18') === 'Published', 'edit: the post stays published after updating');
+const app2 = await context.newPage();
+app2.on('pageerror', (e) => errors.push(e.message));
+await app2.goto(base + '#verses');
+await app2.waitForSelector('#app[data-ready]');
+const g2 = await app2.$eval('#pGrid', (g) => g.textContent);
+check(g2.includes('(edited)'), 'edit: the app shows the updated text');
+await app2.close();
+await page.click('.row >> text=Ephesians 6:10-18');
+await page.waitForSelector('#history li:nth-child(2)');
+check((await page.$$('#history li')).length === 2, 'history: the update is a second version');
+await page.click('#history li:first-child summary');
+const diff = await text('#history li:first-child dl');
+check(diff.includes('Verse text') && diff.includes('(edited)') && diff.includes('Be strong in the Lord'), 'history: shows what changed, before and after');
+await page.click('#history [data-restore]');
+check((await page.$eval('#f_verse', (t) => t.value)).startsWith('Be strong in the Lord'), 'history: Restore loads the older version into the form');
+await page.click('#postForm button[type=submit]');
+await page.waitForSelector('.list .row');
+await page.click('.row >> text=Ephesians 6:10-18');
+await page.waitForSelector('#history li:nth-child(3)');
+check((await page.$eval('#f_verse', (t) => t.value)).startsWith('Be strong in the Lord'), 'history: the restored version is saved as the newest version');
+
 // ---------- delete, sign out, strangers stay out ----------
 await page.click('.side [data-view="posts"]');
 await page.click('.row >> text=Jonah is coming soon');
@@ -175,6 +207,8 @@ await page.click('#del');
 await page.click('#delYes');
 await page.waitForSelector('.list');
 check(await rowStatus('Jonah is coming soon') === null, 'posts: delete asks first, then removes the post');
+check(await page.evaluate(() => JSON.parse(localStorage.getItem('ll.history.v1')).some((r) => r.action === 'deleted' && r.snapshot.title === 'Jonah is coming soon')),
+  'history: a deleted post is kept in the history');
 await page.click('#signout');
 await page.waitForSelector('#signinForm');
 await page.fill('#email', 'stranger@example.org');
