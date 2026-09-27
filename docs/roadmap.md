@@ -1,5 +1,7 @@
 # Roadmap
 
+The step-by-step task list (domain, email, newsletter, launch) is in [backlog.md](backlog.md).
+
 ## Done
 - **Studio** for posting (see docs/studio.md), in local mode and ready for Supabase.
 

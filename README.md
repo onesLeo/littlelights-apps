@@ -41,7 +41,7 @@ manifest.webmanifest    app name, colours and icons for installing
 icons/                  SVG sources and rendered PNG icons (npm run icons)
 scripts/serve.mjs       tiny static server used by npm start and the tests
 tests/smoke.mjs         end-to-end smoke test
-docs/                   improvements and roadmap
+docs/                   studio setup, backlog, improvements and roadmap
 ```
 
 ## Posting with the Studio
