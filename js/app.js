@@ -18,6 +18,8 @@
       return quote ? '<blockquote>' + html + '</blockquote>' : '<p>' + html + '</p>';
     }).join('');
   }
+  // Long passages get smaller type so they still fit on one screen (same steps as studio/studio.js).
+  function verseSize(text) { var n = (text || '').length; return n > 850 ? ' v-xxl' : n > 560 ? ' v-xl' : n > 320 ? ' v-l' : n > 160 ? ' v-m' : ''; }
   function toSeconds(m) { var x = String(m || '').split(':'); return x.length === 2 ? (+x[0] * 60 + +x[1]) || 0 : 0; }
   function mergeStudioPosts() {
     var S = window.LLStore;
@@ -70,7 +72,8 @@
       C.verses = verses.concat(C.verses);
       C.news = news;
       C.today = today.slice(0, 5);
-      if (C.topics.indexOf('Verse') < 0 && verses.some(function (v) { return v.topics[0] === 'Verse'; })) C.topics = C.topics.concat(['Verse']);
+      // Topics added in the Studio get their own chip in Verses.
+      verses.forEach(function (v) { v.topics.forEach(function (t) { if (C.topics.indexOf(t) < 0) C.topics = C.topics.concat([t]); }); });
     }).catch(function (err) { if (window.console) console.warn('Studio posts could not be loaded:', err); });
   }
 
@@ -148,7 +151,7 @@
       if (t.type === 'verse') {
         var v = C.verses[t.i];
         html += '<article class="p-slide s1 s-studio" data-c="#fffaf0" data-cn="#dfe6ff"><div class="p-stars"></div><div class="p-kicker">Verse</div>' +
-          '<div class="verse">“' + esc(v.text) + '”</div><div class="ref">' + esc(v.ref.toUpperCase()) + ' · ' + esc(v.translation) + '</div>' +
+          '<div class="verse' + verseSize(v.text) + '">“' + esc(v.text) + '”</div><div class="ref">' + esc(v.ref.toUpperCase()) + ' · ' + esc(v.translation) + '</div>' +
           '<div class="p-btns"><button class="p-btn" type="button" data-go="verses">More verses</button><button class="p-btn ghost" type="button" data-save-verse="' + t.i + '">Save image</button></div></article>';
       } else if (t.type === 'devotion') {
         var d = C.devotions[t.i];
@@ -491,7 +494,7 @@
     el.innerHTML = '<div class="bars">' + story.list.map(function (_, n) { return '<i class="' + (n < story.k ? 'done' : n === story.k ? 'now' : '') + '"></i>'; }).join('') + '</div>' +
       '<button class="close" type="button" data-close aria-label="Close">✕</button>' +
       '<div class="tap"><button type="button" data-step="-1" aria-label="Previous verse"></button><button type="button" data-step="1" aria-label="Next verse"></button></div>' +
-      '<div class="tag">' + esc(v.topics[0]) + '</div><div class="verse">“' + esc(v.text) + '”</div><div class="ref">' + esc(v.ref.toUpperCase()) + ' · ' + esc(v.translation || 'WEB') + '</div>' +
+      '<div class="tag">' + esc(v.topics[0]) + '</div><div class="verse' + verseSize(v.text) + '">“' + esc(v.text) + '”</div><div class="ref">' + esc(v.ref.toUpperCase()) + ' · ' + esc(v.translation || 'WEB') + '</div>' +
       '<div class="acts"><button class="p-btn" type="button" data-save-verse="' + i + '">Save image</button><button class="p-btn ghost" type="button" data-share-verse="' + i + '">Share</button></div>';
     clearTimeout(story.timer);
     story.timer = setTimeout(function () { stepStory(1); }, 6000);
@@ -535,19 +538,33 @@
     g.fillStyle = glow; g.beginPath(); g.arc(840, 300, 190, 0, Math.PI * 2); g.fill();
     // text
     g.fillStyle = ink;
+    function wrap(text, width) {
+      var out = [];
+      text.split('\n').forEach(function (para) {
+        var line = '';
+        para.split(/\s+/).filter(Boolean).forEach(function (w) {
+          var test = line ? line + ' ' + w : w;
+          if (g.measureText(test).width > width && line) { out.push(line); line = w; } else line = test;
+        });
+        out.push(line);
+      });
+      return out;
+    }
+    // Text sits between y = 250 (top) and 1180 (above the footer), starting at 710 when it is short.
+    var size = 64, lines, lh, top;
+    for (;;) {
+      g.font = 'italic ' + size + 'px Newsreader, Georgia, serif';
+      lines = wrap('“' + v.text + '”', 880);
+      lh = Math.round(size * 1.24);
+      top = Math.min(710, 1180 - lines.length * lh);
+      if (top >= 250 || size <= 24) break;
+      size -= 4;
+    }
+    var y = top;
+    lines.forEach(function (l) { g.fillText(l, 96, y); y += lh; });
     g.font = '700 30px "Bricolage Grotesque", system-ui, sans-serif';
-    g.fillText((v.topics[0] || 'Verse').toUpperCase(), 96, 620);
-    g.font = 'italic 64px Newsreader, Georgia, serif';
-    var words = ('“' + v.text + '”').split(' '), line = '', y = 710, lines = [];
-    words.forEach(function (w) {
-      var test = line ? line + ' ' + w : w;
-      if (g.measureText(test).width > 880 && line) { lines.push(line); line = w; } else line = test;
-    });
-    lines.push(line);
-    if (lines.length > 6) { g.font = 'italic 52px Newsreader, Georgia, serif'; }
-    lines.forEach(function (l) { g.fillText(l, 96, y); y += lines.length > 6 ? 66 : 80; });
-    g.font = '700 30px "Bricolage Grotesque", system-ui, sans-serif';
-    g.fillText(v.ref.toUpperCase() + ' · ' + (v.translation || 'WEB'), 96, y + 30);
+    g.fillText((v.topics[0] || 'Verse').toUpperCase(), 96, top - size - 30);
+    g.fillText(v.ref.toUpperCase() + ' · ' + (v.translation || 'WEB'), 96, y + 20);
     g.globalAlpha = .75;
     g.fillText('Little Light', 96, 1260);
     g.globalAlpha = 1;

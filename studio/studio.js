@@ -21,6 +21,23 @@
     game: ['text', 'button']
   };
   var TOPICS = ['When I’m afraid', 'Trust', 'Friendship', 'Mercy', 'God sees me', 'Light'];
+  // Public-domain translations, suggested in the Translation box. Any other name can be typed.
+  var TRANSLATIONS = ['WEB', 'KJV', 'ASV', 'BSB'];
+  // Long passages get smaller type so they still fit on one screen (same steps as js/app.js).
+  function verseSize(text) { var n = (text || '').length; return n > 850 ? ' v-xxl' : n > 560 ? ' v-xl' : n > 320 ? ' v-l' : n > 160 ? ' v-m' : ''; }
+  function verseLenNote(text) {
+    var n = (text || '').trim().length;
+    return n > 560 ? n + ' characters: a long passage, so it is shown in small print. For a whole passage, a Devotion or a few separate verse posts read better.'
+      : 'Press Enter for a new line (for example, one line per verse). Up to about 300 characters reads best.';
+  }
+  // Built-in topics, then any topic already used on a verse post.
+  function allTopics() {
+    var list = TOPICS.slice();
+    state.posts.concat(state.editing ? [state.editing] : []).forEach(function (p) {
+      (p.topics || (p.fields && p.fields.topics) || []).forEach(function (t) { if (list.indexOf(t) < 0) list.push(t); });
+    });
+    return list;
+  }
   var ICON = {
     posts: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>',
     plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
@@ -177,9 +194,9 @@
     var err = state.errors[id];
     var input = opts.textarea
       ? '<textarea class="textarea' + (opts.tall ? ' tall' : '') + (err ? ' err' : '') + '" id="f_' + id + '" data-f="' + id + '" placeholder="' + esc(opts.ph || '') + '">' + esc(value) + '</textarea>'
-      : '<input class="input' + (err ? ' err' : '') + '" id="f_' + id + '" data-f="' + id + '" value="' + esc(value) + '" placeholder="' + esc(opts.ph || '') + '"' + (opts.type ? ' type="' + opts.type + '"' : '') + '>';
+      : '<input class="input' + (err ? ' err' : '') + '" id="f_' + id + '" data-f="' + id + '" value="' + esc(value) + '" placeholder="' + esc(opts.ph || '') + '"' + (opts.type ? ' type="' + opts.type + '"' : '') + (opts.list ? ' list="' + opts.list + '" autocomplete="off"' : '') + '>';
     return '<label class="field"><span>' + label + '</span>' + (opts.toolbar ? '<div class="toolbar"><button type="button" data-md="**" title="Bold">B</button><button type="button" data-md="_" title="Italic"><i>I</i></button><button type="button" data-md="> " title="Quote">“ Quote</button></div>' : '') +
-      input + (err ? '<span class="errmsg" role="alert">' + err + '</span>' : opts.help ? '<small>' + opts.help + '</small>' : '') + '</label>';
+      input + (err ? '<span class="errmsg" role="alert">' + err + '</span>' : opts.help ? '<small' + (opts.helpId ? ' id="' + opts.helpId + '"' : '') + '>' + opts.help + '</small>' : '') + '</label>';
   }
   function uploadField(label, accept, help) {
     var e = state.editing, busy = state.uploading === 'file';
@@ -192,10 +209,13 @@
   function editView() {
     var p = state.editing, t = TYPES[p.type], f = '';
     if (p.type === 'verse') {
-      f = field('verse', 'Verse text', p.verse, { textarea: true, ph: 'Your word is a lamp to my feet…' }) +
+      f = field('verse', 'Verse text', p.verse, { textarea: true, ph: 'Your word is a lamp to my feet…', help: verseLenNote(p.verse), helpId: 'verseNote' }) +
         '<div class="two">' + field('ref', 'Reference', p.ref, { ph: 'Psalm 119:105' }) +
-        '<label class="field"><span>Translation</span><select class="select" data-f="translation" id="f_translation">' + ['WEB', 'KJV'].map(function (x) { return '<option' + (p.translation === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select><small>Both are public domain.</small></label></div>' +
-        '<div class="field"><span>Topics</span><div class="topics">' + TOPICS.map(function (x) { return '<button class="chip' + ((p.topics || []).indexOf(x) >= 0 ? ' on' : '') + '" type="button" data-topic="' + esc(x) + '" aria-pressed="' + ((p.topics || []).indexOf(x) >= 0) + '">' + x + '</button>'; }).join('') + '</div><small>Parents find verses by these.</small></div>';
+        field('translation', 'Translation', p.translation, { ph: 'WEB', list: 'translations', help: 'WEB, KJV, ASV and BSB are public domain. Others (NIV, ESV, NLT…) are copyrighted: follow the publisher’s quoting rules.' }) +
+        '<datalist id="translations">' + TRANSLATIONS.map(function (x) { return '<option value="' + x + '">'; }).join('') + '</datalist></div>' +
+        '<div class="field"><span>Topics</span><div class="topics">' + allTopics().map(function (x) { var on = (p.topics || []).indexOf(x) >= 0; return '<button class="chip' + (on ? ' on' : '') + '" type="button" data-topic="' + esc(x) + '" aria-pressed="' + on + '">' + esc(x) + '</button>'; }).join('') + '</div>' +
+        '<div class="add-topic"><input class="input" id="newTopic" placeholder="New topic, e.g. Armor of God" maxlength="40" aria-label="New topic"><button class="btn soft small" type="button" id="addTopic">Add topic</button></div>' +
+        '<small>Parents find verses by these. New topics appear in the app’s Verses tab.</small></div>';
     } else if (p.type === 'devotion') {
       var audios = state.posts.filter(function (x) { return x.type === 'audio'; });
       f = field('title', 'Title', p.title, { ph: 'God sees the heart' }) +
@@ -252,7 +272,7 @@
     var t = TYPES[p.type], ph = function (v, d) { return v ? esc(v) : '<span class="placeholder">' + d + '</span>'; }, inner = '';
     var bg = { verse: 'radial-gradient(120% 80% at 80% 25%, #ffe089, #f7c23f 45%, #e0a820)', devotion: '#ee8fb2', reel: '#e46a4c',
       audio: 'radial-gradient(120% 70% at 50% 30%, #b99ae4, #a07fd6 50%, #6f52a8)', game: 'linear-gradient(180deg, #9ad8aa, #69ba7e 55%, #3f8a55)' }[p.type];
-    if (p.type === 'verse') inner = '<div class="sun"></div><div class="kick">Verse of the week</div><div class="verse">“' + ph(p.verse, 'Your verse appears here') + '”</div><div class="ref">' + ph((p.ref || '').toUpperCase(), 'REFERENCE') + ' · ' + esc(p.translation || 'WEB') + '</div><div class="btns"><span class="pbtn">More verses</span><span class="pbtn g">Save image</span></div>';
+    if (p.type === 'verse') inner = '<div class="sun"></div><div class="kick">Verse of the week</div><div class="verse' + verseSize(p.verse) + '">“' + ph((p.verse || '').trim(), 'Your verse appears here') + '”</div><div class="ref">' + ph((p.ref || '').toUpperCase(), 'REFERENCE') + ' · ' + esc((p.translation || '').trim() || 'WEB') + '</div><div class="btns"><span class="pbtn">More verses</span><span class="pbtn g">Save image</span></div>';
     else if (p.type === 'devotion') inner = '<div class="kick">Devotion · ' + readMinutes(p) + ' min</div><div class="big">' + ph(p.title, 'Your title') + '</div><p>' + ph(p.teaser, 'Your one-line summary') + '</p><div class="btns"><span class="pbtn">Read ↑</span>' + (p.audioId ? '<span class="pbtn g">▶ Listen</span>' : '') + '</div>';
     else if (p.type === 'audio') inner = '<div class="wave">' + [30, 70, 45, 90, 55, 80, 35, 65, 50, 85, 40, 60].map(function (h) { return '<i style="height:' + h + '%"></i>'; }).join('') + '</div><div class="kick">Audio · ' + esc(p.minutes || '0:00') + '</div><div class="big">' + ph(p.title, 'Your title') + '</div><p>' + esc(p.kind || 'Devotion') + '</p><div class="btns"><span class="pbtn">▶ Play</span></div>';
     else if (p.type === 'reel') inner = '<div class="play"></div><div class="kick">Reel · ' + esc(p.minutes || '0:00') + '</div><div class="big">' + ph(p.title, 'Your title') + '</div><div class="btns"><span class="pbtn">▶ Watch</span></div>';
@@ -315,6 +335,7 @@
     if (p.type === 'verse') {
       if (!(p.verse || '').trim()) e.verse = 'Add the verse text.';
       if (!(p.ref || '').trim()) e.ref = 'Add where the verse is from, for example Psalm 119:105.';
+      if (!(p.translation || '').trim()) e.translation = 'Name the translation the text is from, for example WEB.';
     } else if (!(p.title || '').trim()) e.title = 'Add a title so the post can be found.';
     if (p.type === 'reel' && p.youtube && !/^https:\/\/(www\.)?(youtube\.com|youtu\.be)\//.test(p.youtube.trim())) e.youtube = 'Paste a full YouTube link starting with https://.';
     if (publishing) {
@@ -442,6 +463,7 @@
       ta.value = m === '> ' ? ta.value.slice(0, s) + '> ' + sel + ta.value.slice(en) : ta.value.slice(0, s) + m + sel + m + ta.value.slice(en);
       state.editing.body = ta.value; ta.focus();
     }
+    else if (b.id === 'addTopic') addTopic();
     else if (b.id === 'saveDraft') save('draft');
     else if (b.id === 'unpublish') save('draft');
     else if (b.id === 'del') { syncFields(); state.confirmDelete = true; render(); }
@@ -462,8 +484,23 @@
       ev.target.classList.remove('err');
       var msg = ev.target.parentElement.querySelector('.errmsg'); if (msg) msg.remove();
     }
+    if (f === 'verse') { var note = document.getElementById('verseNote'); if (note) note.textContent = verseLenNote(ev.target.value); }
     refreshPreview();
   });
+  // Enter in the new-topic box adds the topic instead of submitting the post.
+  root.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' && ev.target.id === 'newTopic') { ev.preventDefault(); addTopic(); }
+  });
+  function addTopic() {
+    var box = document.getElementById('newTopic'), name = box ? box.value.trim().replace(/\s+/g, ' ') : '';
+    if (!name) { if (box) box.focus(); return; }
+    name = allTopics().filter(function (t) { return t.toLowerCase() === name.toLowerCase(); })[0] || name;
+    syncFields();
+    var tp = state.editing.topics || (state.editing.topics = []);
+    if (tp.indexOf(name) < 0) tp.push(name);
+    render();
+    var again = document.getElementById('newTopic'); if (again) again.focus();
+  }
   root.addEventListener('change', function (ev) {
     if (!state.editing) return;
     if (ev.target.dataset.check) state.editing[ev.target.dataset.check] = ev.target.checked;

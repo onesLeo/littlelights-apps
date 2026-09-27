@@ -120,7 +120,7 @@ p { margin: 0; }
 @media (max-width: 1040px) { .editor { grid-template-columns: 1fr; } .preview-col { order: -1; } }
 .form { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 22px; display: grid; gap: 18px; }
 .form h3 { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
-.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
 @media (max-width: 560px) { .two { grid-template-columns: 1fr; } }
 .toolbar { display: flex; gap: 4px; }
 .toolbar button { border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; padding: 4px 10px; cursor: pointer; font-weight: 700; font-size: 13px; }
@@ -128,6 +128,8 @@ p { margin: 0; }
 .upload.drag { border-color: var(--focus); }
 .upload small { color: var(--muted); }
 .topics { display: flex; gap: 6px; flex-wrap: wrap; }
+.add-topic { display: flex; gap: 8px; margin-top: 8px; }
+.add-topic .input { flex: 1; min-width: 0; }
 .publish { display: grid; gap: 12px; border-top: 1px solid var(--line); padding-top: 18px; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 3px; background: var(--surface-2); flex-wrap: wrap; }
 .seg button { border: 0; background: none; padding: 7px 12px; border-radius: 9px; cursor: pointer; font-weight: 600; font-size: 13px; }
@@ -144,7 +146,11 @@ p { margin: 0; }
 .pv { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 9px; padding: 70px 20px 60px; overflow: hidden; }
 .pv .kick { font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; font-weight: 700; opacity: .8; }
 .pv .big { font-weight: 800; font-size: 24px; line-height: 1.04; letter-spacing: -.01em; word-break: break-word; }
-.pv .verse { font-family: var(--serif); font-style: italic; font-size: 19px; line-height: 1.28; word-break: break-word; }
+.pv .verse { font-family: var(--serif); font-style: italic; font-size: 19px; line-height: 1.28; word-break: break-word; white-space: pre-line; }
+.pv .verse.v-m { font-size: 16px; }
+.pv .verse.v-l { font-size: 14px; line-height: 1.3; }
+.pv .verse.v-xl { font-size: 12px; line-height: 1.3; }
+.pv .verse.v-xxl { font-size: 10.5px; line-height: 1.3; }
 .pv .ref { font-size: 10px; font-weight: 700; letter-spacing: .1em; opacity: .7; }
 .pv p { font-size: 12.5px; line-height: 1.45; }
 .pv .btns { display: flex; gap: 6px; flex-wrap: wrap; }
