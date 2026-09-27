@@ -20,7 +20,7 @@ Requires Node.js 18 or newer.
 ```bash
 npm install      # installs Playwright for the tests and icon rendering
 npm start        # http://localhost:8080
-npm test         # app smoke test + Studio test; screenshots in test-results/
+npm test         # app, Studio and offline tests; screenshots in test-results/
 ```
 
 There is no build step. Open `index.html` through the local server (the offline service worker does not run from `file://`).
@@ -40,7 +40,7 @@ sw.js                   offline cache (bump VERSION when a cached file changes)
 manifest.webmanifest    app name, colours and icons for installing
 icons/                  SVG sources and rendered PNG icons (npm run icons)
 scripts/serve.mjs       tiny static server used by npm start and the tests
-tests/smoke.mjs         end-to-end smoke test
+tests/                  end-to-end tests (app, Studio, offline)
 docs/                   studio setup, backlog, improvements and roadmap
 ```
 

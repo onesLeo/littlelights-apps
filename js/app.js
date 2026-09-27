@@ -22,10 +22,32 @@
   // Long passages get smaller type in the full-screen verse view, which also scrolls.
   function verseSize(text) { var n = (text || '').length; return n > 850 ? ' v-xxl' : n > 560 ? ' v-xl' : n > 320 ? ' v-l' : n > 160 ? ' v-m' : ''; }
   function toSeconds(m) { var x = String(m || '').split(':'); return x.length === 2 ? (+x[0] * 60 + +x[1]) || 0 : 0; }
+  // Studio posts from Supabase are kept on the device, so they still show offline or on a slow
+  // connection (after 4 seconds the saved copy is used while the fresh one keeps loading for next time).
+  var POSTS_KEY = 'll.studioPosts';
+  function savedPosts(S) {
+    try { var list = JSON.parse(localStorage.getItem(POSTS_KEY) || 'null'); return list ? list.filter(S.isLive) : null; } catch (err) { return null; }
+  }
+  function loadPublished(S) {
+    if (S.mode !== 'supabase') return S.publishedPosts();
+    var fresh = S.publishedPosts().then(function (posts) {
+      try { localStorage.setItem(POSTS_KEY, JSON.stringify(posts)); } catch (err) { /* storage full or blocked */ }
+      return posts;
+    });
+    fresh.catch(function () {}); // if the saved copy wins the race, a later failure is expected
+    var slow =new Promise(function (resolve) { setTimeout(resolve, 4000, 'slow'); });
+    return Promise.race([fresh, slow]).then(function (r) {
+      return r === 'slow' ? (savedPosts(S) || fresh) : r;
+    }).catch(function (err) {
+      var saved = savedPosts(S);
+      if (saved) return saved;
+      throw err;
+    });
+  }
   function mergeStudioPosts() {
     var S = window.LLStore;
     if (!S) return Promise.resolve();
-    return S.publishedPosts().then(function (posts) {
+    return loadPublished(S).then(function (posts) {
       return Promise.all(posts.map(function (p) {
         return p.media_url ? S.resolveMedia(p.media_url).then(function (u) { p._src = u; }) : null;
       })).then(function () { return posts; });

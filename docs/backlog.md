@@ -17,7 +17,6 @@ These look finished but don't work yet. Each one points to the item that fixes i
 | App Store / Google Play (Play tab) | "Coming soon" text, not links | 6.2 |
 | "Continue with Google" (Studio sign-in) | Fails: Google isn't set up in Supabase | 3.4 |
 | Studio sign-in emails | Supabase's built-in sender, a few emails an hour | 3.1, 3.2 |
-| Studio posts when offline | Only the built-in content shows | 7.1 |
 | Insights in the Studio | Not built | Later |
 
 ## 1. Domain and email (do first: everything else depends on it)
@@ -79,10 +78,30 @@ These look finished but don't work yet. Each one points to the item that fixes i
 
 | # | Item | Owner | Depends on | Done when | Status |
 |---|---|---|---|---|---|
-| 7.1 | **Keep Studio posts offline**: save the last posts the app loaded, and show them when there's no connection. | Dev | – | Studio posts show in airplane mode after one online visit | To do |
+| 7.1 | **Keep Studio posts offline**: save the last posts the app loaded, and show them when there's no connection or Supabase takes over 4 seconds. Tested in `tests/offline.mjs`. | Dev | – | Studio posts show in airplane mode after one online visit | Done 2026-09-27 |
 | 7.2 | **Move the built-in content into the Studio**, so every devotion, verse, audio and reel is edited in one place instead of `js/content.js`. | Dev | – | `content.js` holds no posts | To do |
 
-## 8. Later
+## 8. Instagram and Facebook
+
+One post in the Studio, two outputs: the app keeps its own format, and the Studio also makes a version that follows Instagram's and Facebook's rules.
+
+| Post type | Instagram / Facebook version |
+|---|---|
+| Verse | 1080×1350 JPEG (4:5), from the existing verse image |
+| Devotion | Carousel of 2–4 images (title, key verse, family idea, prayer) and a caption linking to the full reading |
+| Reel | 1080×1920 MP4 (9:16), the same file |
+| Audio | Video with a cover image (Instagram has no audio posts); later |
+| Game update | Image and caption |
+
+Captions are built from the post: text, reference and translation, a link back to the app, a few hashtags (Instagram allows 2,200 characters and 30 hashtags). Check Meta's current specs when building.
+
+| # | Item | Owner | Depends on | Done when | Status |
+|---|---|---|---|---|---|
+| 8.1 | **Share kit in the Studio**: for each post, download the Instagram-ready image(s) and copy the ready caption. Post or schedule to both Instagram and Facebook with Meta Business Suite (free). No API or Meta approval needed. | Dev | – | A verse and a devotion can be posted to Instagram from the kit | To do |
+| 8.2 | **Accounts**: an Instagram professional account (Business or Creator) and a Facebook Page for the ministry, linked in Meta Business Suite. | You | – | Both accounts exist, with at least two admins | To do |
+| 8.3 | **Post automatically from the Studio** with Meta's API: an "Also post to Instagram / Facebook" choice. Needs a Meta developer app, Meta's app review (asks for a privacy policy on the domain), a Supabase Edge Function to keep the Meta key secret, and a timed job for scheduled posts (the Instagram API can't schedule). | You / Dev | 1.1, 4.3, 8.1, 8.2 | A Studio post appears on Instagram and Facebook without manual steps | To do |
+
+## 9. Later
 
 - **Insights** in the Studio: views, finished, saves and shares per post (roadmap).
 - **Tester feedback**: share with 5–20 parents and church friends (roadmap).
