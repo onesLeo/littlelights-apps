@@ -302,6 +302,29 @@
     });
   });
 
+  // ---------- computer layout: the sky fills the page behind the Today feed ----------
+  // On a phone the first post is the whole screen, so its sun, clouds, stars and owl are the
+  // background already. On a computer the feed is a narrow column, so they move to a sky layer
+  // behind the whole Today page, and move back if the window becomes narrow.
+  (function sky() {
+    var today = $('.v-today'), wide = window.matchMedia ? window.matchMedia('(min-width: 900px)') : null;
+    if (!today || !wide) return;
+    var layer = document.createElement('div');
+    layer.className = 'p-sky';
+    today.insertBefore(layer, today.firstChild);
+    var parts = ['.s1 .p-stars', '.s1 .p-orb', '.s1 .p-clouds', '#pOwl', '#pHoot', '.s5 .p-flyowl'].reduce(function (all, sel) {
+      return all.concat($$(sel).map(function (el) { return { el: el, home: el.parentNode, next: el.nextSibling }; }));
+    }, []);
+    function place() {
+      parts.forEach(function (p) {
+        if (wide.matches) layer.appendChild(p.el);
+        else p.home.insertBefore(p.el, p.next && p.next.parentNode === p.home ? p.next : null);
+      });
+    }
+    place();
+    if (wide.addEventListener) wide.addEventListener('change', place); else if (wide.addListener) wide.addListener(place);
+  })();
+
   // ---------- pause animations off screen and when the app is hidden ----------
   document.addEventListener('visibilitychange', function () { app.classList.toggle('asleep', document.hidden); });
   if ('IntersectionObserver' in window) {

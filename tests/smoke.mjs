@@ -95,6 +95,8 @@ async function openApp(viewport) {
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   check(!overflow, 'phone: no sideways scrolling');
+  check(await page.evaluate(() => ['.p-orb', '.v-today .p-clouds', '#pOwl'].every((sel) => document.querySelector(sel).closest('#pFeed .p-slide.s1'))),
+    'phone: the sun, clouds and owl stay in the first post');
   check(errors.length === 0, `phone: no script errors ${errors.join(' | ')}`);
   await context.close();
 }
@@ -105,6 +107,8 @@ async function openApp(viewport) {
   const nav = await page.$eval('.p-tabs', (n) => n.getBoundingClientRect().top);
   check(nav < 10, 'computer: menu sits at the top');
   check(await page.$eval('.p-side', (s) => getComputedStyle(s).display !== 'none'), 'computer: side panel is shown');
+  check(await page.$eval('.v-today .p-sky', (k) => !!k.querySelector('.p-orb') && !!k.querySelector('.p-clouds') && !!k.querySelector('#pOwl')),
+    'computer: the sun, clouds and owl fill the page behind the Today feed');
   await page.screenshot({ path: 'test-results/computer-today.png' });
   await page.click('.p-tab[data-tab="verses"]');
   await page.waitForTimeout(150);
