@@ -23,12 +23,12 @@
   var TOPICS = ['When I’m afraid', 'Trust', 'Friendship', 'Mercy', 'God sees me', 'Light'];
   // Public-domain translations, suggested in the Translation box. Any other name can be typed.
   var TRANSLATIONS = ['WEB', 'KJV', 'ASV', 'BSB'];
-  // Long passages get smaller type so they still fit on one screen (same steps as js/app.js).
-  function verseSize(text) { var n = (text || '').length; return n > 850 ? ' v-xxl' : n > 560 ? ' v-xl' : n > 320 ? ' v-l' : n > 160 ? ' v-m' : ''; }
+  // Over 200 characters, the Today card shows the first lines and a "Read full passage" button (isLongVerse in js/app.js).
+  function isLongVerse(text) { return (text || '').trim().length > 200; }
   function verseLenNote(text) {
     var n = (text || '').trim().length;
-    return n > 560 ? n + ' characters: a long passage, so it is shown in small print. For a whole passage, a Devotion or a few separate verse posts read better.'
-      : 'Press Enter for a new line (for example, one line per verse). Up to about 300 characters reads best.';
+    return isLongVerse(text) ? n + ' characters: the Today card shows the first lines, with a “Read full passage” button for the rest.'
+      : 'Press Enter for a new line (for example, one line per verse). Up to 200 characters fits on the Today card.';
   }
   // Built-in topics, then any topic already used on a verse post.
   function allTopics() {
@@ -272,7 +272,7 @@
     var t = TYPES[p.type], ph = function (v, d) { return v ? esc(v) : '<span class="placeholder">' + d + '</span>'; }, inner = '';
     var bg = { verse: 'radial-gradient(120% 80% at 80% 25%, #ffe089, #f7c23f 45%, #e0a820)', devotion: '#ee8fb2', reel: '#e46a4c',
       audio: 'radial-gradient(120% 70% at 50% 30%, #b99ae4, #a07fd6 50%, #6f52a8)', game: 'linear-gradient(180deg, #9ad8aa, #69ba7e 55%, #3f8a55)' }[p.type];
-    if (p.type === 'verse') inner = '<div class="sun"></div><div class="kick">Verse of the week</div><div class="verse' + verseSize(p.verse) + '">“' + ph((p.verse || '').trim(), 'Your verse appears here') + '”</div><div class="ref">' + ph((p.ref || '').toUpperCase(), 'REFERENCE') + ' · ' + esc((p.translation || '').trim() || 'WEB') + '</div><div class="btns"><span class="pbtn">More verses</span><span class="pbtn g">Save image</span></div>';
+    if (p.type === 'verse') inner = '<div class="sun"></div><div class="kick">Verse of the week</div><div class="verse' + (isLongVerse(p.verse) ? ' preview' : '') + '">“' + ph((p.verse || '').trim(), 'Your verse appears here') + '”</div><div class="ref">' + ph((p.ref || '').toUpperCase(), 'REFERENCE') + ' · ' + esc((p.translation || '').trim() || 'WEB') + '</div><div class="btns"><span class="pbtn">' + (isLongVerse(p.verse) ? 'Read full passage' : 'More verses') + '</span><span class="pbtn g">Save image</span></div>';
     else if (p.type === 'devotion') inner = '<div class="kick">Devotion · ' + readMinutes(p) + ' min</div><div class="big">' + ph(p.title, 'Your title') + '</div><p>' + ph(p.teaser, 'Your one-line summary') + '</p><div class="btns"><span class="pbtn">Read ↑</span>' + (p.audioId ? '<span class="pbtn g">▶ Listen</span>' : '') + '</div>';
     else if (p.type === 'audio') inner = '<div class="wave">' + [30, 70, 45, 90, 55, 80, 35, 65, 50, 85, 40, 60].map(function (h) { return '<i style="height:' + h + '%"></i>'; }).join('') + '</div><div class="kick">Audio · ' + esc(p.minutes || '0:00') + '</div><div class="big">' + ph(p.title, 'Your title') + '</div><p>' + esc(p.kind || 'Devotion') + '</p><div class="btns"><span class="pbtn">▶ Play</span></div>';
     else if (p.type === 'reel') inner = '<div class="play"></div><div class="kick">Reel · ' + esc(p.minutes || '0:00') + '</div><div class="big">' + ph(p.title, 'Your title') + '</div><div class="btns"><span class="pbtn">▶ Watch</span></div>';

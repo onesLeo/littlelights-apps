@@ -147,10 +147,7 @@ p { margin: 0; }
 .pv .kick { font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; font-weight: 700; opacity: .8; }
 .pv .big { font-weight: 800; font-size: 24px; line-height: 1.04; letter-spacing: -.01em; word-break: break-word; }
 .pv .verse { font-family: var(--serif); font-style: italic; font-size: 19px; line-height: 1.28; word-break: break-word; white-space: pre-line; }
-.pv .verse.v-m { font-size: 16px; }
-.pv .verse.v-l { font-size: 14px; line-height: 1.3; }
-.pv .verse.v-xl { font-size: 12px; line-height: 1.3; }
-.pv .verse.v-xxl { font-size: 10.5px; line-height: 1.3; }
+.pv .verse.preview { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; overflow: hidden; }
 .pv .ref { font-size: 10px; font-weight: 700; letter-spacing: .1em; opacity: .7; }
 .pv p { font-size: 12.5px; line-height: 1.45; }
 .pv .btns { display: flex; gap: 6px; flex-wrap: wrap; }

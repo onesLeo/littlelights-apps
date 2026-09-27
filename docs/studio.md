@@ -63,7 +63,7 @@ Scheduled posts need no server job: a post appears as soon as its time has passe
 
 - The phone preview shows exactly how the post will look on the Today feed.
 - Devotions support **bold** (`**text**`), _italic_ (`_text_`) and quotes (a paragraph starting with `> `). Leave an empty line between paragraphs.
-- Verses keep their line breaks, so a passage can have one line per verse. Longer passages are shown in smaller type; around 300 characters reads best.
+- Verses keep their line breaks, so a passage can have one line per verse. Over 200 characters, the Today card shows the first lines with a **Read full passage** button, and the full passage opens in a scrolling view.
 - Verse topics: pick one or add your own with **Add topic**. New topics get their own filter in the app's Verses tab.
 - Translation: type any name. WEB, KJV, ASV and BSB are public domain. Copyrighted translations (NIV, ESV, NLT…) have their own quoting rules, so check them before posting.
 - Audio and video lengths are read from the file. Files are limited to 50 MB.
