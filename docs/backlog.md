@@ -25,14 +25,14 @@ These look finished but don't work yet. Each one points to the item that fixes i
 |---|---|---|---|---|---|
 | 1.1 | **Buy the domain** (for example at Cloudflare or Namecheap, about $10–15 a year). Pick one short name for both the website and email. Turn on auto-renew. | You | – | The domain is in the ministry's account, with at least two people able to log in | Done 2026-09-28: **littlesaltandlight.com** on Cloudflare |
 | 1.2 | **Create the email addresses** on the domain: `hello@` (newsletter sender, replies from parents) and `no-reply@` (Studio sign-in links). Cloudflare Email Routing forwards them to an existing inbox for free; Zoho Mail or Google Workspace give a full mailbox. | You | 1.1 | A test email to `hello@` arrives | Done 2026-09-28: Cloudflare Email Routing forwards `admin@`, `customers-support@` and `feedback@`. Use `admin@` for service sign-ups, `customers-support@` for parents, `feedback@` for testers and newsletter replies. Optional: add `hello@` as the newsletter sender. Keep the Cloudflare login on a non-domain address. |
-| 1.3 | **Add a DMARC record** to the domain's DNS (start with `p=none`), so mail providers trust email from it. | You (Dev can list the exact record) | 1.1 | A DMARC checker shows the record | To do |
+| 1.3 | **Add a DMARC record** to the domain's DNS (start with `p=none`), so mail providers trust email from it. | You (Dev can list the exact record) | 1.1 | A DMARC checker shows the record | Done 2026-09-28: `v=DMARC1; p=none;` |
 
 ## 2. Newsletter (MailerLite)
 
 | # | Item | Owner | Depends on | Done when | Status |
 |---|---|---|---|---|---|
-| 2.1 | **Create a MailerLite account** with `hello@` as the login. Apply for the nonprofit discount if the ministry qualifies. | You | 1.2 | Account is active | To do |
-| 2.2 | **Verify the domain in MailerLite**: copy the SPF and DKIM records it shows into the domain's DNS. | You | 1.1, 2.1 | MailerLite shows the domain as verified | To do |
+| 2.1 | **Create a MailerLite account** with `hello@` as the login. Apply for the nonprofit discount if the ministry qualifies. | You | 1.2 | Account is active | Done 2026-09-28: sender address `news-letter@littlesaltandlight.com` (Email Routing to Gmail) |
+| 2.2 | **Verify the domain in MailerLite**: copy the SPF and DKIM records it shows into the domain's DNS. | You | 1.1, 2.1 | MailerLite shows the domain as verified | DNS done 2026-09-28 (verification TXT, SPF merged with Cloudflare's, DKIM `litesrv._domainkey`); waiting for MailerLite to activate the domain (account review) |
 | 2.3 | **Create the list and sign-up form**: a group called "Weekly encouragement", **double opt-in on**, and the ministry's postal address in the footer (required by law). Send the form's embed or action URL to Dev. | You | 2.1 | A test sign-up receives the confirmation email | To do |
 | 2.4 | **Design the Monday email template**: verse, devotion teaser with a link to the app, family idea, prayer, unsubscribe footer. Use the app's colours and logo. | You | 2.1 | A test email looks right on a phone and a computer | To do |
 | 2.5 | **Connect the app's form to MailerLite** (`js/app.js`, "newsletter"): send sign-ups to the list, say "Check your inbox to confirm", keep the "For grown-ups" note, handle errors and offline. | Dev | 2.3 | A sign-up from the app appears in MailerLite after confirming | To do |
