@@ -24,7 +24,7 @@ These look finished but don't work yet. Each one points to the item that fixes i
 | # | Item | Owner | Depends on | Done when | Status |
 |---|---|---|---|---|---|
 | 1.1 | **Buy the domain** (for example at Cloudflare or Namecheap, about $10–15 a year). Pick one short name for both the website and email. Turn on auto-renew. | You | – | The domain is in the ministry's account, with at least two people able to log in | Done 2026-09-28: **littlesaltandlight.com** on Cloudflare |
-| 1.2 | **Create the email addresses** on the domain: `hello@` (newsletter sender, replies from parents) and `no-reply@` (Studio sign-in links). Cloudflare Email Routing forwards them to an existing inbox for free; Zoho Mail or Google Workspace give a full mailbox. | You | 1.1 | A test email to `hello@` arrives | To do |
+| 1.2 | **Create the email addresses** on the domain: `hello@` (newsletter sender, replies from parents) and `no-reply@` (Studio sign-in links). Cloudflare Email Routing forwards them to an existing inbox for free; Zoho Mail or Google Workspace give a full mailbox. | You | 1.1 | A test email to `hello@` arrives | Done 2026-09-28: Cloudflare Email Routing forwards `admin@`, `customers-support@` and `feedback@`. Use `admin@` for service sign-ups, `customers-support@` for parents, `feedback@` for testers and newsletter replies. Optional: add `hello@` as the newsletter sender. Keep the Cloudflare login on a non-domain address. |
 | 1.3 | **Add a DMARC record** to the domain's DNS (start with `p=none`), so mail providers trust email from it. | You (Dev can list the exact record) | 1.1 | A DMARC checker shows the record | To do |
 
 ## 2. Newsletter (MailerLite)
