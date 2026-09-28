@@ -1,6 +1,6 @@
 # Backlog
 
-Work to do before and after launch, in order. **Owner** says who does it: *You* for purchases, accounts and settings only the ministry can make; *Dev* for changes in this repository. When an item is finished, set its **Status** to *Done* with the date.
+Work to do before and after launch, in order. The domain is **littlesaltandlight.com** (Cloudflare); `your-domain` below means that. **Owner** says who does it: *You* for purchases, accounts and settings only the ministry can make; *Dev* for changes in this repository. When an item is finished, set its **Status** to *Done* with the date.
 
 Big-picture goals live in [roadmap.md](roadmap.md); finished work is listed in [improvements.md](improvements.md).
 
@@ -23,7 +23,7 @@ These look finished but don't work yet. Each one points to the item that fixes i
 
 | # | Item | Owner | Depends on | Done when | Status |
 |---|---|---|---|---|---|
-| 1.1 | **Buy the domain** (for example at Cloudflare or Namecheap, about $10–15 a year). Pick one short name for both the website and email. Turn on auto-renew. | You | – | The domain is in the ministry's account, with at least two people able to log in | To do |
+| 1.1 | **Buy the domain** (for example at Cloudflare or Namecheap, about $10–15 a year). Pick one short name for both the website and email. Turn on auto-renew. | You | – | The domain is in the ministry's account, with at least two people able to log in | Done 2026-09-28: **littlesaltandlight.com** on Cloudflare |
 | 1.2 | **Create the email addresses** on the domain: `hello@` (newsletter sender, replies from parents) and `no-reply@` (Studio sign-in links). Cloudflare Email Routing forwards them to an existing inbox for free; Zoho Mail or Google Workspace give a full mailbox. | You | 1.1 | A test email to `hello@` arrives | To do |
 | 1.3 | **Add a DMARC record** to the domain's DNS (start with `p=none`), so mail providers trust email from it. | You (Dev can list the exact record) | 1.1 | A DMARC checker shows the record | To do |
 
