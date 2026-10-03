@@ -131,6 +131,37 @@ async function openApp(viewport) {
   await context.close();
 }
 
+// Layout and motion regressions at the smallest phone and desktop breakpoints.
+for (const viewport of [{ width: 320, height: 568 }, { width: 900, height: 650 }, { width: 1024, height: 768 }]) {
+  const { context, page } = await openApp(viewport);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.waitForTimeout(100);
+  check(await page.$eval('#app', (a) => a.classList.contains('calm')), `${viewport.width}px: system reduced motion enables Calm mode`);
+  await page.evaluate(() => document.querySelector('[data-mode]').click());
+  await page.evaluate(() => document.querySelector('#pOwl').click());
+  check(await page.$eval('#pOwl', (o) => !o.classList.contains('hoot')), `${viewport.width}px: owl responds without hopping in Calm mode`);
+  check(await page.evaluate(() => getComputedStyle(document.querySelector('.p-owl .lid')).animationName === 'none'), `${viewport.width}px: decorative owl motion is stopped`);
+  const fits = await page.evaluate(() => {
+    const nodes = document.querySelectorAll('.v-today .p-btn, .p-tabs .p-tab');
+    return Array.from(nodes).filter((n) => n.getClientRects().length).every((n) => {
+      const r = n.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth;
+    });
+  });
+  check(fits, `${viewport.width}px: visible actions fit the screen`);
+  if (viewport.width >= 900) {
+    check(await page.$eval('#pFeed', (f) => getComputedStyle(f).display === 'grid'), `${viewport.width}px: desktop content uses a card grid`);
+    await page.click('.v-today .s2 [data-sheet]');
+    check(await page.$eval('#pSheetWrap', (a) => a.classList.contains('on')), `${viewport.width}px: desktop devotion card opens its preview`);
+    await page.click('#pSheetWrap [data-read]');
+    await page.waitForSelector('#pArticle.on');
+    check(await page.$eval('#pArticle', (a) => a.classList.contains('on')), `${viewport.width}px: desktop devotion card opens its article`);
+    await page.goto(base);
+    await page.waitForSelector('#app[data-ready]');
+  }
+  await page.screenshot({ path: `test-results/home-${viewport.width}.png` });
+  await context.close();
+}
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');

@@ -48,8 +48,8 @@ check(await C(page, () => window.LL_CONTENT.verses.some((v) => v.text.includes('
 check(refs.length === 10, `verses: 1 new + 9 built-in, none lost (${refs.length})`);
 const saveRef = await C(page, () => window.LL_CONTENT.verses[+document.querySelector('.p-slide.s1 [data-save-verse]').dataset.saveVerse].ref);
 check(saveRef === 'Joshua 1:9', `Today: the "Verse of the week" Save image button still means Joshua 1:9 (${saveRef})`);
-const sideRef = await C(page, () => window.LL_CONTENT.verses[+document.querySelector('.sc-verse [data-share-verse]').dataset.shareVerse].ref);
-check(sideRef === 'Joshua 1:9', 'side panel: the verse Share button still means Joshua 1:9');
+check(await C(page, () => !!document.querySelector('.sc-family') && !document.querySelector('.sc-verse')),
+  'side panel: a family activity replaces the repeated verse');
 
 const devs = await C(page, () => window.LL_CONTENT.devotions.map((d) => d.slug));
 check(devs.filter((s) => s === 'brave').length === 1 && devs.length === 3, 'devotions: "brave" appears once, 3 in total');
