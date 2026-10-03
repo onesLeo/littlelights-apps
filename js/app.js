@@ -263,6 +263,10 @@
   setNight(savedTheme ? savedTheme === 'night' : media('(prefers-color-scheme: dark)'), false);
   var savedCalm = store('calm');
   setCalm(savedCalm ? savedCalm === '1' : media('(prefers-reduced-motion: reduce)'), false);
+  var motionPreference = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+  if (motionPreference && motionPreference.addEventListener) motionPreference.addEventListener('change', function (e) {
+    if (store('calm') == null) setCalm(e.matches, false);
+  });
 
   // ---------- light wakes up on activity, dims when idle ----------
   var idleT;
@@ -349,7 +353,9 @@
   // ---------- owl says hello ----------
   var owl = $('#pOwl'), hoot = $('#pHoot'), hootT;
   if (owl) owl.addEventListener('click', function () {
-    owl.classList.remove('hoot'); void owl.offsetWidth; owl.classList.add('hoot');
+    if (!app.classList.contains('calm')) {
+      owl.classList.remove('hoot'); void owl.offsetWidth; owl.classList.add('hoot');
+    }
     hoot.classList.add('on');
     clearTimeout(hootT);
     hootT = setTimeout(function () { hoot.classList.remove('on'); owl.classList.remove('hoot'); }, 1600);
