@@ -51,10 +51,10 @@
   <li>whether the one-time purchase was made, so the stories stay open without the internet;</li>
   <li>profile choices such as the chosen character and any nickname typed in. We suggest using a nickname rather than a real full name.</li>
 </ul>
-<p>This information never leaves the device. We can't see it, and we can't recover it for you if it is lost. Your device's own backup service (for example Android backup with your Google account) may include app data; that is controlled by your device settings and that provider's privacy policy, not by us.</p>
+<p>This information never leaves the device. We can't see it, and we can't recover it for you if it is lost. The game turns off Android's app-data backup, so it isn't copied to a backup account either.</p>
 
 <h2 id="permissions">4. Device permissions</h2>
-<p>The game does not request access to the camera, microphone, location, contacts, photos or advertising ID, and it does not need the internet to play. {{GAME_PERMS}}</p>
+<p>The game itself doesn't use the camera, microphone, location, contacts, photos or advertising ID, and it doesn't need the internet to play. Google Play's billing library, which the game uses only for the one optional purchase, adds three Android permissions: Google Play billing, internet access and network state. The purchase itself happens in Google Play's own purchase screen. The game's own code never connects to the internet and sends nothing about your child, your purchase or your device to us or to anyone else. Google's billing library may send Google technical information about billing requests, under <a href="https://policies.google.com/privacy">Google's Privacy Policy</a>.</p>
 
 <h2 id="third">5. Ads, purchases and third parties</h2>
 <ul>
