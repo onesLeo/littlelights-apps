@@ -20,7 +20,7 @@ MACROS = {
     "LAW": ph("Governing law, to confirm, e.g. Republic of Indonesia"),
     "SUPA_REGION": ph("Supabase project region, to confirm"),
     "MAILBOX": ph("Inbox provider, e.g. Gmail, to confirm"),
-    "GAME_PERMS": ph("To confirm before launch: the release build's only added permission is Google Play billing (com.android.vending.BILLING); no internet, microphone, location or AD_ID permission"),
+    "GAME_PERMS": ph("To confirm before launch: Google Play's billing library adds the Google Play billing, internet and network-state permissions, used only to buy or restore the one-time purchase; there is no microphone, location or AD_ID permission"),
     "GAME_RESET": ph("If the grown-ups area has a Reset progress option, mention it here"),
     "ML_TRACKING": ph("To confirm: turn MailerLite open and click tracking off, or keep this sentence"),
     "SUPPORT_HOURS": ph("Optional: support hours and time zone, e.g. Mon–Fri, WITA (UTC+8)"),

@@ -10,7 +10,7 @@ Placeholders are defined in `MACROS` in build.py and show as highlighted [..] te
 | LAW | [Governing law, to confirm, e.g. Republic of Indonesia] | terms §10 |
 | SUPA_REGION | [Supabase project region, to confirm] | web privacy §2 and §7 |
 | MAILBOX | [Inbox provider, e.g. Gmail, to confirm] | game privacy §7, web privacy §7 |
-| GAME_PERMS | [To confirm before launch: the release build's only added permission is Google Play billing (com.android.vending.BILLING); no internet, microphone, location or AD_ID permission] | game privacy §4 |
+| GAME_PERMS | [To confirm before launch: Google Play's billing library adds the Google Play billing, internet and network-state permissions, used only to buy or restore the one-time purchase; there is no microphone, location or AD_ID permission] | game privacy §4 |
 | GAME_RESET | [If the grown-ups area has a Reset progress option, mention it here] | game privacy §9, support (table and FAQ) |
 | ML_TRACKING | [To confirm: turn MailerLite open and click tracking off, or keep this sentence] | web privacy §4 |
 | SUPPORT_HOURS | [Optional: support hours and time zone] | support |
