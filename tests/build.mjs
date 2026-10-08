@@ -34,7 +34,7 @@ for (const page of ['index.html', 'studio/index.html', 'fonts/fonts.css', 'css/a
 }
 
 check(existsSync(join(dist, 'studio', 'index.html')), 'the Studio is included');
-for (const hidden of ['docs', 'supabase', 'tests', 'scripts', 'package.json', 'node_modules', '.github', 'wrangler.jsonc']) {
+for (const hidden of ['docs', 'supabase', 'tests', 'scripts', 'package.json', 'node_modules', '.github']) {
   check(!existsSync(join(dist, hidden)), `${hidden} is not published`);
 }
 

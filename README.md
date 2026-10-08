@@ -70,7 +70,7 @@ The same PWA can later be listed on Google Play and the Microsoft Store with [PW
 
 Any static host works (GitHub Pages, Cloudflare Pages, Netlify). A manual GitHub Pages workflow is in `.github/workflows/pages.yml`. Enable Pages (Settings → Pages → Source: GitHub Actions), then run the workflow. GitHub Pages on a private repository needs a paid GitHub plan; Cloudflare Pages is free for private repositories.
 
-On **Cloudflare** (where littlesaltandlight.com is hosted), the site runs as a Worker with static files. In *Workers & Pages → Create*, connect this repository, name the project `littlesaltandlight` (it must match `wrangler.jsonc`), set the build command to `node scripts/build-pages.mjs` and leave the deploy command as `npx wrangler deploy`. Every push to the production branch (`main`) then publishes the site. The build packages only the public app, the Studio, fonts and media into `dist/`; project documentation and database setup files are left out. Add `littlesaltandlight.com` under the Worker's *Settings → Domains & Routes*.
+The live site is hosted on **Cloudflare Pages** (project `littlelights-apps`, https://littlelights-apps.pages.dev, domain littlesaltandlight.com). The project is connected to this repository with the build command `node scripts/build-pages.mjs` and the output directory `dist`, so every push to the production branch publishes the site. The build packages only the public app, the Studio, fonts and media; project documentation and database setup files are left out. The domain is added under the Pages project's **Custom domains**.
 
 ## Privacy
 
