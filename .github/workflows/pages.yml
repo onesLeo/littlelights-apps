@@ -21,13 +21,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Collect the site files
-        run: |
-          mkdir _site
-          cp -r index.html manifest.webmanifest sw.js css js icons studio docs supabase _site/
-          if [ -d media ]; then cp -r media _site/; fi
+      - name: Build the public site files
+        run: node scripts/build-pages.mjs
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: dist
       - id: deployment
         uses: actions/deploy-pages@v4

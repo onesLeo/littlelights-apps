@@ -207,7 +207,6 @@
       '<label class="field"><span>Email</span><input class="input' + (err ? ' err' : '') + '" id="email" type="email" autocomplete="email" placeholder="you@example.com" value="' + esc(state.email) + '">' +
       (err ? '<span class="errmsg" role="alert">' + esc(err) + '</span>' : '<small>' + (S.mode === 'local' ? 'The first email to sign in becomes the owner.' : 'We’ll email you a one-time sign-in link. No password to remember.') + '</small>') + '</label>' +
       '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>' + (S.mode === 'local' ? 'Sign in' : state.busy ? 'Sending…' : 'Email me a sign-in link') + '</button>' +
-      (S.mode === 'supabase' ? '<div class="or">or</div><button class="btn soft" type="button" id="google">Continue with Google</button>' : '') +
       '<div class="note">Only people on the team can sign in. Anyone else sees “This email isn’t on the Little Light team.”</div>' +
       '</form></main>';
   }
@@ -508,8 +507,7 @@
     var b = ev.target.closest('button');
     if (!b) return;
     var d = b.dataset;
-    if (b.id === 'google') S.signInWithGoogle().catch(function (err) { state.authError = err.message; render(); });
-    else if (b.id === 'back') { state.screen = 'signin'; render(); }
+    if (b.id === 'back') { state.screen = 'signin'; render(); }
     else if (b.id === 'signout') S.signOut().then(function () { state.session = null; state.screen = 'signin'; state.view = 'posts'; render(); });
     else if (d.view) go(d.view);
     else if (d.filter) { state.filter = d.filter; render(); }

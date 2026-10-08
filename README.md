@@ -70,6 +70,8 @@ The same PWA can later be listed on Google Play and the Microsoft Store with [PW
 
 Any static host works (GitHub Pages, Cloudflare Pages, Netlify). A manual GitHub Pages workflow is in `.github/workflows/pages.yml`. Enable Pages (Settings → Pages → Source: GitHub Actions), then run the workflow. GitHub Pages on a private repository needs a paid GitHub plan; Cloudflare Pages is free for private repositories.
 
+For **Cloudflare Pages**, connect this repository in Workers & Pages and set the build command to `node scripts/build-pages.mjs` and the output directory to `dist`. The script packages only the public app, Studio, and media files; it leaves project documentation and database setup files out of the published site. After the first deployment, add `littlesaltandlight.com` under the Pages project's **Custom domains**.
+
 ## Privacy
 
 The app has no accounts, no ads and no tracking. Day/night, calm mode, the swipe hint and saved reels are remembered only in the visitor's own browser. The newsletter form is for adults and is not connected to an email service yet.
