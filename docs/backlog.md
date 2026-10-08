@@ -55,7 +55,7 @@ These look finished but don't work yet. Each one points to the item that fixes i
 |---|---|---|---|---|---|
 | 4.1 | **Deploy the site** with the GitHub Pages workflow (Settings → Pages → Source: GitHub Actions, then run *Deploy to GitHub Pages*), or Cloudflare Pages. | You / Dev | – | The app opens at the Pages address | Done 2026-10-09: Cloudflare Pages project `littlelights-apps`, live at https://littlelights-apps.pages.dev (checked in a browser: app, Studio page, fonts, offline mode) |
 | 4.2 | **Trim the deploy list** in `.github/workflows/pages.yml`: publish `studio`, but not `docs` or `supabase`, which visitors don't need. | Dev | – | Workflow updated | Done 2026-09-28: both hosting paths use `scripts/build-pages.mjs`, which omits `docs` and `supabase`. |
-| 4.3 | **Connect the domain** to the site, with HTTPS. | You | 1.1, 4.1 | The app opens at `https://your-domain/` | To do |
+| 4.3 | **Connect the domain** to the site, with HTTPS. | You | 1.1, 4.1 | The app opens at `https://your-domain/` | Done 2026-10-09: https://littlesaltandlight.com is live with HTTPS (`www` is not set up) |
 | 4.4 | **Update Supabase URLs**: *Authentication → URL Configuration*, Site URL = the domain, and add `https://your-domain/studio/` to Redirect URLs. | You | 4.3 | Signing in on the live Studio returns to the Studio | To do |
 | 4.5 | **Bump `VERSION` in `sw.js`** with each release so installed copies update. | Dev | – | Ongoing | To do |
 
