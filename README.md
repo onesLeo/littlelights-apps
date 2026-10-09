@@ -42,6 +42,7 @@ icons/                  SVG sources and rendered PNG icons (npm run icons)
 scripts/serve.mjs       tiny static server used by npm start and the tests
 tests/                  end-to-end tests (app, Studio, offline, built-in content) and the build check
 docs/                   studio setup, backlog, improvements and roadmap
+legal/                  legal.littlesaltandlight.com source (deployed separately; not in the app build)
 ```
 
 ## Posting with the Studio
