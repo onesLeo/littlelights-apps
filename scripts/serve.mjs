@@ -1,8 +1,9 @@
 // Tiny static server for local development and tests. Run: npm start (http://localhost:8080)
 import { createServer } from 'node:http';
+import { connect } from 'node:net';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const TYPES = {
@@ -27,8 +28,26 @@ export function serve(port = 8080) {
   return new Promise((resolve) => server.listen(port, () => resolve(server)));
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const port = Number(process.env.PORT) || 8080;
+  // Another program can hold the port on IPv4 while this server still starts on IPv6; the browser
+  // then reaches the other program and shows its "Not Found". So check that nothing answers first.
+  const inUse = (p) => new Promise((resolve) => {
+    const sock = connect({ port: p, host: '127.0.0.1' });
+    sock.setTimeout(700, () => { sock.destroy(); resolve(false); });
+    sock.once('connect', () => { sock.destroy(); resolve(true); });
+    sock.once('error', () => resolve(false));
+  });
+  if (await inUse(port)) {
+    let free = port + 1;
+    while (await inUse(free)) free++;
+    console.error(`Port ${port} is already used by another program, so http://localhost:${port} would open that program, not Little Light.`);
+    console.error(`Port ${free} is free. Start Little Light there instead:`);
+    console.error(`  Windows (cmd):  set PORT=${free}&& npm start`);
+    console.error(`  macOS / Linux:  PORT=${free} npm start`);
+    console.error(`For Studio sign-in, add http://localhost:${free}/studio/ to Supabase's Redirect URLs (docs/studio.md).`);
+    process.exit(1);
+  }
   await serve(port);
   console.log(`Little Light running at http://localhost:${port}`);
 }

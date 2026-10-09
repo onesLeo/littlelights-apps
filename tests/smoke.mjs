@@ -19,11 +19,13 @@ async function openApp(viewport) {
   const context = await browser.newContext({ viewport, acceptDownloads: true });
   // Block external font requests so the test does not depend on the network.
   await context.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  // Tests run in local mode so they never touch the real database.
+  await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(base);
-  await page.waitForSelector('.v-today.on');
+  await page.waitForSelector('#app[data-ready]');
   return { context, page, errors };
 }
 
@@ -56,10 +58,15 @@ async function openApp(viewport) {
   check((await page.$$('#pGrid .p-tile')).length === 2, 'phone: topic filter shows 2 Trust verses');
   await page.click('#pGrid .p-tile');
   check(await page.$eval('#pStory', (s) => s.classList.contains('on')), 'phone: verse opens as a story');
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true });
+    Object.defineProperty(navigator, 'share', { configurable: true, value: () => { window.__shareCalled = true; return Promise.resolve(); } });
+  });
   const dl = page.waitForEvent('download', { timeout: 5000 }).catch(() => null);
   await page.click('#pStory [data-save-verse]');
   const download = await dl;
   check(!!download && download.suggestedFilename().endsWith('.png'), 'phone: Save image downloads a PNG');
+  check(await page.evaluate(() => window.__shareCalled !== true), 'phone: Save image does not open the share sheet');
   await page.keyboard.press('Escape');
 
   await page.goto(base + '#read/brave');
@@ -71,15 +78,25 @@ async function openApp(viewport) {
   await page.click('.p-tab[data-tab="today"]');
   await page.click('.p-rings [data-mode]');
   await page.reload();
-  await page.waitForSelector('.v-today.on');
+  await page.waitForSelector('#app[data-ready]');
   check((await page.$eval('#app', (a) => a.classList.contains('night'))) === !night, 'phone: day/night choice is remembered');
   await page.screenshot({ path: 'test-results/phone-today-toggled.png' });
 
   await page.click('.p-rings [data-calm]');
   check(await page.$eval('#app', (a) => a.classList.contains('calm')), 'phone: calm mode turns on');
 
+  await page.click('.p-tab[data-tab="watch"]');
+  await page.click('.p-reel .save');
+  check(await page.$eval('.p-reel .save', (b) => b.classList.contains('saved')), 'phone: Watch Save marks a reel on this device');
+  check((await page.evaluate(() => localStorage.getItem('ll.savedReels') || '')).includes('true'), 'phone: Watch Save is remembered in local storage');
+  await page.reload();
+  await page.waitForSelector('#app[data-ready]');
+  check(await page.$eval('.p-reel .save', (b) => b.classList.contains('saved')), 'phone: Watch Save stays marked after reload');
+
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   check(!overflow, 'phone: no sideways scrolling');
+  check(await page.evaluate(() => ['.p-orb', '.v-today .p-clouds', '#pOwl'].every((sel) => document.querySelector(sel).closest('#pFeed .p-slide.s1'))),
+    'phone: the sun, clouds and owl stay in the first post');
   check(errors.length === 0, `phone: no script errors ${errors.join(' | ')}`);
   await context.close();
 }
@@ -90,6 +107,8 @@ async function openApp(viewport) {
   const nav = await page.$eval('.p-tabs', (n) => n.getBoundingClientRect().top);
   check(nav < 10, 'computer: menu sits at the top');
   check(await page.$eval('.p-side', (s) => getComputedStyle(s).display !== 'none'), 'computer: side panel is shown');
+  check(await page.$eval('.v-today .p-sky', (k) => !!k.querySelector('.p-orb') && !!k.querySelector('.p-clouds') && !!k.querySelector('#pOwl')),
+    'computer: the sun, clouds and owl fill the page behind the Today feed');
   await page.screenshot({ path: 'test-results/computer-today.png' });
   await page.click('.p-tab[data-tab="verses"]');
   await page.waitForTimeout(150);
@@ -109,6 +128,37 @@ async function openApp(viewport) {
   ]));
   check(sw, 'app: offline service worker is active');
   check(errors.length === 0, `computer: no script errors ${errors.join(' | ')}`);
+  await context.close();
+}
+
+// Layout and motion regressions at the smallest phone and desktop breakpoints.
+for (const viewport of [{ width: 320, height: 568 }, { width: 900, height: 650 }, { width: 1024, height: 768 }]) {
+  const { context, page } = await openApp(viewport);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.waitForTimeout(100);
+  check(await page.$eval('#app', (a) => a.classList.contains('calm')), `${viewport.width}px: system reduced motion enables Calm mode`);
+  await page.evaluate(() => document.querySelector('[data-mode]').click());
+  await page.evaluate(() => document.querySelector('#pOwl').click());
+  check(await page.$eval('#pOwl', (o) => !o.classList.contains('hoot')), `${viewport.width}px: owl responds without hopping in Calm mode`);
+  check(await page.evaluate(() => getComputedStyle(document.querySelector('.p-owl .lid')).animationName === 'none'), `${viewport.width}px: decorative owl motion is stopped`);
+  const fits = await page.evaluate(() => {
+    const nodes = document.querySelectorAll('.v-today .p-btn, .p-tabs .p-tab');
+    return Array.from(nodes).filter((n) => n.getClientRects().length).every((n) => {
+      const r = n.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth;
+    });
+  });
+  check(fits, `${viewport.width}px: visible actions fit the screen`);
+  if (viewport.width >= 900) {
+    check(await page.$eval('#pFeed', (f) => getComputedStyle(f).display === 'grid'), `${viewport.width}px: desktop content uses a card grid`);
+    await page.click('.v-today .s2 [data-sheet]');
+    check(await page.$eval('#pSheetWrap', (a) => a.classList.contains('on')), `${viewport.width}px: desktop devotion card opens its preview`);
+    await page.click('#pSheetWrap [data-read]');
+    await page.waitForSelector('#pArticle.on');
+    check(await page.$eval('#pArticle', (a) => a.classList.contains('on')), `${viewport.width}px: desktop devotion card opens its article`);
+    await page.goto(base);
+    await page.waitForSelector('#app[data-ready]');
+  }
+  await page.screenshot({ path: `test-results/home-${viewport.width}.png` });
   await context.close();
 }
 

@@ -1,10 +1,20 @@
 // Offline support: the app shell is cached on install; fonts are cached the first time they load.
 // Bump VERSION whenever a cached file changes so visitors get the new one.
-const VERSION = 'll-v1';
+const VERSION = 'll-v18';
 const SHELL = [
   './',
   'index.html',
   'css/app.css',
+  'fonts/fonts.css',
+  'fonts/bricolage-normal-400.woff2',
+  'fonts/bricolage-normal-600.woff2',
+  'fonts/bricolage-normal-800.woff2',
+  'fonts/newsreader-normal-400.woff2',
+  'fonts/newsreader-italic-400.woff2',
+  'fonts/newsreader-italic-500.woff2',
+  'js/config.js',
+  'js/store.js',
+  'js/vendor/supabase-2.117.2.js',
   'js/content.js',
   'js/app.js',
   'manifest.webmanifest',
@@ -32,7 +42,7 @@ self.addEventListener('fetch', (event) => {
 
   // Pages: try the network first so new posts appear, fall back to the cached app.
   if (req.mode === 'navigate') {
-    event.respondWith(fetch(req).catch(() => caches.match('index.html')));
+    event.respondWith(fetch(req).catch(() => caches.match(req).then((hit) => hit || caches.match('index.html'))));
     return;
   }
   // Same-site files and Google Fonts: serve from cache, refresh in the background.

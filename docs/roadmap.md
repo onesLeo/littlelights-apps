@@ -1,11 +1,18 @@
 # Roadmap
 
+The step-by-step task list (domain, email, newsletter, launch) is in [backlog.md](backlog.md).
+
+## Done
+- **Studio** for posting (see docs/studio.md), in local mode and ready for Supabase.
+
 ## Next
-1. **Feedback from testers**: share the app with 5–20 parents and church friends; ask which tab they would use most, how often, and what is missing.
-2. **Real media**: record the first audio devotions and short reels; add them through `src` in `js/content.js`.
-3. **Publish**: pick the domain, deploy to GitHub Pages or Cloudflare Pages, connect the domain.
-4. **Newsletter**: connect the sign-up form to an email service (for example MailerLite or Kit) with an adults-only notice.
-5. **Privacy-friendly analytics** on the website only (for example Plausible or Cloudflare Web Analytics): tab use, audio plays, articles read to the end, sign-ups. Never track children.
+1. **Connect Supabase** and publish the Studio for the team.
+2. **Insights** in the Studio: visitors, views, finished, saves and shares per post.
+3. **Feedback from testers**: share the app with 5–20 parents and church friends; ask which tab they would use most, how often, and what is missing.
+4. **Real media**: record the first audio devotions and short reels; add them through `src` in `js/content.js`.
+5. **Publish**: pick the domain, deploy to GitHub Pages or Cloudflare Pages, connect the domain.
+6. **Newsletter**: connect the sign-up form to an email service (for example MailerLite or Kit) with an adults-only notice.
+7. **Privacy-friendly analytics** on the website only (for example Plausible or Cloudflare Web Analytics): tab use, audio plays, articles read to the end, sign-ups. Never track children.
 
 ## Later
 - **One Markdown file per post** instead of `js/content.js`, with a small build step (for example Astro) so posting stays quick.
