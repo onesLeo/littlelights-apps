@@ -1,0 +1,101 @@
+/* Little Light legal site. No external requests.
+   Headings: Bricolage Grotesque 800 (SIL Open Font License), self-hosted and subset to the characters used here
+   (re-run the subset step in README if you add new characters). Body text uses system serif fonts. */
+@font-face { font-family: 'Bricolage Grotesque'; font-style: normal; font-weight: 800; font-display: swap; src: url(/fonts/bricolage-800-subset.woff2) format('woff2'); }
+
+:root {
+  --paper: #fbf3dd;
+  --card: #fffaf0;
+  --ink: #3b2412;
+  --soft: #6b5440;
+  --line: #ead9b4;
+  --courage: #f7c23f;
+  --glow: #fff1b8;
+  --link: #9a4a1c;
+  --trust: #2f6fae;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --serif: Charter, "Bitstream Charter", "Iowan Old Style", Georgia, Cambria, "Times New Roman", serif;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 400 1.0625rem/1.65 var(--serif);
+  background-image: radial-gradient(60rem 26rem at 50% -8rem, var(--glow), transparent 70%);
+  background-repeat: no-repeat;
+}
+a { color: var(--link); text-underline-offset: .18em; }
+a:hover { color: var(--ink); }
+a:focus-visible, summary:focus-visible { outline: 3px solid var(--courage); outline-offset: 2px; border-radius: 4px; }
+.skip { position: absolute; left: -999px; top: .5rem; background: var(--ink); color: var(--paper); padding: .5rem .8rem; border-radius: 8px; z-index: 2; }
+.skip:focus { left: .5rem; }
+
+.top { max-width: 52rem; margin: 0 auto; padding: 1.1rem 1.25rem .4rem; display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1.4rem; justify-content: space-between; }
+.brand { display: inline-flex; align-items: center; gap: .55rem; font: 800 1.2rem/1 var(--display); color: var(--ink); text-decoration: none; letter-spacing: -.01em; }
+.brand img { width: 34px; height: 34px; }
+.nav { display: flex; flex-wrap: wrap; gap: .25rem .4rem; font: 800 .95rem/1 var(--display); }
+.nav a { color: var(--ink); text-decoration: none; padding: .5rem .7rem; border-radius: 999px; }
+.nav a:hover { background: var(--glow); }
+.nav a[aria-current="page"] { background: var(--courage); }
+
+main { max-width: 52rem; margin: 0 auto; padding: .5rem 1.25rem 2rem; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.2; letter-spacing: -.015em; }
+h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); font-weight: 800; margin: 1.2rem 0 .4rem; }
+h2 { font-size: 1.35rem; font-weight: 800; margin: 2.2rem 0 .5rem; padding-top: .2rem; }
+h3 { font-size: 1.08rem; font-weight: 800; margin: 1.4rem 0 .3rem; }
+.lead { font-size: 1.2rem; color: var(--soft); margin-top: 0; font-style: italic; }
+.meta { font: 400 .9rem/1.5 var(--ui); color: var(--soft); }
+ul, ol { padding-left: 1.3rem; }
+li { margin: .25rem 0; }
+li::marker { color: #c28a1a; }
+strong { font-weight: 700; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 1.1rem 1.25rem; margin: 1.2rem 0; box-shadow: 0 1px 0 rgba(59,36,18,.04); }
+.card > :first-child { margin-top: 0; }
+.card > :last-child { margin-bottom: 0; }
+.promise { border-left: 6px solid var(--courage); }
+.grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14.5rem, 1fr)); margin: 1.4rem 0; }
+.tile { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 1rem 1.15rem; text-decoration: none; color: var(--ink); transition: transform .15s ease, box-shadow .15s ease; }
+.tile:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(59,36,18,.08); color: var(--ink); }
+.tile b { display: block; font: 800 1.08rem/1.25 var(--display); margin-bottom: .25rem; }
+.tile span { color: var(--soft); font-size: .98rem; }
+
+.toc { font: 400 .95rem/1.5 var(--ui); }
+.toc ol { margin: .3rem 0 0; columns: 2 15rem; column-gap: 2rem; }
+.toc li { break-inside: avoid; }
+
+table { width: 100%; border-collapse: collapse; font: 400 .95rem/1.45 var(--ui); margin: 1rem 0; }
+th, td { text-align: left; vertical-align: top; padding: .6rem .55rem; border-bottom: 1px solid var(--line); }
+th { font-weight: 700; background: var(--glow); }
+.table-wrap { overflow-x: auto; }
+
+details { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: .2rem 1rem; margin: .6rem 0; }
+summary { cursor: pointer; font: 600 1rem/1.4 var(--ui); padding: .65rem 0; }
+details[open] summary { border-bottom: 1px solid var(--line); margin-bottom: .5rem; }
+
+/* Visible placeholders that still need Taman's confirmation */
+.ph { background: #ffe08a; color: var(--ink); padding: 0 .25em; border-radius: 4px; font-family: var(--ui); font-size: .9em; font-weight: 600; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+
+.email { font: 600 1.05rem/1.4 var(--ui); word-break: break-word; }
+
+footer { max-width: 52rem; margin: 0 auto; padding: 1.4rem 1.25rem 2.4rem; border-top: 1px solid var(--line); font: 400 .9rem/1.6 var(--ui); color: var(--soft); }
+footer nav { display: flex; flex-wrap: wrap; gap: .3rem 1rem; margin-bottom: .6rem; }
+footer nav a { color: var(--soft); }
+.draft { display: inline-block; margin-top: .5rem; padding: .2rem .6rem; border: 1px dashed #c9a24a; border-radius: 999px; font-size: .82rem; color: var(--soft); background: rgba(255,241,184,.5); }
+
+@media (max-width: 520px) {
+  body { font-size: 1.02rem; }
+  .top { padding-top: .8rem; }
+  .nav a { padding: .45rem .55rem; }
+}
+@media (prefers-reduced-motion: reduce) { .tile { transition: none; } .tile:hover { transform: none; } }
+@media print {
+  body { background: #fff; }
+  .nav, .skip, .draft { display: none; }
+  a { color: inherit; }
+}
+h2.first { margin-top: 0; }
+caption { text-align: left; font: 600 .95rem/1.4 var(--ui); padding: .4rem 0; caption-side: top; }
+code { font-size: .88em; background: rgba(247,194,63,.18); padding: .05em .3em; border-radius: 4px; }
