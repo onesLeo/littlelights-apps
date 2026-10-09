@@ -19,6 +19,7 @@ h3, h4, h5 { margin: 0; text-wrap: balance; }
 p { margin: 0; }
 a { color: inherit; }
 img, svg { max-width: 100%; }
+[hidden] { display: none !important; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .p-noscript { padding: 24px; }
 @keyframes breathe { 0%,100% { transform: scale(.9); opacity: .8; } 50% { transform: scale(1.08); opacity: 1; } }
@@ -37,7 +38,7 @@ img, svg { max-width: 100%; }
 @keyframes p-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* bottom tabs */
-.p-tabs { position: absolute; left: 0; right: 0; bottom: 0; height: var(--navh); display: grid; grid-template-columns: repeat(6, 1fr); background: #0f0d20; border-top: 1px solid #262145; z-index: 12; padding-bottom: 4px; }
+.p-tabs { position: absolute; left: 0; right: 0; bottom: 0; height: var(--navh); display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); background: #0f0d20; border-top: 1px solid #262145; z-index: 12; padding-bottom: 4px; }
 .p-tab { background: none; border: 0; color: #8b84a8; font-size: 10px; font-weight: 600; display: grid; justify-items: center; align-content: center; gap: 4px; cursor: pointer; position: relative; }
 .p-tab svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .p-tab.on { color: var(--tc); }
@@ -248,7 +249,8 @@ img, svg { max-width: 100%; }
 .p-stop .st { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; background: #dff0e3; color: #1f5a31; }
 .p-stop .st.wip { background: #f1e6c8; color: #7a5a2a; }
 .p-stores { display: flex; gap: 8px; padding: 4px 14px 24px; }
-.p-stores div { flex: 1; border: 2px dashed #d8c69a; border-radius: 12px; padding: 10px; font-size: 11px; font-weight: 700; text-align: center; color: #7a5a2a; }
+.p-stores > * { flex: 1; border: 2px dashed #d8c69a; border-radius: 12px; padding: 12px 10px; font-size: 12px; font-weight: 700; text-align: center; color: #7a5a2a; }
+.p-stores a { border-style: solid; text-decoration: none; min-height: 44px; display: grid; place-items: center; }
 
 /* toast */
 .p-toast { position: absolute; top: 18px; left: 50%; translate: -50% -140%; z-index: 40; background: #fff; color: #1a1330; font-size: 12px; font-weight: 700; padding: 9px 14px; border-radius: 999px; box-shadow: 0 8px 24px rgba(0,0,0,.3); transition: translate .3s ease; max-width: 88%; text-align: center; }
@@ -307,7 +309,7 @@ img, svg { max-width: 100%; }
 @keyframes tapr { 0% { transform: scale(.3); opacity: var(--a); } 100% { transform: scale(var(--s)); opacity: 0; } }
 @keyframes tapglow { 0% { transform: scale(.6); opacity: .22; } 100% { transform: scale(2.2); opacity: 0; } }
 
-.p-mode { width: 36px; height: 36px; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; background: rgba(255,255,255,.18); color: inherit; flex: none; }
+.p-mode { width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; background: rgba(255,255,255,.18); color: inherit; flex: none; }
 .p-mode svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .p-rings .p-mode { margin-left: auto; align-self: start; margin-top: 2px; color: #fff; background: rgba(0,0,0,.25); }
 .p-headr { display: flex; align-items: center; gap: 10px; }
@@ -347,7 +349,7 @@ img, svg { max-width: 100%; }
 .p-app.night .p-stop { background: #1a2920; }
 .p-app.night .p-stop .n { color: #121d17; }
 .p-app.night .p-cta { background: #e3f1e6; color: #121d17; }
-.p-app.night .p-stores div { border-color: #33503f; color: #a8c8b2; }
+.p-app.night .p-stores > * { border-color: #33503f; color: #a8c8b2; }
 .p-app.night .v-play .p-sec, .p-app.night .v-play .p-kicker { color: #8fcf9f !important; }
 .p-app.night .p-gamehero { background: #1b3a28; }
 
@@ -469,10 +471,6 @@ img, svg { max-width: 100%; }
 .sc-verse { background: radial-gradient(120% 90% at 85% 10%, #ffe089, #f7c23f 55%, #e0a820); color: #3b2412; }
 .sc-verse .verse { font-family: var(--serif); font-style: italic; font-size: 21px; line-height: 1.3; }
 .sc-verse .ref { font-size: 11px; font-weight: 700; letter-spacing: .1em; opacity: .7; }
-.sc-news { background: #1d1938; border: 1px solid var(--line); color: var(--text); }
-.sc-news input { width: 100%; border-radius: 12px; border: 1px solid #3b3566; background: #0f0d20; color: var(--text); padding: 11px 12px; font: 15px var(--display); }
-.sc-news input:focus-visible { outline: 2px solid var(--courage); outline-offset: 1px; }
-.sc-news .p-btn { justify-self: start; background: var(--courage); color: #3b2412; }
 .sc-game { background: linear-gradient(160deg, #9ad8aa, #69ba7e 60%, #3f8a55); color: #0f2a17; }
 .sc-game .p-btn, .sc-verse .p-btn:not(.ghost) { justify-self: start; }
 .p-app.night .sc-verse { background: radial-gradient(120% 90% at 85% 10%, #25306a, #111a44 55%, #070b22); color: #f3e9c6; }
@@ -484,9 +482,9 @@ img, svg { max-width: 100%; }
   .p-app { --navh: 68px; }
   .p-app.has-mini { --minih: 78px; }
   .p-tabs { top: 0; bottom: auto; height: var(--navh); display: flex; align-items: center; gap: 4px; padding: 0 22px; border-top: 0; border-bottom: 1px solid #262145; }
-  .p-brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 18px; text-decoration: none; margin-right: 20px; }
+  .p-brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 18px; text-decoration: none; margin-right: 20px; min-height: 44px; }
   .p-brand i { width: 12px; height: 12px; border-radius: 50%; background: #fff3c4; box-shadow: 0 0 12px 4px rgba(255,230,140,.7); }
-  .p-tab { display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 9px 14px; border-radius: 999px; }
+  .p-tab { display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 9px 14px; min-height: 44px; border-radius: 999px; }
   .p-tab svg { width: 18px; height: 18px; }
   .p-tab:hover { color: #d9d3ef; }
   .p-tab.on { background: rgba(255,255,255,.07); }
@@ -632,8 +630,8 @@ img, svg { max-width: 100%; }
 }
 
 /* ---------- Small-phone fit for the top row, sticky topic chips under the header ---------- */
-.p-rings { gap: 10px; padding-inline: 12px; }
-.p-rings .p-mode { width: 34px; height: 34px; }
+.p-rings { gap: 8px; padding-inline: 10px; }
+.p-rings .p-mode { width: 44px; height: 44px; margin-top: 0; }
 .p-rings .p-mode + .p-mode { margin-left: 0; }
 .p-chips { top: calc(66px + env(safe-area-inset-top, 0px)); }
 @media (min-width: 900px) { .p-chips { top: 70px; } }
@@ -645,7 +643,7 @@ img, svg { max-width: 100%; }
 @media (max-width: 359px) {
   .p-rings { gap: 8px; padding-inline: 8px; }
   .p-ring i { width: 34px; height: 34px; }
-  .p-rings .p-mode { width: 30px; height: 30px; }
+  .p-rings { gap: 6px; }
 }
 @media (max-width: 899px) and (max-height: 650px) {
   .v-today .p-slide.s1 { padding-top: 120px; padding-bottom: 76px; gap: 8px; }
@@ -669,3 +667,37 @@ img, svg { max-width: 100%; }
 .p-newscard .p-btn { justify-self: start; }
 .p-app.night .p-newscard { background: #1a2920; }
 .p-txt .meta { margin: 0; }
+
+/* ---------- Empty Watch / Listen (shown only if someone opens the address directly) ---------- */
+.p-empty { min-height: 100%; display: grid; align-content: center; justify-items: center; gap: 10px; padding: 40px 28px; text-align: center; color: #f4efe2;
+  background: radial-gradient(120% 70% at 50% 25%, #3b2c6b 0%, #17122e 70%); }
+.p-empty b { font-size: 22px; line-height: 1.15; font-weight: 800; text-wrap: balance; }
+.p-empty span { font-size: 14px; line-height: 1.5; opacity: .85; max-width: 32ch; }
+.p-empty .p-btn { margin-top: 6px; background: #fff6d1; color: #1a1330; text-decoration: none; }
+.p-empty.light { min-height: 0; margin: 8px 14px 20px; border-radius: 22px; }
+.v-watch .p-empty { height: 100%; }
+
+/* ---------- Legal and support links ---------- */
+.p-legal { font-size: 12px; line-height: 1.4; }
+.p-legal nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 2px; }
+.p-legal a { color: inherit; opacity: .78; text-decoration: none; padding: 12px 8px; min-height: 44px; display: inline-flex; align-items: center; }
+.p-legal a:hover { opacity: 1; text-decoration: underline; text-underline-offset: 3px; }
+/* Phone: a small band after the last post of the Today feed */
+.p-legal.in-feed { scroll-snap-align: end; padding: 14px 12px calc(14px + env(safe-area-inset-bottom, 0px)); background: #0f0d20; color: #cfc8e6; }
+/* Play page: under the store tiles */
+.p-legal.in-play { padding: 0 10px 18px; color: #7a5a2a; }
+.p-app.night .p-legal.in-play { color: #a8c8b2; }
+/* Computer: under the cards in the side panel */
+.p-legal.in-side { display: none; }
+@media (min-width: 900px) {
+  .p-legal.in-feed { display: none; }
+  .p-legal.in-side { display: block; padding: 0 4px; color: #26384b; }
+  .p-legal.in-side nav { justify-content: flex-start; }
+  .p-legal.in-side a { padding: 10px 8px 10px 0; margin-right: 6px; }
+  .p-app.night .p-legal.in-side { color: #cfd6f2; }
+}
+/* Computer: while the built-in reel and audio posts are hidden (no video or recording yet), the
+   devotion card takes the whole row instead of sitting alone in a third of it (js/app.js adds .wide). */
+@media (min-width: 900px) {
+  .v-today .p-slide.s2.wide { grid-column: 1 / -1; min-height: 190px; }
+}

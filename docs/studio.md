@@ -27,8 +27,10 @@ Local mode is for trying the Studio and for development. Use Supabase mode befor
    ```sql
    insert into public.team_members (email, role) values ('you@example.com', 'owner');
    ```
+   Then create your own sign-in: *Authentication → Users → Add user → Send invitation* (or *Create new user* with *Auto Confirm User* ticked). The Studio never creates accounts by itself (see "Adding someone to the team").
 4. **Turn on sign-in.** *Authentication → Sign In / Providers*:
    - **Email** is on by default (one-time links).
+   - Turn **off** *Allow new users to sign up*. The Studio's email link already refuses unknown emails; this also stops "Continue with Google" from creating accounts for strangers. Invited users can still sign in.
    - **Google** (optional): follow Supabase’s Google guide to create a Google OAuth client, then paste its ID and secret here.
 5. **Allow the Studio address.** *Authentication → URL Configuration*: set **Site URL** to where the app is published, and add `https://your-domain/studio/` (and `http://localhost:8080/studio/` for local testing) to **Redirect URLs**.
 6. **Connect the app.** *Project Settings → API*: copy the **Project URL** and the **anon public** key into `js/config.js`:
@@ -47,11 +49,24 @@ The Studio is connected to the Supabase project **svlvlmyugyadmehjwudm** (region
 
 The Supabase client library is bundled in `js/vendor/` (MIT licence), so the Studio does not load code from a CDN.
 
+## Adding someone to the team
+
+Nobody can create a Studio account by themself: the email link is only sent to people who already have one (`shouldCreateUser: false` in `js/store.js`), and anyone else sees "This email isn’t on the Little Light team". So adding a person takes two steps:
+
+1. In the Studio, **Team → Add to team** with their email and role. This decides what they may do.
+2. In Supabase, **Authentication → Users → Add user → Send invitation** with the same email. This creates their sign-in. (Supabase's invitation email opens the main site; after that they open `/studio/` and are signed in, or sign in with the email link.)
+
+To remove someone, press **Remove** in the Studio (they lose access at once), then delete their user under *Authentication → Users*.
+
+## Visitors can't see who wrote a post
+
+The app asks the database only for the columns it shows (never `author_email`), and the migration `supabase/migrations/20261009120000_hide_author_email.sql` takes away the anonymous key's right to read that column at all, so it can't be read with a direct API call either. Team members still see it. Run that file once in the SQL Editor after the app update that contains it is live.
+
 ## How the security works
 
 The rules live in the database (`supabase/schema.sql`), so they hold even if someone calls the database directly instead of using the Studio:
 
-- Anyone can read posts that are **published, or scheduled and due**. Drafts and future posts are never sent to visitors.
+- Anyone can read posts that are **published, or scheduled and due**. Drafts and future posts are never sent to visitors, and visitors can't read who wrote a post (`author_email`).
 - Only people in `team_members` can read drafts or upload files.
 - Owners and editors can publish and delete. Contributors can only create and edit their **own drafts**.
 - Only owners can add or remove team members, and an owner cannot remove themself.

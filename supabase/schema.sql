@@ -54,6 +54,13 @@ create index if not exists posts_live_idx on public.posts (status, publish_at de
 alter table public.posts enable row level security;
 alter table public.team_members enable row level security;
 
+-- Visitors (anon) may read every column except author_email; team members (authenticated) read all.
+-- (Same as supabase/migrations/20261009120000_hide_author_email.sql.)
+revoke select on table public.posts from anon;
+grant select (id, type, status, publish_at, title, slug, show_on_today, fields, media_url, created_at, updated_at)
+  on table public.posts to anon;
+grant select on table public.posts to authenticated;
+
 -- Everyone (no login) can read posts that are live: published or scheduled, and due.
 drop policy if exists "Live posts are public" on public.posts;
 create policy "Live posts are public" on public.posts for select

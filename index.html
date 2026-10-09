@@ -3,16 +3,29 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Little Light</title>
-  <meta name="description" content="Encouragement for families: Bible verses, short devotions, audio prayers, reels and the Little Light Bible game.">
+  <title>Little Light · Bible verses, devotions and stories for families</title>
+  <meta name="description" content="Gentle Bible verses, short devotions, prayers and stories for families with young children, plus Little Light: Bible Journeys, a calm Bible game for ages 5–8.">
+  <link rel="canonical" href="https://littlesaltandlight.com/">
   <meta name="theme-color" content="#0f0d20">
   <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="favicon.ico" sizes="32x32">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta property="og:title" content="Little Light">
-  <meta property="og:description" content="Encouragement for families: verses, devotions, audio, reels and a gentle Bible game.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Little Light">
+  <meta property="og:title" content="Little Light · Bible verses, devotions and stories for families">
+  <meta property="og:description" content="Gentle Bible verses, short devotions, prayers and stories for families with young children.">
+  <meta property="og:url" content="https://littlesaltandlight.com/">
+  <meta property="og:image" content="https://littlesaltandlight.com/icons/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Little Light: a glowing light over a night sky, with the words Bible verses, devotions and stories for families.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Little Light · Bible verses, devotions and stories for families">
+  <meta name="twitter:description" content="Gentle Bible verses, short devotions, prayers and stories for families with young children.">
+  <meta name="twitter:image" content="https://littlesaltandlight.com/icons/og-image.png">
   <link rel="preload" href="fonts/newsreader-italic-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="fonts/fonts.css">
   <link rel="stylesheet" href="css/app.css">
@@ -78,7 +91,7 @@
         <p>David wasn’t calm in the valley. God was with him. That was enough.</p>
         <div class="p-btns"><button class="p-btn" type="button" data-sheet="0">Read ↑</button><button class="p-btn ghost" type="button" data-ep="0">▶ Listen</button></div>
       </article>
-      <article class="p-slide s3" data-c="#fff" data-cn="#ffc9b8">
+      <article class="p-slide s3" data-c="#fff" data-cn="#ffc9b8" data-needs-media>
         <svg viewBox="0 0 300 260" style="position:absolute;left:0;top:90px;width:100%" aria-hidden="true">
           <circle cx="110" cy="130" r="26" fill="#2b0d05" opacity=".85"/><rect x="84" y="160" width="52" height="80" rx="20" fill="#2b0d05" opacity=".85"/>
           <circle cx="200" cy="130" r="26" fill="#fff" opacity=".9"/><rect x="174" y="160" width="52" height="80" rx="20" fill="#fff" opacity=".9"/>
@@ -88,7 +101,7 @@
         <div class="big">Why Jonathan gave David his robe.</div>
         <div class="p-btns"><button class="p-btn" type="button" data-reel="0">▶ Watch</button></div>
       </article>
-      <article class="p-slide s4" data-c="#fff" data-cn="#d9c8f7">
+      <article class="p-slide s4" data-c="#fff" data-cn="#d9c8f7" data-needs-media>
         <div class="p-wave" aria-hidden="true"><i style="animation-delay:-.1s"></i><i style="animation-delay:-.5s"></i><i style="animation-delay:-.2s"></i><i style="animation-delay:-.8s"></i><i style="animation-delay:-.3s"></i><i style="animation-delay:-.6s"></i><i style="animation-delay:-.9s"></i><i style="animation-delay:-.4s"></i><i style="animation-delay:-.7s"></i><i style="animation-delay:0s"></i><i style="animation-delay:-.55s"></i><i style="animation-delay:-.25s"></i></div>
         <div class="p-kicker">Audio · 1:30</div>
         <div class="big">Bedtime prayer: stay close tonight.</div>
@@ -114,6 +127,16 @@
         <p>A gentle Bible adventure for ages 5–8. No ads. Read aloud.</p>
         <div class="p-btns"><button class="p-btn" type="button" data-go="play">See the game</button></div>
       </article>
+      <footer class="p-legal in-feed">
+        <nav aria-label="Legal and support">
+          <a href="https://legal.littlesaltandlight.com/privacy/web/">Website privacy</a>
+          <a href="https://legal.littlesaltandlight.com/privacy/">Game privacy</a>
+          <a href="https://legal.littlesaltandlight.com/parents/">For parents</a>
+          <a href="https://legal.littlesaltandlight.com/terms/">Terms</a>
+          <a href="https://legal.littlesaltandlight.com/support/">Support</a>
+          <a href="mailto:support@littlesaltandlight.com">Contact us</a>
+        </nav>
+      </footer>
     </div>
     </div>
     <aside class="p-side" aria-label="This week">
@@ -123,39 +146,43 @@
         <div class="verse">“What helps you feel brave when something is hard?”</div>
         <span>Take turns sharing. Then thank God for being with you, and choose one small brave step for tomorrow.</span>
       </div>
-      <form class="p-sidecard sc-news" id="pNews">
-        <div class="p-kicker">Weekly encouragement</div>
-        <b>One verse, one devotion and one family idea, every Monday.</b>
-        <label class="sr" for="pNewsEmail">Email address</label>
-        <input id="pNewsEmail" type="email" required placeholder="you@example.com" autocomplete="email">
-        <button class="p-btn" type="submit">Join the list</button>
-        <small>For grown-ups. Sign-up is coming soon.</small>
-      </form>
       <div class="p-sidecard sc-game">
         <div class="p-kicker">The game</div>
         <b>Little Light: Bible Journeys</b>
         <span>Five gentle Bible stories to play and hear. Ages 5–8.</span>
         <button class="p-btn" type="button" data-go="play">See the game</button>
       </div>
+      <footer class="p-legal in-side">
+        <nav aria-label="Legal and support">
+          <a href="https://legal.littlesaltandlight.com/privacy/web/">Website privacy</a>
+          <a href="https://legal.littlesaltandlight.com/privacy/">Game privacy</a>
+          <a href="https://legal.littlesaltandlight.com/parents/">For parents</a>
+          <a href="https://legal.littlesaltandlight.com/terms/">Terms</a>
+          <a href="https://legal.littlesaltandlight.com/support/">Support</a>
+          <a href="mailto:support@littlesaltandlight.com">Contact us</a>
+        </nav>
+      </footer>
     </aside>
   </section>
 
   <!-- WATCH -->
   <section class="p-view v-watch" data-view="watch" aria-label="Watch">
     <div class="p-feed" id="pReels"></div>
+    <div class="p-empty" id="pReelsEmpty" hidden><b>Short videos are on their way.</b><span>New reels will appear here as soon as they are ready.</span><a class="p-btn" href="#today">Back to Today</a></div>
   </section>
 
   <!-- LISTEN -->
   <section class="p-view v-listen" data-view="listen" aria-label="Listen">
     <div class="p-head"><h3>Listen</h3><div class="p-headr"><div class="p-logo"><i></i>Little Light</div><button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button></div></div>
-    <div class="p-now">
+    <div class="p-now" id="pNow">
       <div class="p-kicker">This week · Courage</div>
       <b>You don’t have to feel brave to be brave</b>
       <span style="font-size:13px">The devotion, read aloud. 3 min.</span>
       <button class="p-btn" type="button" data-ep="0">▶ Play</button>
     </div>
-    <div class="p-sec">All episodes</div>
+    <div class="p-sec" id="pEpsHead">All episodes</div>
     <div class="p-list" id="pEps"></div>
+    <div class="p-empty light" id="pEpsEmpty" hidden><b>Recordings are on their way.</b><span>Read-aloud devotions and bedtime prayers will appear here as soon as they are ready.</span><a class="p-btn" href="#read">Read the devotions</a></div>
   </section>
 
   <!-- READ -->
@@ -190,7 +217,7 @@
       <div class="p-kicker" style="color:#3f8a55">Little Light: Bible Journeys</div>
       <h4>Five gentle Bible stories to play and hear.</h4>
       <p>Explore, find three Wonder Items, meet the Bible character, and hear the verse read aloud. Nothing to fail, nothing to buy inside.</p>
-      <button class="p-cta" type="button" data-preview>Play the free preview</button>
+      <button class="p-cta" type="button" data-preview hidden>Play the free preview</button>
     </div>
     <div class="p-gamenews" id="pGameNews"></div>
     <div class="p-trust">
@@ -198,7 +225,17 @@
     </div>
     <div class="p-sec" style="color:#7a5a2a">The five journeys</div>
     <div class="p-map" id="pMap"></div>
-    <div class="p-stores"><div>App Store<br>coming soon</div><div>Google Play<br>coming soon</div></div>
+    <div class="p-stores" id="pStores"><div>Coming soon to Google Play</div></div>
+    <footer class="p-legal in-play">
+      <nav aria-label="Legal and support">
+        <a href="https://legal.littlesaltandlight.com/privacy/web/">Website privacy</a>
+        <a href="https://legal.littlesaltandlight.com/privacy/">Game privacy</a>
+        <a href="https://legal.littlesaltandlight.com/parents/">For parents</a>
+        <a href="https://legal.littlesaltandlight.com/terms/">Terms</a>
+        <a href="https://legal.littlesaltandlight.com/support/">Support</a>
+        <a href="mailto:support@littlesaltandlight.com">Contact us</a>
+      </nav>
+    </footer>
   </section>
 
   <!-- mini player -->

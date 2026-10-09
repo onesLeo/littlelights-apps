@@ -13,6 +13,10 @@
   var remote = !!(cfg.supabaseUrl && cfg.supabaseAnonKey);
   // Bundled copy of supabase-js (MIT), so the Studio does not depend on a CDN.
   var SUPABASE_JS = (document.currentScript && document.currentScript.src ? new URL('vendor/supabase-2.117.2.js', document.currentScript.src).href : 'js/vendor/supabase-2.117.2.js');
+  // What visitors' copies of the app read from `posts`. Deliberately not '*': author_email stays private
+  // (supabase/migrations/20261009120000_hide_author_email.sql stops anonymous visitors reading it at all).
+  var PUBLIC_COLUMNS = 'id,type,status,publish_at,title,slug,show_on_today,fields,media_url,created_at,updated_at';
+  var NOT_ON_TEAM = 'This email isn’t on the Little Light team. If you should have access, ask the owner to add you.';
   var POSTS_KEY = 'll.posts.v1', SESSION_KEY = 'll.studio.session', TEAM_KEY = 'll.studio.team', HISTORY_KEY = 'll.history.v1';
 
   function nowIso() { return new Date().toISOString(); }
@@ -78,7 +82,7 @@
     signInWithEmail: function (email) {
       var team = local._team();
       if (team.length && !team.some(function (m) { return m.email === email.toLowerCase(); })) {
-        return Promise.reject(new Error('This email isn’t on the Little Light team.'));
+        return Promise.reject(new Error(NOT_ON_TEAM));
       }
       if (!team.length) writeJSON(TEAM_KEY, [{ email: email.toLowerCase(), role: 'owner', invited_at: nowIso() }]);
       var s = { email: email.toLowerCase(), role: local._roleOf(email) };
@@ -180,6 +184,9 @@
     msg = String(msg || '');
     if (/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) return 'Could not reach the database. Check your internet connection and try again.';
     if (/rate limit|too many/i.test(msg)) return 'Too many sign-in emails were sent just now. Please wait a few minutes and try again.';
+    // Sign-ups are closed (shouldCreateUser: false, or "Allow new users to sign up" off in Supabase),
+    // so an email without a Studio account gets one of these.
+    if (/signups? not allowed|signup.*disabled|otp_disabled|user not found/i.test(msg)) return NOT_ON_TEAM;
     return msg;
   }
   function must(res) { if (res.error) throw new Error(friendly(res.error.message)); return res.data; }
@@ -194,7 +201,7 @@
         var email = s.user.email.toLowerCase();
         return client.from('team_members').select('role').eq('email', email).maybeSingle().then(function (r) {
           if (r.error || !r.data) {
-            return client.auth.signOut().then(function () { throw new Error('This email isn’t on the Little Light team.'); });
+            return client.auth.signOut().then(function () { throw new Error(NOT_ON_TEAM); });
           }
           return { email: email, role: r.data.role };
         });
@@ -202,7 +209,9 @@
     },
     signInWithEmail: function (email) {
       return loadClient().then(function (c) {
-        return c.auth.signInWithOtp({ email: email, options: { emailRedirectTo: redirectTo(), shouldCreateUser: true } });
+        // Only existing Studio accounts get a link: nobody can sign themself up. Team members are
+        // created by the owner in Supabase (docs/studio.md, "Adding someone to the team").
+        return c.auth.signInWithOtp({ email: email, options: { emailRedirectTo: redirectTo(), shouldCreateUser: false } });
       }).then(function (res) { must(res); return { signedIn: false }; });
     },
     signInWithGoogle: function () {
@@ -248,7 +257,7 @@
     removeMember: function (email) { return loadClient().then(function (c) { return c.from('team_members').delete().eq('email', email); }).then(must); },
     publishedPosts: function () {
       return loadClient().then(function (c) {
-        return c.from('posts').select('*').in('status', ['published', 'scheduled']).lte('publish_at', nowIso()).order('publish_at', { ascending: false });
+        return c.from('posts').select(PUBLIC_COLUMNS).in('status', ['published', 'scheduled']).lte('publish_at', nowIso()).order('publish_at', { ascending: false });
       }).then(must);
     }
   };

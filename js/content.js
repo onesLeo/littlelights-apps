@@ -45,7 +45,8 @@ window.LL_CONTENT = {
     }
   ],
 
-  // `src` is empty until real recordings exist; the player then runs in demo mode.
+  // `src` is empty until real recordings exist. Episodes without a `src` are hidden in the app,
+  // and appear automatically once a recording is added.
   episodes: [
     { title: 'You don’t have to feel brave to be brave', meta: 'Devotion', dur: 190, color: '#ee8fb2', devotion: 0, src: '' },
     { title: 'God sees the heart', meta: 'Devotion', dur: 160, color: '#f6c9d8', devotion: 1, src: '' },
@@ -54,7 +55,8 @@ window.LL_CONTENT = {
     { title: 'Story time: David and Jonathan', meta: 'Bible story for kids', dur: 380, color: '#e46a4c', src: '' }
   ],
 
-  // `src` is empty until real videos exist; the reel then shows an animated placeholder.
+  // `src` is empty until real videos exist. Reels without a `src` (or a YouTube link from the
+  // Studio) are hidden in the app, and appear automatically once a video is added.
   reels: [
     { title: 'Why Jonathan gave David his robe', len: '0:48', bg: '#e46a4c', kind: 'robe', src: '',
       caption: 'Jonathan was the king’s son. He gave David his own robe, sword and belt as a promise of friendship (1 Samuel 18:1–4). Real friends make room for each other.' },
@@ -86,6 +88,10 @@ window.LL_CONTENT = {
     { n: 5, name: 'Jonah and the Great Fish', virtue: 'Mercy', color: '#a07fd6', status: '' }
   ],
 
-  // Set this when the Godot browser build is published.
-  gamePreviewUrl: ''
+  // Set this when the Godot browser build is published. While empty, the preview button is hidden.
+  gamePreviewUrl: '',
+
+  // Store pages for the game. While a link is empty: App Store is hidden, Google Play says
+  // "Coming soon to Google Play" without a link.
+  stores: { appStore: '', googlePlay: '' }
 };

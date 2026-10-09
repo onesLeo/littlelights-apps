@@ -21,6 +21,12 @@ const existing = { id: 7, type: 'verse', status: 'published', publish_at: '2026-
 const calls = [];
 await context.route('https://fake-project.supabase.co/**', (r) => {
   const req = r.request(), url = new URL(req.url());
+  if (url.pathname === '/auth/v1/otp') {
+    calls.push({ method: 'OTP', body: JSON.parse(req.postData()) });
+    // What Supabase answers when sign-ups are closed and the email has no account.
+    return r.fulfill({ status: 422, contentType: 'application/json', body: JSON.stringify({ code: 422, error_code: 'otp_disabled', msg: 'Signups not allowed for otp' }) });
+  }
+  if (req.method() === 'GET') calls.push({ method: 'GET', query: url.search });
   if (req.method() === 'GET') return r.fulfill({ contentType: 'application/json', body: JSON.stringify([existing]) });
   const body = req.postData() ? JSON.parse(req.postData()) : null;
   calls.push({ method: req.method(), query: url.search, body });
@@ -53,6 +59,18 @@ check(!!post && post.body.slug === 'psalm-4-8-2', 'create: a second post with th
 await page.evaluate(() => window.LLStore.deletePost(7));
 const del = calls.find((c) => c.method === 'DELETE');
 check(!!del && del.query.includes('id=eq.7'), 'delete: only that post is removed');
+
+// What visitors' copies of the app ask for: never author_email.
+await page.evaluate(() => window.LLStore.publishedPosts());
+const live = calls.filter((c) => c.method === 'GET').pop();
+const cols = new URLSearchParams(live ? live.query : '').get('select') || '';
+check(cols !== '*' && !cols.includes('author_email') && cols.includes('fields'), `public read: asks for named columns without author_email (${cols})`);
+
+// Sign-in links only go to people who already have a Studio account.
+const signin = await page.evaluate(() => window.LLStore.signInWithEmail('stranger@example.org').then(() => 'sent', (e) => e.message));
+const otp = calls.find((c) => c.method === 'OTP');
+check(!!otp && otp.body.create_user === false, 'sign-in: the email link never creates a new account');
+check(signin.includes('isn’t on the Little Light team'), `sign-in: an email without an account gets a friendly message (${signin})`);
 
 await browser.close();
 server.close();

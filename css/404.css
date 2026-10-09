@@ -1,0 +1,20 @@
+/* "Page not found" (404.html). Same colours and type as the app. */
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body { min-height: 100vh; display: flex; flex-direction: column; color: #f4efe2; font: 16px/1.5 "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  background: radial-gradient(120% 80% at 70% 15%, #2a2358 0%, #17122e 55%, #0f0d20 100%); }
+.nf { flex: 1; width: min(560px, 100%); margin: 0 auto; padding: 72px 24px 32px; display: grid; align-content: center; justify-items: start; gap: 16px; }
+.nf-light { width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 8px;
+  background: radial-gradient(circle, #fffbe8 0%, #ffe08a 35%, rgba(247,194,63,.35) 70%, rgba(247,194,63,0) 100%); }
+.nf-light i { width: 30px; height: 30px; border-radius: 50%; background: #fffbe8; box-shadow: 0 0 24px 8px rgba(255,230,140,.7); }
+.nf-kicker { margin: 0; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; font-weight: 700; color: #ffe08a; }
+h1 { margin: 0; font-size: clamp(30px, 7vw, 42px); line-height: 1.05; font-weight: 800; letter-spacing: -.01em; }
+.nf-verse { margin: 0; font-family: "Newsreader", Georgia, serif; font-style: italic; font-size: 20px; line-height: 1.35; color: #e9e2f7; }
+.nf-verse span { display: block; margin-top: 6px; font: 700 11px/1.4 "Bricolage Grotesque", system-ui, sans-serif; font-style: normal; letter-spacing: .1em; text-transform: uppercase; opacity: .7; }
+.nf-btn { margin-top: 8px; display: inline-flex; align-items: center; min-height: 44px; padding: 10px 18px; border-radius: 999px; background: #fff6d1; color: #1a1330; font-weight: 700; font-size: 14px; text-decoration: none; }
+.nf-btn:hover { opacity: .9; }
+:is(a):focus-visible { outline: 3px solid #fff8e9; outline-offset: 3px; }
+.nf-legal { padding: 8px 12px calc(16px + env(safe-area-inset-bottom, 0px)); font-size: 12px; color: #cfc8e6; }
+.nf-legal nav { display: flex; flex-wrap: wrap; justify-content: center; }
+.nf-legal a { color: inherit; opacity: .78; text-decoration: none; padding: 12px 8px; min-height: 44px; display: inline-flex; align-items: center; }
+.nf-legal a:hover { opacity: 1; text-decoration: underline; }

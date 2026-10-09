@@ -20,10 +20,10 @@ Requires Node.js 18 or newer.
 ```bash
 npm install      # installs Playwright for the tests and icon rendering
 npm start        # http://localhost:8080
-npm test         # app, Studio and offline tests; screenshots in test-results/
+npm test         # app, Studio, offline, security-header and build tests; screenshots in test-results/
 ```
 
-There is no build step. Open `index.html` through the local server (the offline service worker does not run from `file://`).
+There is no build step. Open `index.html` through the local server (the offline service worker does not run from `file://`). `npm start` sends the same security headers as the live site (from `_headers`), so a Content-Security-Policy problem shows up locally too; `HEADERS=0 npm start` turns them off.
 
 ## Project layout
 
@@ -35,10 +35,14 @@ js/config.js            Supabase connection (empty = local mode)
 js/store.js             data layer shared by the app and the Studio
 studio/                 the Studio (sign in, posts, editor, media, team)
 supabase/schema.sql     database tables, security rules and file storage
+supabase/migrations/    changes to run on the live database after schema.sql (SQL Editor)
 js/app.js               tabs, feed, player, verse images, sharing, install, offline
 sw.js                   offline cache (bump VERSION when a cached file changes)
 manifest.webmanifest    app name, colours and icons for installing
-icons/                  SVG sources and rendered PNG icons (npm run icons)
+icons/                  SVG sources, rendered PNG icons and the sharing image og-image.png (npm run icons)
+_headers                security headers for Cloudflare Pages (Content-Security-Policy and others)
+404.html, css/404.css   "Page not found" page
+robots.txt, sitemap.xml, favicon.ico   for search engines and browsers
 scripts/serve.mjs       tiny static server used by npm start and the tests
 tests/                  end-to-end tests (app, Studio, offline, built-in content) and the build check
 docs/                   studio setup, backlog, improvements and roadmap
@@ -53,9 +57,10 @@ Open **`/studio/`** to write, schedule and publish verses, devotions, audio, ree
 
 Edit `js/content.js`. Each devotion, episode, reel and verse is one entry.
 
-- **Audio:** put the file in `media/` and set the episode's `src` (for example `"media/brave.mp3"`). Until then the player runs in a silent demo mode and says so.
-- **Reels:** set the reel's `src` to an `.mp4`. Until then an animated placeholder is shown.
-- **Game preview:** set `gamePreviewUrl` when the Godot browser build is published.
+- **Audio:** put the file in `media/` and set the episode's `src` (for example `"media/brave.mp3"`). Episodes without a `src` are hidden everywhere (Listen, the Today feed, Read and the devotion pages); while none has one, the Listen tab leaves the menu.
+- **Reels:** set the reel's `src` to an `.mp4`. Reels without a video are hidden the same way, and so is the Watch tab while there are none. (Studio reels with only a YouTube link are shown.)
+- **Game preview:** set `gamePreviewUrl` when the Godot browser build is published; the "Play the free preview" button appears then.
+- **Store pages:** set `stores.googlePlay` / `stores.appStore`. Until then Play says "Coming soon to Google Play" and shows no App Store tile.
 
 After changing any cached file, bump `VERSION` in `sw.js` so installed copies update.
 
@@ -75,4 +80,4 @@ The live site is hosted on **Cloudflare Pages** (project `littlelights-apps`, ht
 
 ## Privacy
 
-The app has no accounts, no ads and no tracking. Day/night, calm mode, the swipe hint and saved reels are remembered only in the visitor's own browser. The newsletter form is for adults and is not connected to an email service yet.
+The app has no accounts, no ads and no tracking, and loads nothing from other sites except its own Supabase database (the Content-Security-Policy in `_headers` enforces this). Day/night, calm mode, the swipe hint and saved reels are remembered only in the visitor's own browser. The newsletter sign-up is removed until it is connected to MailerLite (docs/backlog.md, 2.5). Links to the privacy notices, terms and support are at the end of Today, at the bottom of Play, and in the computer side panel.
