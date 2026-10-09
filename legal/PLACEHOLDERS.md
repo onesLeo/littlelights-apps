@@ -1,12 +1,16 @@
-# To confirm before the pages are final (updated 9 Oct 2026)
+# Placeholders (updated 9 Oct 2026)
 
-Placeholders are defined in `MACROS` in build.py and show as highlighted [..] text on the site.
-Only the web app's two are left; every placeholder on the game's pages is filled in.
+No placeholders remain. Every `MACROS` entry in build.py is filled in, and no highlighted [..] text shows on the site.
 
-| Macro | Shown as | Where |
+Filled in on 9 Oct 2026 (web privacy policy):
+
+| Macro | Text | Where |
 |---|---|---|
-| SUPA_REGION | [Supabase project region, to confirm] | web privacy §2 and §7 |
-| ML_TRACKING | [To confirm: turn MailerLite open and click tracking off, or keep this sentence] | web privacy §4 |
+| SUPA_REGION | Seoul, South Korea | web privacy §2 and §7 |
+| ML_TRACKING | We turn open and click tracking off, so we don't see who opens our emails or clicks links. | web privacy §4 |
+
+**Before sending any MailerLite campaign:** turn open and click tracking off in that campaign's settings. The web
+privacy policy says we don't track opens or clicks, so every campaign must be sent with both turned off.
 
 Settled on 9 Oct 2026: the developer is named as "Little Salt and Light" (the Google Play developer name), based in
 Indonesia, with no postal address shown (email only); governing law is the Republic of Indonesia; the game is free with
