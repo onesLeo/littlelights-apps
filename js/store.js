@@ -221,8 +221,11 @@
         var rec = JSON.parse(JSON.stringify(post));
         rec.slug = uniqueSlug(rec, all);
         rec.updated_at = nowIso();
-        if (!rec.id) { delete rec.id; rec.author_email = email || ''; }
-        var q = rec.id ? client.from('posts').update(rec).eq('id', rec.id) : client.from('posts').insert(rec);
+        // The database assigns `id` itself and refuses to have it written, so it is never sent.
+        var id = rec.id;
+        delete rec.id;
+        if (!id) rec.author_email = email || '';
+        var q = id ? client.from('posts').update(rec).eq('id', id) : client.from('posts').insert(rec);
         return q.select().single();
       }).then(must);
     },
