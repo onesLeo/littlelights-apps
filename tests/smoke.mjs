@@ -262,6 +262,7 @@ const footerLinks = (page, sel) => page.$$eval(sel + ' a', (as) => as.filter((a)
   const { context, page } = await openApp({ width: 390, height: 844 }, { media: true });
   check(await visible(page, '#pFeed .p-slide.s3') === 1 && await visible(page, '#pFeed .p-slide.s4') === 1, 'with media: the reel and audio posts show on Today');
   await page.click('.p-tab[data-tab="listen"]');
+  await page.waitForSelector('.v-listen.on #pNow', { state: 'visible' });
   check((await page.$$('#pEps .p-row')).length === 5 && await visible(page, '#pNow') === 1, 'with media: Listen lists every episode');
   await context.close();
 }
