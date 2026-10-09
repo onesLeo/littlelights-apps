@@ -10,11 +10,11 @@ These look finished but don't work yet. Each one points to the item that fixes i
 
 | Feature | What happens now | Fixed by |
 |---|---|---|
-| Newsletter "Join the list" (computer side panel) | Shows a thank-you message; the email is not saved | 2.5, 2.6 |
-| Built-in audio in Listen | Progress bar moves with no sound ("Recording coming soon") | 5.2 |
-| Built-in reels in Watch | Animated drawings instead of video | 5.2 |
-| "Play the free preview" (Play tab, game updates) | Shows "opens here once the browser build is published" | 6.1 |
-| App Store / Google Play (Play tab) | "Coming soon" text, not links | 6.2 |
+| Newsletter sign-up | Removed until it is connected; add it back with 2.5 | 2.5, 2.6 |
+| Built-in audio in Listen | Hidden until each episode has a `src`; Listen leaves the menu while none has one | 5.2 |
+| Built-in reels in Watch | Hidden until each reel has a `src`; Watch leaves the menu while none has one | 5.2 |
+| "Play the free preview" (Play tab, game updates) | Hidden until `gamePreviewUrl` is set | 6.1 |
+| App Store / Google Play (Play tab) | "Coming soon to Google Play" without a link; no App Store tile until `stores.appStore` is set | 6.2 |
 | "Continue with Google" (Studio sign-in) | Hidden until Google is set up in Supabase | 3.4 |
 | Studio sign-in emails | Supabase's built-in sender, a few emails an hour | 3.1, 3.2 |
 | Insights in the Studio | Not built | Later |
@@ -56,7 +56,10 @@ These look finished but don't work yet. Each one points to the item that fixes i
 | 4.1 | **Deploy the site** with the GitHub Pages workflow (Settings → Pages → Source: GitHub Actions, then run *Deploy to GitHub Pages*), or Cloudflare Pages. | You / Dev | – | The app opens at the Pages address | Done 2026-10-09: Cloudflare Pages project `littlelights-apps`, live at https://littlelights-apps.pages.dev (checked in a browser: app, Studio page, fonts, offline mode) |
 | 4.2 | **Trim the deploy list** in `.github/workflows/pages.yml`: publish `studio`, but not `docs` or `supabase`, which visitors don't need. | Dev | – | Workflow updated | Done 2026-09-28: both hosting paths use `scripts/build-pages.mjs`, which omits `docs` and `supabase`. |
 | 4.3 | **Connect the domain** to the site, with HTTPS. | You | 1.1, 4.1 | The app opens at `https://your-domain/` | Done 2026-10-09: https://littlesaltandlight.com is live with HTTPS (`www` is not set up) |
-| 4.4 | **Update Supabase URLs**: *Authentication → URL Configuration*, Site URL = the domain, and add `https://your-domain/studio/` to Redirect URLs. | You | 4.3 | Signing in on the live Studio returns to the Studio | To do |
+| 4.4 | **Update Supabase URLs**: *Authentication → URL Configuration*, Site URL = `https://littlesaltandlight.com`, and add `https://littlesaltandlight.com/studio/` to Redirect URLs. | You | 4.3 | Signing in on the live Studio returns to the Studio | To do |
+| 4.6 | **Hide authors' emails from visitors**: run `supabase/migrations/20261009120000_hide_author_email.sql` in the SQL Editor (after the release that contains it is live). | You | – | A direct API call for `author_email` as a visitor says "permission denied" | To do |
+| 4.7 | **Close sign-ups**: *Authentication → Sign In / Providers* → turn off *Allow new users to sign up*; create team members under *Authentication → Users* (docs/studio.md). | You | – | A stranger's email gets "isn’t on the Little Light team" | To do |
+| 4.8 | **Turn off Cloudflare Web Analytics** for the Pages project (it injects a script from static.cloudflareinsights.com, which the new Content-Security-Policy blocks anyway). | You | – | No cloudflareinsights request in the browser's network tab | To do |
 | 4.5 | **Bump `VERSION` in `sw.js`** with each release so installed copies update. | Dev | – | Ongoing | To do |
 
 ## 5. Content

@@ -143,6 +143,15 @@
       if (to != null) b.setAttribute('data-' + attr, to);
     });
   });
+  // ---------- only show what is ready ----------
+  // Audio without a recording and reels without a video are placeholders, so they stay hidden.
+  // Everything is driven by the content: once an item gets a `src` it appears automatically.
+  function epReady(i) { var e = C.episodes[i]; return !!(e && e.src); }
+  function reelReady(i) { var r = C.reels[i]; return !!(r && (r.src || r.youtube)); }
+  function readyList(list, ok) { return list.map(function (_, i) { return i; }).filter(ok); }
+  var readyEps = readyList(C.episodes, epReady), readyReels = readyList(C.reels, reelReady);
+  var hasTab = { watch: readyReels.length > 0, listen: readyEps.length > 0 };
+
   var ICON_PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg>';
   var ICON_PAUSE = '<svg viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
   var ICON_SUN = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
@@ -220,12 +229,14 @@
         var d = C.devotions[t.i];
         html += '<article class="p-slide s2 s-studio" data-c="#fff5f9" data-cn="#f6b3cb"><div class="p-kicker">' + esc(d.kicker.replace(' read', '')) + '</div>' +
           '<div class="big">' + esc(d.title) + '</div><p>' + esc(d.teaser) + '</p><div class="p-btns"><button class="p-btn" type="button" data-sheet="' + t.i + '">Read ↑</button>' +
-          (d.episode >= 0 ? '<button class="p-btn ghost" type="button" data-ep="' + d.episode + '">▶ Listen</button>' : '') + '</div></article>';
+          (d.episode >= 0 && epReady(d.episode) ? '<button class="p-btn ghost" type="button" data-ep="' + d.episode + '">▶ Listen</button>' : '') + '</div></article>';
       } else if (t.type === 'reel') {
+        if (!reelReady(t.i)) return;
         var r = C.reels[t.i];
         html += '<article class="p-slide s3 s-studio" data-c="#fff" data-cn="#ffc9b8"><div class="p-kicker">Reel' + (r.len ? ' · ' + esc(r.len) : '') + '</div>' +
           '<div class="big">' + esc(r.title) + '</div><div class="p-btns"><button class="p-btn" type="button" data-reel="' + t.i + '">▶ Watch</button></div></article>';
       } else if (t.type === 'audio') {
+        if (t.i == null || !epReady(t.i)) return;
         var e = C.episodes[t.i];
         html += '<article class="p-slide s4 s-studio" data-c="#fff" data-cn="#d9c8f7"><div class="p-kicker">Audio · ' + fmt(e.dur) + '</div>' +
           '<div class="big">' + esc(e.title) + '</div><p>' + esc(e.meta) + '</p><div class="p-btns"><button class="p-btn" type="button" data-ep="' + t.i + '">▶ Play</button><button class="p-btn ghost" type="button" data-go="listen">All audio</button></div></article>';
@@ -235,9 +246,28 @@
           '<div class="big">' + esc(n.title) + '</div>' + (n.text ? '<p>' + esc(n.text) + '</p>' : '') + '<div class="p-btns"><button class="p-btn" type="button" data-go="play">See the game</button></div></article>';
       }
     });
+    if (!html) return;
     feedEl.insertAdjacentHTML('afterbegin', html);
+    // The browser keeps the post it had snapped to in view, so go back to the newest post at the top.
+    feedEl.scrollTop = 0;
     var hint = $('#pHint');
     if (hint) { feedEl.firstElementChild.appendChild(hint); feedEl.firstElementChild.classList.add('has-hint'); }
+  })();
+
+  // Buttons written in index.html for audio or reels that have no recording yet are hidden, and so
+  // are posts that only exist to play them. Watch and Listen leave the menu while they are empty.
+  (function hidePlaceholders() {
+    $$('[data-ep]').forEach(function (b) { if (!epReady(+b.getAttribute('data-ep'))) b.hidden = true; });
+    $$('[data-reel]').forEach(function (b) { if (!reelReady(+b.getAttribute('data-reel'))) b.hidden = true; });
+    $$('[data-needs-media]').forEach(function (slide) { if (slide.querySelector('[data-ep][hidden], [data-reel][hidden]')) slide.hidden = true; });
+    Object.keys(hasTab).forEach(function (tab) {
+      if (hasTab[tab]) return;
+      $$('.p-tab[data-tab="' + tab + '"], [data-go="' + tab + '"]').forEach(function (el) { el.hidden = true; });
+    });
+    var devotion = $('#pFeed > .s2:not(.s-studio)');
+    if (devotion && !$('#pFeed > .s3:not(.s-studio):not([hidden]), #pFeed > .s4:not(.s-studio):not([hidden])')) devotion.classList.add('wide');
+    var feedEl = $('#pFeed'), firstSlide = feedEl && feedEl.querySelector('.p-slide:not([hidden])'), hint = $('#pHint');
+    if (hint && firstSlide && !firstSlide.contains(hint)) { firstSlide.appendChild(hint); firstSlide.classList.add('has-hint'); }
   })();
 
   // ---------- day / night and calm mode ----------
@@ -372,7 +402,10 @@
     return '<svg viewBox="0 0 300 600" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%"><rect width="300" height="600" fill="#1f3a6e"/><circle cx="150" cy="150" r="40" fill="#fff3c4" opacity=".9"/><g class="swim"><path d="M60 330 q80 -60 170 0 q-90 60 -170 0z" fill="#62a6ea"/><path d="M225 330 l35 -25 v50z" fill="#62a6ea"/><circle cx="95" cy="322" r="5" fill="#1f3a6e"/></g><path d="M0 420 Q40 400 80 420 T160 420 T240 420 T320 420 V600 H0Z" fill="#16305c"/><path d="M0 460 Q40 440 80 460 T160 460 T240 460 T320 460 V600 H0Z" fill="#102447"/></svg>';
   }
   var reelsEl = $('#pReels');
-  reelsEl.innerHTML = C.reels.map(function (r, i) {
+  reelsEl.hidden = !readyReels.length;
+  $('#pReelsEmpty').hidden = readyReels.length > 0;
+  reelsEl.innerHTML = readyReels.map(function (i) {
+    var r = C.reels[i];
     var scene = r.src
       ? '<video src="' + esc(r.src) + '" playsinline muted loop preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
       : reelScene(r.kind);
@@ -389,7 +422,7 @@
   var visibleReel = 0;
   var savedReels = {};
   try { savedReels = JSON.parse(store('savedReels') || '{}') || {}; } catch (err) { savedReels = {}; }
-  $$('.p-reel').forEach(function (el, i) { if (savedReels[i]) el.querySelector('.save').classList.add('saved'); });
+  $$('.p-reel').forEach(function (el) { if (savedReels[el.dataset.i]) el.querySelector('.save').classList.add('saved'); });
   function updateReels() {
     $$('.p-reel').forEach(function (el, i) {
       var playing = current === 'watch' && i === visibleReel && !el.classList.contains('userpaused');
@@ -423,7 +456,8 @@
   });
   function openReel(i) {
     go('watch');
-    setTimeout(function () { reelsEl.scrollTop = i * reelsEl.clientHeight; visibleReel = i; updateReels(); }, 0);
+    var at = Math.max(0, readyReels.indexOf(i));
+    setTimeout(function () { reelsEl.scrollTop = at * reelsEl.clientHeight; visibleReel = at; updateReels(); }, 0);
   }
   document.addEventListener('keydown', function (e) {
     if (current !== 'watch' || e.target.closest('input, textarea')) return;
@@ -440,10 +474,14 @@
   function hasSrc() { return player.ep >= 0 && !!C.episodes[player.ep].src; }
   function duration() { return hasSrc() && isFinite(audio.duration) ? audio.duration : C.episodes[player.ep].dur; }
 
-  $('#pEps').innerHTML = C.episodes.map(function (e, i) {
+  $('#pEps').innerHTML = readyEps.map(function (i) {
+    var e = C.episodes[i];
     return '<button class="p-row" type="button" data-ep="' + i + '"><span class="p-art" style="background:' + e.color + '"><i></i></span>' +
       '<span><b>' + esc(e.title) + '</b><small>' + esc(e.meta) + ' · ' + fmt(e.dur) + '</small></span><span class="p-pp">' + ICON_PLAY + '</span></button>';
   }).join('');
+  $('#pEps').hidden = $('#pEpsHead').hidden = !readyEps.length;
+  $('#pEpsEmpty').hidden = readyEps.length > 0;
+  if ($('#pNow [data-ep][hidden]')) $('#pNow').hidden = true;
   function renderPlayer() {
     var has = player.ep >= 0;
     app.classList.toggle('has-mini', has);
@@ -455,8 +493,8 @@
     $('#pMiniProg').style.width = (player.t / d * 100) + '%';
     $('#pMiniPP').innerHTML = player.playing ? ICON_PAUSE : ICON_PLAY;
     $('#pMiniPP').setAttribute('aria-label', player.playing ? 'Pause' : 'Play');
-    $$('.p-row').forEach(function (r, i) {
-      var on = i === player.ep;
+    $$('.p-row').forEach(function (r) {
+      var on = +r.dataset.ep === player.ep;
       r.classList.toggle('now', on);
       r.querySelector('.p-pp').innerHTML = on && player.playing ? ICON_PAUSE : ICON_PLAY;
     });
@@ -526,14 +564,14 @@
   $('#pCards').innerHTML = C.devotions.map(function (d, i) {
     return '<a class="p-card' + (i === 0 ? ' feat' : '') + '" href="#read/' + d.slug + '" style="background:' + d.color + ';color:' + d.ink + ';text-decoration:none">' +
       '<span class="p-kicker">' + esc(d.kicker) + '</span><b>' + esc(d.title) + '</b><span>' + esc(d.teaser) + '</span>' +
-      '<span class="foot"><span>Read →</span>' + (d.episode >= 0 ? '<span>▶ Audio ' + fmt(C.episodes[d.episode].dur) + '</span>' : '') + '</span></a>';
+      '<span class="foot"><span>Read →</span>' + (d.episode >= 0 && epReady(d.episode) ? '<span>▶ Audio ' + fmt(C.episodes[d.episode].dur) + '</span>' : '') + '</span></a>';
   }).join('');
   function openArticle(i, fromRoute) {
     if (!fromRoute) { location.hash = 'read/' + C.devotions[i].slug; return; }
     var d = C.devotions[i], a = $('#pArticle');
     a.innerHTML = '<button class="back" type="button" data-close>← Back</button>' +
       '<div class="hero" style="background:' + d.color + ';color:' + d.ink + '"><span class="p-kicker">' + esc(d.kicker) + '</span><b>' + esc(d.title) + '</b></div>' +
-      '<div style="padding-top:16px;display:flex;gap:8px;flex-wrap:wrap">' + (d.episode >= 0 ? '<button class="p-btn listen" type="button" data-ep="' + d.episode + '">▶ Listen to this devotion</button>' : '') +
+      '<div style="padding-top:16px;display:flex;gap:8px;flex-wrap:wrap">' + (d.episode >= 0 && epReady(d.episode) ? '<button class="p-btn listen" type="button" data-ep="' + d.episode + '">▶ Listen to this devotion</button>' : '') +
       '<button class="p-btn ghost" type="button" data-share-dev="' + i + '" style="background:rgba(0,0,0,.08);color:inherit">Share</button></div>' +
       '<div class="body p-txt">' + d.html + '</div>';
     closeOverlays();
@@ -699,21 +737,24 @@
       '<span class="st' + (j.status ? '' : ' wip') + '">' + (j.status || 'In progress') + '</span></div>';
   }).join('');
 
+  // The preview button appears once C.gamePreviewUrl is set.
+  $$('.p-cta[data-preview]').forEach(function (b) { b.hidden = !C.gamePreviewUrl; });
+  // Store tiles: a link once the store page exists; until then App Store is hidden and Google Play says "coming soon".
+  (function storeTiles() {
+    var el = $('#pStores'), links = C.stores || {}, html = '';
+    if (!el) return;
+    if (links.appStore) html += '<a href="' + esc(links.appStore) + '">Download on the App Store</a>';
+    html += links.googlePlay ? '<a href="' + esc(links.googlePlay) + '">Get it on Google Play</a>' : '<div>Coming soon to Google Play</div>';
+    el.innerHTML = html;
+  })();
+
   var newsEl = $('#pGameNews');
   if (newsEl && C.news && C.news.length) {
     newsEl.innerHTML = '<div class="p-sec" style="color:inherit;padding-inline:4px">News</div>' + C.news.map(function (n) {
       return '<article class="p-newscard"><small>' + esc(new Date(n.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })) + '</small><b>' + esc(n.title) + '</b>' +
-        (n.text ? '<p>' + esc(n.text) + '</p>' : '') + (n.button ? '<button class="p-btn" type="button" data-preview>' + esc(n.button) + '</button>' : '') + '</article>';
+        (n.text ? '<p>' + esc(n.text) + '</p>' : '') + (n.button && C.gamePreviewUrl ? '<button class="p-btn" type="button" data-preview>' + esc(n.button) + '</button>' : '') + '</article>';
     }).join('');
   }
-
-  // ---------- newsletter (connect to an email service later) ----------
-  var news = $('#pNews');
-  if (news) news.addEventListener('submit', function (e) {
-    e.preventDefault();
-    toast('Thank you! Sign-up opens when the email list is connected.');
-    news.reset();
-  });
 
   // ---------- install as an app ----------
   var installEvent = null;
@@ -752,7 +793,6 @@
     else if (d.shareDev != null) { var dv = C.devotions[+d.shareDev]; share(dv.title, dv.teaser, pageUrl('#read/' + dv.slug)); }
     else if (d.preview != null) {
       if (C.gamePreviewUrl) window.open(C.gamePreviewUrl, '_blank', 'noopener');
-      else toast('The free preview opens here once the browser build is published.');
     }
     else if (d.toast) toast(d.toast);
     else if (d.close != null && b.closest('#pArticle')) closeArticle();

@@ -1,6 +1,6 @@
-// Offline support: the app shell is cached on install; fonts are cached the first time they load.
+// Offline support: the app shell (including the self-hosted fonts) is cached on install.
 // Bump VERSION whenever a cached file changes so visitors get the new one.
-const VERSION = 'll-v18';
+const VERSION = 'll-v19';
 const SHELL = [
   './',
   'index.html',
@@ -21,6 +21,8 @@ const SHELL = [
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
+  'icons/apple-touch-icon.png',
+  'favicon.ico',
 ];
 
 self.addEventListener('install', (event) => {
@@ -45,13 +47,13 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(fetch(req).catch(() => caches.match(req).then((hit) => hit || caches.match('index.html'))));
     return;
   }
-  // Same-site files and Google Fonts: serve from cache, refresh in the background.
-  if (url.origin === location.origin || url.host.endsWith('fonts.googleapis.com') || url.host.endsWith('fonts.gstatic.com')) {
+  // Same-site files: serve from cache, refresh in the background. Nothing from other sites is cached.
+  if (url.origin === location.origin) {
     event.respondWith(
       caches.open(VERSION).then((cache) =>
         cache.match(req).then((hit) => {
           const fresh = fetch(req).then((res) => {
-            if (res.ok || res.type === 'opaque') cache.put(req, res.clone());
+            if (res.ok) cache.put(req, res.clone());
             return res;
           }).catch(() => hit);
           return hit || fresh;

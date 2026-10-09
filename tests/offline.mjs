@@ -8,7 +8,6 @@ const server = await serve(0);
 const base = `http://localhost:${server.address().port}/`;
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
-await context.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
 await context.route('**/js/config.js', (r) => r.fulfill({
   contentType: 'text/javascript',
   body: "window.LL_CONFIG = { supabaseUrl: 'https://fake-project.supabase.co', supabaseAnonKey: 'sb_publishable_test' };"
@@ -58,7 +57,6 @@ await fresh.route('**/js/config.js', (r) => r.fulfill({
   body: "window.LL_CONFIG = { supabaseUrl: 'https://fake-project.supabase.co', supabaseAnonKey: 'sb_publishable_test' };"
 }));
 await fresh.route('https://fake-project.supabase.co/**', (r) => r.abort('internetdisconnected'));
-await fresh.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
 const page = await fresh.newPage();
 page.on('pageerror', (e) => errors.push(e.message));
 await page.goto(base + '#verses');

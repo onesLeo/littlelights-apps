@@ -29,7 +29,6 @@ const posts = [
 
 async function open(hash, list) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
-  await context.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
   await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript',
     body: "window.LL_CONFIG = { supabaseUrl: 'https://fake-project.supabase.co', supabaseAnonKey: 'sb_publishable_test' };" }));
   await context.route('https://fake-project.supabase.co/**', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(list) }));

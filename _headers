@@ -1,0 +1,24 @@
+# Response headers for Cloudflare Pages (copied into dist/ by scripts/build-pages.mjs).
+# https://developers.cloudflare.com/pages/configuration/headers/
+# The Supabase address in the policy must match supabaseUrl in js/config.js (tests/build.mjs checks it).
+# style-src allows inline style="" attributes (the app sets colours and sizes with them); style-src-elem
+# still blocks inline <style> blocks in browsers that support it. No inline scripts are allowed.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; style-src-elem 'self'; font-src 'self'; img-src 'self' data: blob: https://svlvlmyugyadmehjwudm.supabase.co; media-src 'self' data: blob: https://svlvlmyugyadmehjwudm.supabase.co; connect-src 'self' https://svlvlmyugyadmehjwudm.supabase.co; worker-src 'self'; manifest-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Strict-Transport-Security: max-age=31536000
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=(), browsing-topics=()
+  X-Frame-Options: DENY
+  Cross-Origin-Opener-Policy: same-origin
+  ! Access-Control-Allow-Origin
+
+/studio/*
+  X-Robots-Tag: noindex, nofollow
+
+# Preview and *.pages.dev addresses stay out of search results.
+https://:project.pages.dev/*
+  X-Robots-Tag: noindex
+
+https://:version.:project.pages.dev/*
+  X-Robots-Tag: noindex

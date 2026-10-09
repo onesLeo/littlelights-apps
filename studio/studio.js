@@ -184,10 +184,22 @@
     state.screen = 'studio';
     return loadAll().then(render, fail);
   }
+  // A sign-in link that failed comes back with the reason in the address (for example an expired
+  // link, or an email without a Studio account). Show it in plain words, then tidy the address.
+  function linkError() {
+    var q = new URLSearchParams(location.hash.replace(/^#/, '') + '&' + location.search.replace(/^\?/, ''));
+    var why = q.get('error_description') || q.get('error_code') || q.get('error');
+    if (!why) return '';
+    try { history.replaceState(null, '', location.pathname); } catch (err) { /* ignore */ }
+    if (/sign.?ups? not allowed|signup.*disabled|user not found|not.*team/i.test(why)) return 'This email isn’t on the Little Light team. If you should have access, ask the owner to add you.';
+    if (/expired|invalid|already/i.test(why)) return 'That sign-in link has expired or was already used. Enter your email to get a new one.';
+    return 'Sign-in didn’t work: ' + why;
+  }
   function boot() {
+    var fromLink = linkError();
     S.session().then(function (s) {
       if (s) return enter(s);
-      state.screen = 'signin'; render();
+      state.screen = 'signin'; if (fromLink) state.authError = fromLink; render();
     }).catch(function (err) { state.screen = 'signin'; state.authError = err.message; render(); });
   }
   S.onAuthChange(function () { boot(); });
@@ -375,7 +387,9 @@
       '<div class="roles"><div class="role"><b>Owner</b><span>Everything, including adding and removing people.</span></div>' +
       '<div class="role"><b>Editor</b><span>Writes, publishes and deletes posts.</span></div>' +
       '<div class="role"><b>Contributor</b><span>Writes drafts. An owner or editor publishes them.</span></div></div>' +
-      (S.mode === 'local' ? '' : '<p class="role-note">New people sign in with the same email-link page. They can only get in after you add them here.</p>');
+      (S.mode === 'local' ? '' : '<p class="role-note">Adding someone takes two steps, because nobody can create a Studio account by themself: ' +
+        '<b>1.</b> add their email here; <b>2.</b> in Supabase, open <i>Authentication → Users → Add user → Send invitation</i> and enter the same email. ' +
+        'After that they sign in on this page with the email link. To remove someone, remove them here (they lose access at once) and delete their user in Supabase.</p>');
   }
 
   // ---------- render ----------
@@ -499,7 +513,10 @@
       var em = document.getElementById('inviteEmail').value.trim().toLowerCase(), role = document.getElementById('inviteRole').value;
       state.errors = {};
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { state.errors.invite = 'Enter an email address like name@example.com.'; render(); return; }
-      S.invite(em, role).then(function () { toast(em + ' can now sign in as ' + role + '.'); return loadAll(); }).then(render).catch(function (err) { state.errors.invite = err.message; render(); });
+      S.invite(em, role).then(function () {
+        toast(S.mode === 'local' ? em + ' can now sign in as ' + role + '.' : em + ' is on the team. Now create their sign-in in Supabase (see below).');
+        return loadAll();
+      }).then(render).catch(function (err) { state.errors.invite = err.message; render(); });
     }
   });
 

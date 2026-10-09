@@ -11,7 +11,6 @@ mkdirSync('test-results', { recursive: true });
 const browser = await chromium.launch();
 // Service workers are blocked: they would fetch the real js/config.js past the route below.
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' });
-await context.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
 // Tests run in local mode so they never touch the real database.
 await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
 const page = await context.newPage();
@@ -215,6 +214,15 @@ await page.fill('#email', 'stranger@example.org');
 await page.click('#signinForm button[type=submit]');
 await page.waitForSelector('.errmsg');
 check((await text('.errmsg')).includes('isn’t on the Little Light team'), 'sign-in: people not on the team are turned away');
+
+// A sign-in link that failed (expired, or no Studio account) comes back with the reason in the address.
+await page.goto('about:blank');
+await page.goto(base + 'studio/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired');
+await page.waitForSelector('.errmsg');
+check((await text('.errmsg')).includes('expired') && !page.url().includes('error'), 'sign-in: an expired link is explained and the address tidied');
+await page.goto(base + 'studio/?error=access_denied&error_description=Signups+not+allowed+for+this+instance');
+await page.waitForSelector('.errmsg');
+check((await text('.errmsg')).includes('isn’t on the Little Light team'), 'sign-in: a new Google account (sign-ups closed) gets the team message');
 
 check(errors.length === 0, `no script errors ${errors.join(' | ')}`);
 await browser.close();

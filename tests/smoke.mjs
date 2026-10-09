@@ -15,23 +15,32 @@ function check(ok, label) {
   if (!ok) failures++;
 }
 
-async function openApp(viewport) {
-  const context = await browser.newContext({ viewport, acceptDownloads: true });
-  // Block external font requests so the test does not depend on the network.
-  await context.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+// Built-in audio and reels have no recordings yet, so the app hides them. The phone journey below
+// needs them, so { media: true } gives every item a (pretend) file. Service workers are blocked then,
+// because a worker would fetch the real js/content.js past the route.
+const WITH_MEDIA = "\n;window.LL_CONTENT.episodes.forEach(function (e, i) { e.src = 'media/test-' + i + '.mp3'; });" +
+  "window.LL_CONTENT.reels.forEach(function (r, i) { r.src = 'media/test-' + i + '.mp4'; });";
+async function openApp(viewport, { media = false, hash = '' } = {}) {
+  const context = await browser.newContext({ viewport, acceptDownloads: true, serviceWorkers: media ? 'block' : 'allow' });
+  if (media) {
+    await context.route('**/js/content.js', async (r) => {
+      const res = await r.fetch();
+      await r.fulfill({ response: res, body: (await res.text()) + WITH_MEDIA });
+    });
+  }
   // Tests run in local mode so they never touch the real database.
   await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto(base);
+  await page.goto(base + hash);
   await page.waitForSelector('#app[data-ready]');
   return { context, page, errors };
 }
 
 // ---------- phone ----------
 {
-  const { context, page, errors } = await openApp({ width: 390, height: 844 });
+  const { context, page, errors } = await openApp({ width: 390, height: 844 }, { media: true });
   const onView = () => page.$eval('.p-view.on', (v) => v.dataset.view);
 
   for (const tab of ['watch', 'listen', 'read', 'verses', 'play', 'today']) {
@@ -159,6 +168,101 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 900, height: 650 }
     await page.waitForSelector('#app[data-ready]');
   }
   await page.screenshot({ path: `test-results/home-${viewport.width}.png` });
+  await context.close();
+}
+
+// ---------- launch content: nothing that is still a placeholder is shown ----------
+const LEGAL = ['https://legal.littlesaltandlight.com/privacy/web/', 'https://legal.littlesaltandlight.com/privacy/',
+  'https://legal.littlesaltandlight.com/parents/', 'https://legal.littlesaltandlight.com/terms/',
+  'https://legal.littlesaltandlight.com/support/', 'mailto:support@littlesaltandlight.com'];
+const visible = (page, sel) => page.$$eval(sel, (els) => els.filter((e) => e.getClientRects().length > 0).length);
+const footerLinks = (page, sel) => page.$$eval(sel + ' a', (as) => as.filter((a) => a.getClientRects().length).map((a) => a.getAttribute('href')));
+{
+  const { context, page, errors } = await openApp({ width: 390, height: 844 });
+  const tabs = await page.$$eval('.p-tab', (ts) => ts.filter((t) => !t.hidden).map((t) => t.dataset.tab));
+  check(tabs.join() === 'today,read,verses,play', `launch: Watch and Listen leave the menu while they have nothing to play (${tabs})`);
+  check(await visible(page, '.p-ring[data-go="watch"], .p-ring[data-go="listen"]') === 0, 'launch: no Watch or Listen story rings');
+  check(await visible(page, '#pFeed .p-slide.s3, #pFeed .p-slide.s4') === 0, 'launch: the placeholder reel and audio posts are hidden on Today');
+  check(await visible(page, '#pFeed [data-ep], #pFeed [data-reel]') === 0, 'launch: no Listen or Watch buttons on Today');
+  check(await page.$eval('#pFeed', (f) => f.scrollTop) === 0, 'launch: Today opens at the first post');
+  check(!(await page.$('#pNews')) && !(await page.$('input[type=email]')), 'launch: the newsletter sign-up box is gone');
+  const tabBar = await page.$$eval('.p-tabs .p-tab:not([hidden])', (ts) => ts.map((t) => Math.round(t.getBoundingClientRect().width)));
+  check(tabBar.every((w) => w >= 80), `launch: the 4 remaining tabs share the bar (${tabBar})`);
+
+  // Phone footer: after the last post of Today, and at the bottom of Play.
+  await page.$eval('#pFeed', (f) => { f.scrollTop = f.scrollHeight; });
+  await page.waitForTimeout(400);
+  check((await footerLinks(page, '.p-legal.in-feed')).join() === LEGAL.join(), 'phone footer: legal and support links at the end of Today');
+  const inView = await page.$eval('.p-legal.in-feed', (f) => { const r = f.getBoundingClientRect(); return r.top >= 0 && r.bottom <= document.querySelector('.p-tabs').getBoundingClientRect().top + 1; });
+  check(inView, 'phone footer: can be scrolled fully into view above the menu');
+  await page.screenshot({ path: 'test-results/phone-today-footer.png' });
+
+  await page.click('.p-tab[data-tab="play"]');
+  await page.waitForTimeout(150);
+  check(await visible(page, '[data-preview]') === 0, 'launch: "Play the free preview" is hidden until the preview is published');
+  const stores = await page.$eval('#pStores', (s) => ({ text: s.textContent, links: s.querySelectorAll('a').length }));
+  check(stores.text === 'Coming soon to Google Play' && stores.links === 0, `launch: store tiles say "Coming soon to Google Play" with no link and no App Store (${stores.text})`);
+  check((await footerLinks(page, '.p-legal.in-play')).join() === LEGAL.join(), 'phone footer: legal and support links at the bottom of Play');
+  await page.$eval('.v-play', (v) => { v.scrollTop = v.scrollHeight; });
+  await page.screenshot({ path: 'test-results/phone-play-footer.png' });
+
+  // Someone opening #listen or #watch directly sees a gentle note, not a blank page.
+  for (const tab of ['listen', 'watch']) {
+    await page.goto(base + '#' + tab);
+    await page.waitForSelector('#app[data-ready]');
+    const note = await page.$eval(`.v-${tab} .p-empty`, (e) => (e.getClientRects().length ? e.textContent : ''));
+    check(note.includes('on their way'), `launch: #${tab} explains that it is coming soon`);
+  }
+  await page.goto(base + '#read');
+  await page.waitForSelector('#app[data-ready]');
+  check(!(await page.$eval('#pCards', (c) => c.textContent)).includes('Audio'), 'launch: Read cards do not offer audio that does not exist yet');
+  await page.goto(base + '#read/brave');
+  await page.waitForSelector('#app[data-ready]');
+  await page.waitForTimeout(200);
+  check(await visible(page, '#pArticle [data-ep]') === 0, 'launch: the devotion page has no Listen button yet');
+
+  // Tap targets: the night and calm buttons are at least 44 x 44.
+  await page.goto(base + '#today');
+  await page.waitForSelector('#app[data-ready]');
+  const modes = await page.$$eval('[data-mode], [data-calm]', (bs) => bs.filter((b) => b.getClientRects().length).map((b) => { const r = b.getBoundingClientRect(); return [r.width, r.height]; }));
+  check(modes.length > 0 && modes.every(([w, h]) => w >= 44 && h >= 44), `phone: night and calm buttons are at least 44 x 44 (${JSON.stringify(modes)})`);
+
+  // Sharing tags.
+  const meta = await page.evaluate(() => {
+    const m = (sel) => (document.querySelector(sel) || {}).content || (document.querySelector(sel) || {}).href || '';
+    return { title: document.title, desc: m('meta[name="description"]'), canonical: m('link[rel="canonical"]'), ogImage: m('meta[property="og:image"]'),
+      ogUrl: m('meta[property="og:url"]'), ogType: m('meta[property="og:type"]'), site: m('meta[property="og:site_name"]'), card: m('meta[name="twitter:card"]') };
+  });
+  check(meta.title.length > 20 && meta.desc.length > 60, `sharing: a descriptive title and description (${meta.title})`);
+  check(meta.canonical === 'https://littlesaltandlight.com/' && meta.ogUrl === 'https://littlesaltandlight.com/', 'sharing: canonical and og:url point at the live address');
+  check(meta.ogImage === 'https://littlesaltandlight.com/icons/og-image.png' && meta.ogType === 'website' && meta.site === 'Little Light' && meta.card === 'summary_large_image',
+    'sharing: Open Graph image, type, site name and a large X card');
+  const og = await page.evaluate(() => new Promise((res) => { const i = new Image(); i.onload = () => res([i.naturalWidth, i.naturalHeight]); i.onerror = () => res(null); i.src = 'icons/og-image.png'; }));
+  check(og && og[0] === 1200 && og[1] === 630, `sharing: the image is 1200 x 630 (${og})`);
+  check(errors.length === 0, `launch: no script errors ${errors.join(' | ')}`);
+  await context.close();
+}
+{
+  const { context, page, errors } = await openApp({ width: 1366, height: 820 });
+  check((await footerLinks(page, '.p-side .p-legal')).join() === LEGAL.join(), 'computer footer: legal and support links in the side panel');
+  check(await visible(page, '.p-legal.in-feed') === 0, 'computer footer: shown once (not also under the cards)');
+  const tabs = await page.$$eval('.p-tabs .p-tab', (ts) => ts.filter((t) => t.getClientRects().length).map((t) => Math.round(t.getBoundingClientRect().height)));
+  check(tabs.every((h) => h >= 44), `computer: menu tabs are at least 44px tall (${tabs})`);
+  const modes = await page.$$eval('.p-tools .p-mode:not([hidden])', (bs) => bs.map((b) => { const r = b.getBoundingClientRect(); return [r.width, r.height]; }));
+  check(modes.length === 2 && modes.every(([w, h]) => w >= 44 && h >= 44), `computer: night and calm buttons are at least 44 x 44 (${JSON.stringify(modes)})`);
+  check(await page.$eval('.v-today .p-slide.s2', (s) => getComputedStyle(s).gridColumnStart === '1' && getComputedStyle(s).gridColumnEnd === '-1'),
+    'computer: with the reel and audio posts hidden, the devotion card takes the whole row');
+  await page.screenshot({ path: 'test-results/computer-today-launch.png' });
+  check(errors.length === 0, `computer launch: no script errors ${errors.join(' | ')}`);
+  await context.close();
+}
+
+// ---------- adding recordings later brings items back by themselves ----------
+{
+  const { context, page } = await openApp({ width: 390, height: 844 }, { media: true });
+  check(await visible(page, '#pFeed .p-slide.s3') === 1 && await visible(page, '#pFeed .p-slide.s4') === 1, 'with media: the reel and audio posts show on Today');
+  await page.click('.p-tab[data-tab="listen"]');
+  check((await page.$$('#pEps .p-row')).length === 5 && await visible(page, '#pNow') === 1, 'with media: Listen lists every episode');
   await context.close();
 }
 

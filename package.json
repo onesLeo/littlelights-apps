@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node scripts/serve.mjs",
-    "test": "node tests/smoke.mjs && node tests/studio.mjs && node tests/offline.mjs && node tests/builtin.mjs && node tests/supabase.mjs && node tests/build.mjs",
+    "test": "node tests/smoke.mjs && node tests/studio.mjs && node tests/offline.mjs && node tests/builtin.mjs && node tests/supabase.mjs && node tests/headers.mjs && node tests/build.mjs",
     "build": "node scripts/build-pages.mjs",
     "icons": "node scripts/render-icons.mjs"
   },
