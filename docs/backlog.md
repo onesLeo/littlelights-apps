@@ -15,7 +15,7 @@ These look finished but don't work yet. Each one points to the item that fixes i
 | Built-in reels in Watch | Animated drawings instead of video | 5.2 |
 | "Play the free preview" (Play tab, game updates) | Shows "opens here once the browser build is published" | 6.1 |
 | App Store / Google Play (Play tab) | "Coming soon" text, not links | 6.2 |
-| "Continue with Google" (Studio sign-in) | Hidden until Google is set up in Supabase | 3.4 |
+| "Continue with Google" (Studio sign-in) | Hidden until Google is set up in Supabase | In progress: the code is ready behind `googleSignIn` in `js/config.js` (off). Remaining, yours: the Google OAuth client and the Supabase provider (steps in docs/studio.md, "Sign in with Google"); then Dev switches it on. |
 | Studio sign-in emails | Supabase's built-in sender, a few emails an hour | 3.1, 3.2 |
 
 ## 1. Domain and email (do first: everything else depends on it)

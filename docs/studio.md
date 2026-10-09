@@ -41,6 +41,18 @@ Local mode is for trying the Studio and for development. Use Supabase mode befor
    The anon key is designed to be public. What anyone can do is decided by the security rules in `schema.sql`.
 7. Bump `VERSION` in `sw.js`, publish, open `/studio/`, and sign in with your email.
 
+## Sign in with Google
+
+Google sign-in needs no email each time and uses the Google account's own protection (including 2-step verification). Only people on the team list get in, exactly as with the email link; the email link stays available as a fallback.
+
+1. **Google Cloud Console** (<https://console.cloud.google.com>): create a project, then *APIs & Services → OAuth consent screen* (External; app name "Little Light Studio"; your support email). Add each team member under *Test users*, or publish the app.
+2. *APIs & Services → Credentials → Create credentials → OAuth client ID*, type **Web application**:
+   - Authorised JavaScript origins: `https://littlesaltandlight.com` (and `http://localhost:8081` for local work)
+   - Authorised redirect URI: `https://svlvlmyugyadmehjwudm.supabase.co/auth/v1/callback`
+3. **Supabase** → *Authentication → Sign In / Providers → Google*: turn it on and paste the **Client ID** and **Client secret** from step 2. The secret goes only into Supabase, never into this repository.
+4. **Supabase** → *Authentication → URL Configuration*: the Studio addresses must be in **Redirect URLs** (`https://littlesaltandlight.com/studio/`, and the local one).
+5. Set `googleSignIn: true` in `js/config.js`, bump `VERSION` in `sw.js`, and publish.
+
 ## This project's database
 
 The Studio is connected to the Supabase project **svlvlmyugyadmehjwudm** (region ap-northeast-2). `supabase/schema.sql` has been applied to it as the migration `little_light_studio`, and the security rules were checked with test accounts (visitor, owner, contributor, and a signed-in stranger) before the test data was removed.

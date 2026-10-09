@@ -215,9 +215,11 @@
       '<div class="brand"><span class="dot"></span>Little Light Studio</div>' +
       '<div><h1>Sign in to post</h1><p style="margin-top:6px">For the Little Light team. Visitors never need an account.</p></div>' +
       modeBar() +
+      // With Google set up, it is the main way in: one click, no email to wait for. The email link stays as a fallback.
+      (S.googleSignIn ? '<button class="btn primary" type="button" id="google">Continue with Google</button><div class="or">or use an email link</div>' : '') +
       '<label class="field"><span>Email</span><input class="input' + (err ? ' err' : '') + '" id="email" type="email" autocomplete="email" placeholder="you@example.com" value="' + esc(state.email) + '">' +
       (err ? '<span class="errmsg" role="alert">' + esc(err) + '</span>' : '<small>' + (S.mode === 'local' ? 'The first email to sign in becomes the owner.' : 'We’ll email you a one-time sign-in link. No password to remember.') + '</small>') + '</label>' +
-      '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>' + (S.mode === 'local' ? 'Sign in' : state.busy ? 'Sending…' : 'Email me a sign-in link') + '</button>' +
+      '<button class="btn ' + (S.googleSignIn ? 'soft' : 'primary') + '" type="submit"' + (state.busy ? ' disabled' : '') + '>' + (S.mode === 'local' ? 'Sign in' : state.busy ? 'Sending…' : 'Email me a sign-in link') + '</button>' +
       '<div class="note">Only people on the team can sign in. Anyone else sees “This email isn’t on the Little Light team.”</div>' +
       '</form></main>';
   }
@@ -652,7 +654,8 @@
     var b = ev.target.closest('button');
     if (!b) return;
     var d = b.dataset;
-    if (b.id === 'back') { state.screen = 'signin'; render(); }
+    if (b.id === 'google') S.signInWithGoogle().catch(function (err) { state.authError = err.message; render(); });
+    else if (b.id === 'back') { state.screen = 'signin'; render(); }
     else if (b.id === 'signout') S.signOut().then(function () { state.session = null; state.screen = 'signin'; state.view = 'posts'; render(); });
     else if (d.view) { go(d.view); if (d.view === 'insights') loadInsights(); }
     else if (d.status) { state.status = d.status; render(); }

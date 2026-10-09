@@ -325,6 +325,7 @@
   });
 
   window.LLStore = remote ? supa : local;
+  window.LLStore.googleSignIn = remote && cfg.googleSignIn === true;
   window.LLStore.resolveMedia = resolveMedia;
   window.LLStore.isLive = isLive;
   window.LLStore.slugify = slugify;
