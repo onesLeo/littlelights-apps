@@ -13,7 +13,7 @@
   var remote = !!(cfg.supabaseUrl && cfg.supabaseAnonKey);
   // Bundled copy of supabase-js (MIT), so the Studio does not depend on a CDN.
   var SUPABASE_JS = (document.currentScript && document.currentScript.src ? new URL('vendor/supabase-2.117.2.js', document.currentScript.src).href : 'js/vendor/supabase-2.117.2.js');
-  var POSTS_KEY = 'll.posts.v1', SESSION_KEY = 'll.studio.session', TEAM_KEY = 'll.studio.team', HISTORY_KEY = 'll.history.v1';
+  var POSTS_KEY = 'll.posts.v1', SESSION_KEY = 'll.studio.session', TEAM_KEY = 'll.studio.team', HISTORY_KEY = 'll.history.v1', EVENTS_KEY = 'll.events.v1';
 
   function nowIso() { return new Date().toISOString(); }
   function isLive(p) { return (p.status === 'published' || p.status === 'scheduled') && p.publish_at && new Date(p.publish_at) <= new Date(); }
@@ -26,6 +26,38 @@
     if (to === 'scheduled' && after.publish_at !== before.publish_at) return 'scheduled';
     return 'edited';
   }
+  // ---------- insights: anonymous usage counts (see supabase/schema.sql, "insights") ----------
+  function utcDay(d) { return (d || new Date()).toISOString().slice(0, 10); }
+  // Turns raw rows into what the Insights page shows. Same result as public.insights() in the database.
+  function summarize(rows, since) {
+    var days = {}, tabs = {}, items = {}, installs = 0;
+    rows.forEach(function (r) {
+      if (r.day < since) return;
+      var d = days[r.day] || (days[r.day] = { day: r.day, seen: {}, visits: 0 });
+      d.seen[r.visitor] = 1;
+      if (r.name === 'visit') d.visits++;
+      if (r.name === 'install') installs++;
+      if (r.tab && (r.name === 'tab_view' || r.name === 'tab_time')) {
+        var t = tabs[r.tab] || (tabs[r.tab] = { tab: r.tab, views: 0, seen: {}, seconds: 0 });
+        if (r.name === 'tab_view') { t.views++; t.seen[r.visitor + r.day] = 1; } else t.seconds += r.value || 0;
+      }
+      if (r.item) {
+        var i = items[r.item] || (items[r.item] = { item: r.item, kind: r.kind, title: r.title, opens: 0, saves: 0, shares: 0, plays: 0 });
+        i.title = r.title || i.title;
+        var k = { open: 'opens', save: 'saves', share: 'shares', play: 'plays' }[r.name];
+        if (k) i[k]++;
+      }
+    });
+    var list = function (o) { return Object.keys(o).map(function (k) { return o[k]; }); };
+    return {
+      days: list(days).map(function (d) { return { day: d.day, visitors: Object.keys(d.seen).length, visits: d.visits }; })
+        .sort(function (a, b) { return a.day.localeCompare(b.day); }),
+      tabs: list(tabs).map(function (t) { return { tab: t.tab, views: t.views, visitors: Object.keys(t.seen).length, seconds: t.seconds }; }),
+      items: list(items), installs: installs
+    };
+  }
+  function sinceDay(days) { return utcDay(new Date(Date.now() - (days - 1) * 86400000)); }
+
   function slugify(s) {
     return String(s || 'post').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
       .replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'post';
@@ -108,6 +140,19 @@
     listRevisions: function (postId) {
       return Promise.resolve(readJSON(HISTORY_KEY, []).filter(function (r) { return r.post_id === postId; }).reverse());
     },
+    // Every change of every post, oldest first, without the post contents (for the posts table).
+    listChanges: function () {
+      return Promise.resolve(readJSON(HISTORY_KEY, []).map(function (r) {
+        return { post_id: r.post_id, action: r.action, changed_by: r.changed_by, changed_at: r.changed_at };
+      }));
+    },
+    track: function (rows) {
+      var all = readJSON(EVENTS_KEY, []), now = new Date();
+      rows.forEach(function (r) { r.at = now.toISOString(); r.day = utcDay(now); all.push(r); });
+      writeJSON(EVENTS_KEY, all.slice(-4000));
+      return Promise.resolve();
+    },
+    insights: function (days) { return Promise.resolve(summarize(readJSON(EVENTS_KEY, []), sinceDay(days))); },
     savePost: function (post, email) {
       var all = readJSON(POSTS_KEY, []), stamp = nowIso(), rec = JSON.parse(JSON.stringify(post));
       var before = rec.id ? all.filter(function (p) { return p.id === rec.id; })[0] : null;
@@ -230,6 +275,23 @@
       }).then(must);
     },
     deletePost: function (id) { return loadClient().then(function (c) { return c.from('posts').delete().eq('id', id); }).then(must); },
+    listChanges: function () {
+      return loadClient().then(function (c) {
+        return c.from('post_revisions').select('post_id, action, changed_by, changed_at').order('changed_at', { ascending: true }).limit(5000);
+      }).then(must);
+    },
+    // Sent straight to the database's REST address, so the app doesn't wait for the client library
+    // and the request survives the page being closed (keepalive).
+    track: function (rows) {
+      return fetch(cfg.supabaseUrl + '/rest/v1/events', {
+        method: 'POST', keepalive: true,
+        headers: { apikey: cfg.supabaseAnonKey, Authorization: 'Bearer ' + cfg.supabaseAnonKey, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify(rows)
+      }).then(function () {}, function () {});
+    },
+    insights: function (days) {
+      return loadClient().then(function (c) { return c.rpc('insights', { since: sinceDay(days) }); }).then(must);
+    },
     // History is written by a database trigger (supabase/schema.sql), so it can't be skipped or edited.
     listRevisions: function (postId) {
       return loadClient().then(function (c) {

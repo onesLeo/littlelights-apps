@@ -59,6 +59,18 @@ The rules live in the database (`supabase/schema.sql`), so they hold even if som
 
 Scheduled posts need no server job: a post appears as soon as its time has passed, because the app only asks for posts whose time is due.
 
+## Finding posts
+
+**Posts** is a table. Filter it by status (All, Published, Scheduled, Drafts) and by kind, type in the search box to look through titles, verses, text and topics, and click a column heading to sort. **Last change** shows who changed the post last and when, how many versions it has, and whether it was edited after it was published. Click a title to open the post and its full history.
+
+## Insights
+
+**Insights** shows how the app is used over the last 7, 30 or 90 days: visitors per day, how much time people spend in each menu, and which posts are opened, played, saved and shared most.
+
+The counts are anonymous. The app sends only: what happened (a visit, a menu opened, time on a menu, a post opened, played, saved or shared), which post, phone or computer, and a random id that the browser replaces every day. No names, emails, cookies or IP addresses are stored, so the same person on two days counts as two visitors. Visitors whose browser sends "Do Not Track" or Global Privacy Control are not counted, and neither is the Studio or a developer's own computer.
+
+In Supabase mode the counts live in the `events` table (`supabase/schema.sql`). The app can only add rows; only the team can read them, through the `insights()` function. In local mode only visits made in the same browser are counted.
+
 ## Editing and history
 
 Published posts can be edited: open the post, change it and press **Update**. The app shows the new version on the next visit, at the same address.

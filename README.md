@@ -74,4 +74,6 @@ The live site is hosted on **Cloudflare Pages** (project `littlelights-apps`, ht
 
 ## Privacy
 
-The app has no accounts, no ads and no tracking. Day/night, calm mode, the swipe hint and saved reels are remembered only in the visitor's own browser. The newsletter form is for adults and is not connected to an email service yet.
+The app has no accounts and no ads, and it never asks for or stores personal details. Day/night, calm mode, the swipe hint and saved reels are remembered only in the visitor's own browser.
+
+To see what helps families, the app keeps **anonymous counts** (Studio → Insights): visits, which menu is opened and for how long, and how often each post is opened, played, saved or shared. No names, emails, cookies or IP addresses are stored. A visitor is a random id that the browser replaces every day, so people can be counted per day but not followed over time. Nothing is counted when the browser sends "Do Not Track" or Global Privacy Control. The newsletter form is for adults and is not connected to an email service yet.

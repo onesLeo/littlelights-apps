@@ -17,7 +17,6 @@ These look finished but don't work yet. Each one points to the item that fixes i
 | App Store / Google Play (Play tab) | "Coming soon" text, not links | 6.2 |
 | "Continue with Google" (Studio sign-in) | Hidden until Google is set up in Supabase | 3.4 |
 | Studio sign-in emails | Supabase's built-in sender, a few emails an hour | 3.1, 3.2 |
-| Insights in the Studio | Not built | Later |
 
 ## 1. Domain and email (do first: everything else depends on it)
 
@@ -103,7 +102,7 @@ Captions are built from the post: text, reference and translation, a link back t
 
 ## 9. Later
 
-- **Insights** in the Studio: views, finished, saves and shares per post (roadmap).
+- **Insights**: done 2026-10-09 (visitors per day, time per menu, opens, plays, saves and shares per post; anonymous counts). Still open: how many people finish a devotion or recording, and removing counts older than a year.
 - **Tester feedback**: share with 5–20 parents and church friends (roadmap).
-- **Privacy-friendly analytics** on the website only, never tracking children (roadmap).
+- **Privacy page**: a short page in the app that says what is counted and why (the README and docs/studio.md explain it today).
 - **Gentle notifications** for new posts, opt-in, adults only (roadmap).
