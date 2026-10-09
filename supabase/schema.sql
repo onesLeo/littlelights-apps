@@ -140,6 +140,65 @@ drop trigger if exists posts_history on public.posts;
 create trigger posts_history after insert or update or delete on public.posts
   for each row execute function private.record_post_revision();
 
+-- ---------- insights: anonymous usage counts ----------
+-- What the app records so the team can see which content helps families: visits, tab views and
+-- time, and opens, saves, shares and plays of each post. Nothing identifies a person: no names,
+-- emails, cookies or IP addresses. `visitor` is a random id made in the browser that changes every
+-- day, so visitors can be counted per day but never followed from one day to the next.
+-- The app can only add rows; only the team can read them (through public.insights()).
+create table if not exists public.events (
+  id       bigint generated always as identity primary key,
+  at       timestamptz not null default now(),
+  day      date not null default ((now() at time zone 'utc')::date),
+  visitor  text not null check (char_length(visitor) between 8 and 40),
+  name     text not null check (name in ('visit', 'tab_view', 'tab_time', 'open', 'save', 'share', 'play', 'install')),
+  tab      text check (tab in ('today', 'watch', 'listen', 'read', 'verses', 'play')),
+  kind     text check (kind in ('verse', 'devotion', 'audio', 'reel', 'game')),
+  item     text check (char_length(item) <= 120),     -- 'post:27', or 'verse:joshua-1-9' for built-in content
+  title    text check (char_length(title) <= 160),
+  value    integer check (value between 0 and 3600),  -- seconds, for tab_time
+  device   text check (device in ('phone', 'computer'))
+);
+create index if not exists events_day_idx on public.events (day);
+
+alter table public.events enable row level security;
+-- Visitors may add rows, and only these columns: the time and day are always set by the database.
+revoke all on public.events from anon, authenticated;
+grant insert (visitor, name, tab, kind, item, title, value, device) on public.events to anon, authenticated;
+grant select on public.events to authenticated;
+drop policy if exists "Anyone adds usage counts" on public.events;
+create policy "Anyone adds usage counts" on public.events for insert to anon, authenticated with check (true);
+drop policy if exists "Team reads usage counts" on public.events;
+create policy "Team reads usage counts" on public.events for select to authenticated using (private.is_team());
+
+-- The summary the Studio's Insights page shows. It runs as the person asking, so the rule above
+-- applies: the team gets the numbers, anyone else gets zeros. Same shape as insights() in js/store.js.
+create or replace function public.insights(since date) returns jsonb
+language sql stable set search_path = '' as $$
+  select jsonb_build_object(
+    'days', coalesce((
+      select jsonb_agg(jsonb_build_object('day', d.day, 'visitors', d.visitors, 'visits', d.visits) order by d.day)
+      from (select day, count(distinct visitor) as visitors, count(*) filter (where name = 'visit') as visits
+            from public.events where day >= since group by day) d), '[]'::jsonb),
+    'tabs', coalesce((
+      select jsonb_agg(jsonb_build_object('tab', t.tab, 'views', t.views, 'visitors', t.visitors, 'seconds', t.seconds))
+      from (select tab, count(*) filter (where name = 'tab_view') as views,
+                   count(distinct visitor || day::text) filter (where name = 'tab_view') as visitors,
+                   coalesce(sum(value) filter (where name = 'tab_time'), 0) as seconds
+            from public.events where day >= since and tab is not null and name in ('tab_view', 'tab_time') group by tab) t), '[]'::jsonb),
+    'items', coalesce((
+      select jsonb_agg(jsonb_build_object('item', i.item, 'kind', i.kind, 'title', i.title,
+                                          'opens', i.opens, 'saves', i.saves, 'shares', i.shares, 'plays', i.plays))
+      from (select item, max(kind) as kind, (array_agg(title order by at desc))[1] as title,
+                   count(*) filter (where name = 'open') as opens, count(*) filter (where name = 'save') as saves,
+                   count(*) filter (where name = 'share') as shares, count(*) filter (where name = 'play') as plays
+            from public.events where day >= since and item is not null group by item) i), '[]'::jsonb),
+    'installs', (select count(*) from public.events where day >= since and name = 'install')
+  )
+$$;
+revoke execute on function public.insights(date) from public, anon;
+grant execute on function public.insights(date) to authenticated;
+
 -- ---------- file storage: audio and video ----------
 insert into storage.buckets (id, name, public, file_size_limit)
 values ('media', 'media', true, 52428800)            -- public read, 50 MB per file

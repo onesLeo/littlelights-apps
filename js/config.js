@@ -5,7 +5,11 @@
 //
 // Fill both in to use SUPABASE MODE (see docs/studio.md). The anon key is meant to
 // be public: the database's row-level security rules decide who may write.
+//
+// googleSignIn: set to true once Google is set up as a sign-in provider in Supabase
+// (docs/studio.md, "Sign in with Google"). The Studio then offers "Continue with Google".
 window.LL_CONFIG = {
   supabaseUrl: 'https://svlvlmyugyadmehjwudm.supabase.co',
-  supabaseAnonKey: 'sb_publishable_PpHntUeaf4RbeeYWStKpVw_RlYdUQFV'
+  supabaseAnonKey: 'sb_publishable_PpHntUeaf4RbeeYWStKpVw_RlYdUQFV',
+  googleSignIn: false
 };

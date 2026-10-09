@@ -54,6 +54,26 @@ await page.evaluate(() => window.LLStore.deletePost(7));
 const del = calls.find((c) => c.method === 'DELETE');
 check(!!del && del.query.includes('id=eq.7'), 'delete: only that post is removed');
 
+// ---------- Google sign-in is offered only when it is switched on in js/config.js ----------
+check(!(await page.$('#google')), 'sign-in: no Google button while googleSignIn is off');
+const withGoogle = await browser.newContext({ serviceWorkers: 'block' });
+await withGoogle.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript',
+  body: "window.LL_CONFIG = { supabaseUrl: 'https://fake-project.supabase.co', supabaseAnonKey: 'sb_publishable_test', googleSignIn: true };" }));
+let authorize = '';
+await withGoogle.route('https://fake-project.supabase.co/**', (r) => {
+  if (r.request().url().includes('/auth/v1/authorize')) { authorize = r.request().url(); return r.fulfill({ contentType: 'text/html', body: 'Google would open here' }); }
+  return r.fulfill({ contentType: 'application/json', body: '[]' });
+});
+const gp = await withGoogle.newPage();
+await gp.goto(base + 'studio/');
+await gp.waitForSelector('#signinForm');
+check(await gp.$('#google') !== null && await gp.$('#email') !== null, 'sign-in: Google button is shown, with the email link as a fallback');
+await gp.click('#google');
+await gp.waitForURL(/auth\/v1\/authorize/);
+const to = new URL(authorize);
+check(to.searchParams.get('provider') === 'google', 'sign-in: the button starts Google sign-in');
+check(to.searchParams.get('redirect_to') === base + 'studio/', 'sign-in: Google sends the person back to the Studio');
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} Supabase request check(s) failed` : '\nAll Supabase request checks passed');
