@@ -5,8 +5,8 @@ import shutil, pathlib, re, html
 
 ROOT = pathlib.Path(__file__).parent
 OUT = ROOT / "public"
-LAST_UPDATED = "6 October 2026"
-EMAIL = "customers-support@littlesaltandlight.com"
+LAST_UPDATED = "9 October 2026"
+EMAIL = "support@littlesaltandlight.com"
 
 def ph(text):
     return f'<mark class="ph">[{text}]</mark>'
@@ -14,18 +14,16 @@ def ph(text):
 MACROS = {
     "EMAIL": f'<a class="email" href="mailto:{EMAIL}">{EMAIL}</a>',
     "EMAIL_PLAIN": EMAIL,
-    "DEV": ph("Developer legal name"),
-    "ADDR": ph("Postal address"),
+    "DEV": "Little Salt and Light",
     "AGE": "aged 5 to 8",
-    "LAW": ph("Governing law, to confirm, e.g. Republic of Indonesia"),
+    "LAW": "the laws of the Republic of Indonesia",
     "SUPA_REGION": ph("Supabase project region, to confirm"),
-    "MAILBOX": ph("Inbox provider, e.g. Gmail, to confirm"),
+    "MAILBOX": "Gmail",
     "GAME_PERMS": "The version on Google Play asks for no permissions at all: it cannot use the internet.",
     "GAME_RESET": "Inside the game, the grown-ups area of the Faith Journal has a button that removes a child's name, journal and settings from the device.",
     "ML_TRACKING": ph("To confirm: turn MailerLite open and click tracking off, or keep this sentence"),
-    "SUPPORT_HOURS": ph("Optional: support hours and time zone, e.g. Mon–Fri, WITA (UTC+8)"),
     "DEVICES": "It needs Android 10 or newer on a 64-bit device.",
-    "EFFECTIVE": "6 October 2026",
+    "EFFECTIVE": "9 October 2026",
     "UPDATED": LAST_UPDATED,
 }
 
