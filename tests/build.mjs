@@ -34,6 +34,8 @@ for (const page of ['index.html', 'studio/index.html', 'fonts/fonts.css', 'css/a
 }
 
 check(existsSync(join(dist, 'studio', 'index.html')), 'the Studio is included');
+const redirects = existsSync(join(dist, '_redirects')) ? readFileSync(join(dist, '_redirects'), 'utf8') : '';
+check(/^\/join\s+https:\/\/\S+\s+302$/m.test(redirects), '_redirects is published and /join is a temporary (302) redirect');
 for (const hidden of ['docs', 'supabase', 'tests', 'scripts', 'package.json', 'node_modules', '.github', 'legal']) {
   check(!existsSync(join(dist, hidden)), `${hidden} is not published`);
 }

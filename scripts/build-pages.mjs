@@ -25,3 +25,6 @@ try {
 } catch (error) {
   if (error.code !== 'ENOENT') throw error;
 }
+
+// Short links such as /join (Cloudflare Pages reads _redirects from the output folder).
+await cp(resolve(root, '_redirects'), resolve(output, '_redirects'));
