@@ -1,0 +1,6 @@
+# Short links, read by Cloudflare Pages (copied into dist/ by scripts/build-pages.mjs).
+# 302 = temporary: /join points at the MailerLite sign-up form for now, and can later
+# point at the app's own form (docs/backlog.md 2.5). www.littlesaltandlight.com/join reaches
+# this through the Cloudflare "Redirect www to apex" rule.
+/join   https://preview.mailerlite.io/forms/2665785/199840872021362386/share   302
+/join/  https://preview.mailerlite.io/forms/2665785/199840872021362386/share   302
