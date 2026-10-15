@@ -15,9 +15,8 @@ These look finished but don't work yet. Each one points to the item that fixes i
 | Built-in reels in Watch | Animated drawings instead of video | 5.2 |
 | "Play the free preview" (Play tab, game updates) | Shows "opens here once the browser build is published" | 6.1 |
 | App Store / Google Play (Play tab) | "Coming soon" text, not links | 6.2 |
-| "Continue with Google" (Studio sign-in) | Hidden until Google is set up in Supabase | 3.4 |
+| "Continue with Google" (Studio sign-in) | Hidden until Google is set up in Supabase | In progress: the code is ready behind `googleSignIn` in `js/config.js` (off). Remaining, yours: the Google OAuth client and the Supabase provider (steps in docs/studio.md, "Sign in with Google"); then Dev switches it on. |
 | Studio sign-in emails | Supabase's built-in sender, a few emails an hour | 3.1, 3.2 |
-| Insights in the Studio | Not built | Later |
 
 ## 1. Domain and email (do first: everything else depends on it)
 
@@ -47,13 +46,13 @@ These look finished but don't work yet. Each one points to the item that fixes i
 | 3.1 | **Pick an email sender (SMTP) for Supabase**, for example Brevo or Resend (free tiers), and verify the domain there. MailerLite's newsletter account does not provide SMTP. | You | 1.1 | Sender shows the domain as verified | To do |
 | 3.2 | **Connect it in Supabase**: *Authentication → Emails → SMTP settings*, sender `no-reply@`, name "Little Light". Supabase's built-in email only allows a few messages an hour. | You (Dev can guide) | 3.1 | A sign-in link arrives from `no-reply@` | To do |
 | 3.3 | **Word the sign-in email** in *Authentication → Emails → Templates* (Magic Link) in the app's voice. | You / Dev | 3.2 | – | To do |
-| 3.4 | **Set up "Continue with Google"**: create an OAuth client in Google Cloud Console with the redirect URI `https://svlvlmyugyadmehjwudm.supabase.co/auth/v1/callback`, then paste its ID and secret in Supabase under *Authentication → Sign In / Providers → Google*. The button is hidden until this is configured. | You (Dev can guide) | 4.3 for the live address | A team member signs in with Google and lands in the Studio | In progress: Google sign-in is disabled and its button is hidden; OAuth setup remains |
+| 3.4 | **Set up "Continue with Google"**: create an OAuth client in Google Cloud Console with the redirect URI `https://svlvlmyugyadmehjwudm.supabase.co/auth/v1/callback`, then paste its ID and secret in Supabase under *Authentication → Sign In / Providers → Google*. The button is hidden until this is configured. | You (Dev can guide) | 4.3 for the live address | A team member signs in with Google and lands in the Studio | In progress: the code is ready behind `googleSignIn` in `js/config.js` (off). Remaining, yours: the Google OAuth client and the Supabase provider (steps in docs/studio.md, "Sign in with Google"); then Dev switches it on. |
 
 ## 4. Publishing the website
 
 | # | Item | Owner | Depends on | Done when | Status |
 |---|---|---|---|---|---|
-| 4.1 | **Deploy the site** with the GitHub Pages workflow (Settings → Pages → Source: GitHub Actions, then run *Deploy to GitHub Pages*), or Cloudflare Pages. | You / Dev | – | The app opens at the Pages address | Done 2026-10-09: Cloudflare Pages project `littlelights-apps`, live at https://littlelights-apps.pages.dev (checked in a browser: app, Studio page, fonts, offline mode) |
+| 4.1 | **Deploy the site** with the GitHub Pages workflow (Settings → Pages → Source: GitHub Actions, then run *Deploy to GitHub Pages*), or Cloudflare Pages. | You / Dev | – | The app opens at the Pages address | Done 2026-10-09: Cloudflare Pages project `littlesaltandlight` (publishes `main`), live at https://littlesaltandlight.pages.dev (checked in a browser: app, Studio page, fonts, offline mode) |
 | 4.2 | **Trim the deploy list** in `.github/workflows/pages.yml`: publish `studio`, but not `docs` or `supabase`, which visitors don't need. | Dev | – | Workflow updated | Done 2026-09-28: both hosting paths use `scripts/build-pages.mjs`, which omits `docs` and `supabase`. |
 | 4.3 | **Connect the domain** to the site, with HTTPS. | You | 1.1, 4.1 | The app opens at `https://your-domain/` | Done 2026-10-09: https://littlesaltandlight.com is live with HTTPS (`www` is not set up) |
 | 4.4 | **Update Supabase URLs**: *Authentication → URL Configuration*, Site URL = the domain, and add `https://your-domain/studio/` to Redirect URLs. | You | 4.3 | Signing in on the live Studio returns to the Studio | To do |
@@ -103,7 +102,7 @@ Captions are built from the post: text, reference and translation, a link back t
 
 ## 9. Later
 
-- **Insights** in the Studio: views, finished, saves and shares per post (roadmap).
+- **Insights**: done 2026-10-09 (visitors per day, time per menu, opens, plays, saves and shares per post; anonymous counts). Still open: how many people finish a devotion or recording, and removing counts older than a year.
 - **Tester feedback**: share with 5–20 parents and church friends (roadmap).
-- **Privacy-friendly analytics** on the website only, never tracking children (roadmap).
+- **Privacy page**: a short page in the app that says what is counted and why (the README and docs/studio.md explain it today).
 - **Gentle notifications** for new posts, opt-in, adults only (roadmap).

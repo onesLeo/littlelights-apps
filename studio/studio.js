@@ -43,12 +43,14 @@
     plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
     media: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 16l5-5 4 4 3-3 6 6"/></svg>',
     team: '<svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.5"/><path d="M3 19c.8-3.3 3.2-5 6-5s5.2 1.7 6 5M16 5.5a3 3 0 010 6M17.5 14c1.8.5 3 2.2 3.5 5"/></svg>',
+    chart: '<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
     site: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.6 2.5 13.4 0 16M12 4c-2.5 2.6-2.5 13.4 0 16"/></svg>'
   };
 
   var state = {
     screen: 'loading', email: '', authError: '', session: null,
-    view: 'posts', filter: 'all', posts: [], team: [],
+    view: 'posts', filter: 'all', status: 'all', q: '', sort: { key: 'date', dir: -1 }, posts: [], team: [], changes: {},
+    insights: { days: 30, data: null, error: '' },
     editing: null, errors: {}, confirmDelete: false, busy: false, uploading: ''
   };
 
@@ -176,7 +178,16 @@
 
   // ---------- data ----------
   function loadAll() {
-    return Promise.all([S.listPosts(), S.listTeam()]).then(function (r) { state.posts = r[0] || []; state.team = r[1] || []; });
+    return Promise.all([S.listPosts(), S.listTeam(), S.listChanges().catch(function () { return []; })]).then(function (r) {
+      state.posts = r[0] || []; state.team = r[1] || [];
+      // Per post: how many versions, the latest change, and how many edits were made after it first went live.
+      state.changes = {};
+      (r[2] || []).forEach(function (c) {
+        var x = state.changes[c.post_id] || (state.changes[c.post_id] = { n: 0, last: null, live: false, editsLive: 0 });
+        x.n++; x.last = c;
+        if (c.action === 'published') x.live = true; else if (c.action === 'edited' && x.live) x.editsLive++;
+      });
+    });
   }
   function enter(session) {
     state.session = session;
@@ -204,9 +215,11 @@
       '<div class="brand"><span class="dot"></span>Little Light Studio</div>' +
       '<div><h1>Sign in to post</h1><p style="margin-top:6px">For the Little Light team. Visitors never need an account.</p></div>' +
       modeBar() +
+      // With Google set up, it is the main way in: one click, no email to wait for. The email link stays as a fallback.
+      (S.googleSignIn ? '<button class="btn primary" type="button" id="google">Continue with Google</button><div class="or">or use an email link</div>' : '') +
       '<label class="field"><span>Email</span><input class="input' + (err ? ' err' : '') + '" id="email" type="email" autocomplete="email" placeholder="you@example.com" value="' + esc(state.email) + '">' +
       (err ? '<span class="errmsg" role="alert">' + esc(err) + '</span>' : '<small>' + (S.mode === 'local' ? 'The first email to sign in becomes the owner.' : 'We’ll email you a one-time sign-in link. No password to remember.') + '</small>') + '</label>' +
-      '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>' + (S.mode === 'local' ? 'Sign in' : state.busy ? 'Sending…' : 'Email me a sign-in link') + '</button>' +
+      '<button class="btn ' + (S.googleSignIn ? 'soft' : 'primary') + '" type="submit"' + (state.busy ? ' disabled' : '') + '>' + (S.mode === 'local' ? 'Sign in' : state.busy ? 'Sending…' : 'Email me a sign-in link') + '</button>' +
       '<div class="note">Only people on the team can sign in. Anyone else sees “This email isn’t on the Little Light team.”</div>' +
       '</form></main>';
   }
@@ -217,7 +230,7 @@
       '<button class="btn ghost" type="button" id="back">Use a different email</button></div></main>';
   }
   function shell(inner) {
-    var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['team', 'Team', ICON.team]];
+    var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['insights', 'Insights', ICON.chart], ['team', 'Team', ICON.team]];
     return '<div class="shell"><aside class="side">' +
       '<div class="brand"><span class="dot"></span><span>Little Light Studio</span></div>' +
       '<nav aria-label="Studio">' + nav.map(function (n) {
@@ -231,23 +244,156 @@
   }
   function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : ''; }
 
+  // ---------- posts table ----------
+  var COLUMNS = [['title', 'Title'], ['type', 'Kind'], ['status', 'Status'], ['date', 'Published / scheduled'], ['changed', 'Last change']];
+  function searchText(p) {
+    var f = p.fields || {};
+    return [p.title, p.author_email, TYPES[p.type].name, f.verse, f.ref, f.teaser, f.body, f.caption, f.text, (f.topics || []).join(' ')].join(' ').toLowerCase();
+  }
+  function shownPosts() {
+    var words = state.q.toLowerCase().split(/\s+/).filter(Boolean);
+    var list = state.posts.filter(function (p) {
+      if (state.status !== 'all' && statusOf(p) !== state.status) return false;
+      if (state.filter !== 'all' && p.type !== state.filter) return false;
+      var text = words.length ? searchText(p) : '';
+      return words.every(function (w) { return text.indexOf(w) >= 0; });
+    });
+    var key = {
+      title: function (p) { return (p.title || '').toLowerCase(); },
+      type: function (p) { return TYPES[p.type].name; },
+      status: function (p) { return ['published', 'scheduled', 'draft'].indexOf(statusOf(p)); },
+      date: function (p) { return p.publish_at || ''; },
+      changed: function (p) { var c = state.changes[p.id]; return (c && c.last.changed_at) || p.updated_at || ''; }
+    }[state.sort.key];
+    return list.sort(function (a, b) { var x = key(a), y = key(b); return (x < y ? -1 : x > y ? 1 : 0) * state.sort.dir; });
+  }
+  function postRows() {
+    var list = shownPosts();
+    if (!list.length) {
+      return '<tr><td colspan="5"><div class="empty">' + (state.posts.length ? 'No posts match. Clear the search or pick another filter.' : 'No posts yet. Press “New post” to write the first one.') + '</div></td></tr>';
+    }
+    return list.map(function (p) {
+      var st = statusOf(p), c = state.changes[p.id], last = c && c.last;
+      return '<tr class="row"><td><button class="title" type="button" data-edit="' + p.id + '"><span class="stripe" style="background:' + TYPES[p.type].color + '"></span>' +
+        '<span><b>' + esc(p.title || 'Untitled') + '</b>' + (p.show_on_today ? '<small>On Today</small>' : '') + '</span></button></td>' +
+        '<td>' + TYPES[p.type].name + '</td>' +
+        '<td><span class="pill ' + st + '">' + cap(st) + '</span></td>' +
+        '<td class="when">' + (p.publish_at ? esc(fmtWhen(p.publish_at)) : '—') + '</td>' +
+        '<td class="changed">' + (last
+          ? '<span>' + (ACTION[last.action] || last.action) + ' · ' + esc(fmtWhen(last.changed_at)) + '</span><small>' + esc(last.changed_by || 'unknown') + ' · ' +
+            c.n + ' version' + (c.n > 1 ? 's' : '') + (c.editsLive ? ' · <b>edited ' + c.editsLive + '× since publishing</b>' : '') + '</small>'
+          : '<span>' + esc(fmtWhen(p.updated_at)) + '</span>') + '</td></tr>';
+    }).join('');
+  }
   function postsView() {
-    var count = function (st) { return state.posts.filter(function (p) { return statusOf(p) === st; }).length; };
-    var list = state.posts.filter(function (p) { return state.filter === 'all' || p.type === state.filter; });
+    var count = function (st) { return state.posts.filter(function (p) { return st === 'all' || statusOf(p) === st; }).length; };
     var next = state.posts.filter(function (p) { return p.status === 'scheduled' && !S.isLive(p); })
       .sort(function (a, b) { return a.publish_at.localeCompare(b.publish_at); })[0];
-    return '<div class="top"><div><h2>Posts</h2><p>Everything on Today, Watch, Listen, Read and Verses.</p></div>' +
+    return '<div class="top"><div><h2>Posts</h2><p>Everything on Today, Watch, Listen, Read and Verses.' + (next ? ' Next scheduled: ' + esc(fmtWhen(next.publish_at)) + '.' : '') + '</p></div>' +
       '<button class="btn primary" type="button" data-view="new">+ New post</button></div>' +
-      '<div class="stats"><div class="stat"><b>' + count('published') + '</b><span>Published</span></div><div class="stat"><b>' + count('scheduled') + '</b><span>Scheduled</span></div>' +
-      '<div class="stat"><b>' + count('draft') + '</b><span>Drafts</span></div><div class="stat"><b>' + (next ? esc(fmtWhen(next.publish_at)) : '—') + '</b><span>Next scheduled post</span></div></div>' +
-      '<div class="chips" role="group" aria-label="Filter by kind"><button class="chip' + (state.filter === 'all' ? ' on' : '') + '" type="button" data-filter="all">All</button>' +
-      Object.keys(TYPES).map(function (k) { return '<button class="chip' + (state.filter === k ? ' on' : '') + '" type="button" data-filter="' + k + '"><i style="background:' + TYPES[k].color + '"></i>' + TYPES[k].name + '</button>'; }).join('') +
-      '</div><div class="list">' + (list.length ? list.map(function (p) {
-        var st = statusOf(p);
-        return '<button class="row" type="button" data-edit="' + p.id + '"><span class="stripe" style="background:' + TYPES[p.type].color + '"></span>' +
-          '<span><b>' + esc(p.title || 'Untitled') + '</b><small>' + TYPES[p.type].name + (p.show_on_today ? ' · on Today' : '') + (p.author_email ? ' · ' + esc(p.author_email) : '') + '</small></span>' +
-          '<span class="when">' + esc(fmtWhen(p.publish_at || p.updated_at)) + '</span><span class="pill ' + st + '">' + cap(st) + '</span></button>';
-      }).join('') : '<div class="empty">' + (state.posts.length ? 'No ' + TYPES[state.filter].name.toLowerCase() + ' posts yet.' : 'No posts yet. Press “New post” to write the first one.') + '</div>') + '</div>';
+      '<div class="toolbar-posts"><div class="chips" role="group" aria-label="Filter by status">' +
+      [['all', 'All'], ['published', 'Published'], ['scheduled', 'Scheduled'], ['draft', 'Drafts']].map(function (x) {
+        return '<button class="chip' + (state.status === x[0] ? ' on' : '') + '" type="button" data-status="' + x[0] + '" aria-pressed="' + (state.status === x[0]) + '">' + x[1] + ' <span class="n">' + count(x[0]) + '</span></button>';
+      }).join('') + '</div>' +
+      '<select class="select" id="postType" aria-label="Filter by kind"><option value="all">All kinds</option>' +
+      Object.keys(TYPES).map(function (k) { return '<option value="' + k + '"' + (state.filter === k ? ' selected' : '') + '>' + TYPES[k].name + '</option>'; }).join('') + '</select>' +
+      '<input class="input" id="postSearch" type="search" placeholder="Search titles, verses and text" aria-label="Search posts" value="' + esc(state.q) + '"></div>' +
+      '<div class="list"><table class="posts"><thead><tr>' + COLUMNS.map(function (c) {
+        var on = state.sort.key === c[0];
+        return '<th' + (on ? ' aria-sort="' + (state.sort.dir > 0 ? 'ascending' : 'descending') + '"' : '') + '><button type="button" data-sort="' + c[0] + '">' + c[1] +
+          '<span class="arrow">' + (on ? (state.sort.dir > 0 ? '↑' : '↓') : '') + '</span></button></th>';
+      }).join('') + '</tr></thead><tbody id="postRows">' + postRows() + '</tbody></table></div>';
+  }
+
+  // ---------- insights ----------
+  var TAB_NAME = { today: 'Today', watch: 'Watch', listen: 'Listen', read: 'Read', verses: 'Verses', play: 'Play' };
+  function duration(sec) {
+    sec = Math.round(sec || 0);
+    if (sec < 60) return sec + 's';
+    if (sec < 3600) return Math.floor(sec / 60) + 'm ' + ('0' + sec % 60).slice(-2) + 's';
+    return Math.floor(sec / 3600) + 'h ' + ('0' + Math.floor(sec % 3600 / 60)).slice(-2) + 'm';
+  }
+  function dayLabel(iso, long) {
+    var d = new Date(iso + 'T00:00:00Z');
+    return d.toLocaleDateString(undefined, long ? { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' } : { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  }
+  function loadInsights() {
+    var days = state.insights.days;
+    state.insights.data = null; state.insights.error = '';
+    S.insights(days).then(function (data) {
+      if (state.insights.days !== days) return;
+      state.insights.data = data || { days: [], tabs: [], items: [], installs: 0 };
+      if (state.view === 'insights') render();
+    }).catch(function (err) { state.insights.error = err.message; if (state.view === 'insights') render(); });
+  }
+  // One bar per day. Bars share one colour (a single measure), sit on the baseline with rounded tops,
+  // and each day has a full-height hover area; the line under the chart reads out the day in words.
+  function visitorsChart(series) {
+    var W = 720, H = 190, left = 34, bottom = 24, top = 10, n = series.length;
+    var max = Math.max(4, Math.max.apply(null, series.map(function (d) { return d.visitors; })));
+    var step = Math.pow(10, Math.floor(Math.log(max) / Math.LN10)), nice = Math.ceil(max / step) * step;
+    if (nice / step > 5) step *= 2;
+    var slot = (W - left) / n, bar = Math.max(2, Math.min(28, slot - 2)), plot = H - bottom - top;
+    var y = function (v) { return top + plot - v / nice * plot; };
+    var grid = '';
+    for (var g = 0; g <= nice; g += step) grid += '<line x1="' + left + '" x2="' + W + '" y1="' + y(g) + '" y2="' + y(g) + '"/><text x="' + (left - 6) + '" y="' + (y(g) + 4) + '" text-anchor="end">' + g + '</text>';
+    var every = Math.ceil(n / 6), marks = series.map(function (d, i) {
+      var x = left + i * slot + (slot - bar) / 2, h = d.visitors / nice * plot, r = Math.min(4, bar / 2, h);
+      return '<g class="day" tabindex="0" data-say="' + esc(dayLabel(d.day, true) + ': ' + d.visitors + ' visitor' + (d.visitors === 1 ? '' : 's') + ', ' + d.visits + ' visit' + (d.visits === 1 ? '' : 's')) + '">' +
+        '<rect class="hit" x="' + (left + i * slot) + '" y="' + top + '" width="' + slot + '" height="' + plot + '"/>' +
+        (h > 0 ? '<path class="bar" d="M' + x + ' ' + y(0) + 'V' + (y(d.visitors) + r) + 'q0 ' + -r + ' ' + r + ' ' + -r + 'h' + (bar - 2 * r) + 'q' + r + ' 0 ' + r + ' ' + r + 'V' + y(0) + 'z"/>' : '') +
+        (i === n - 1 ? '<text class="x" x="' + W + '" y="' + (H - 6) + '" text-anchor="end">' + esc(dayLabel(d.day)) + '</text>'
+          : i % every === 0 && n - 1 - i >= every / 2 ? '<text class="x" x="' + (left + i * slot + slot / 2) + '" y="' + (H - 6) + '" text-anchor="middle">' + esc(dayLabel(d.day)) + '</text>' : '') + '</g>';
+    }).join('');
+    return '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Visitors per day"><g class="grid">' + grid + '</g>' + marks + '</svg>' +
+      '<p class="readout" id="chartSay" aria-live="polite">Point at a day to see its numbers.</p>';
+  }
+  function insightsView() {
+    var I = state.insights, data = I.data;
+    var head = '<div class="top"><div><h2>Insights</h2><p>What families open, save and share. Anonymous counts only: no names, emails or cookies.</p></div>' +
+      '<div class="seg" role="group" aria-label="Period">' + [7, 30, 90].map(function (d) {
+        return '<button type="button" data-days="' + d + '" class="' + (I.days === d ? 'on' : '') + '" aria-pressed="' + (I.days === d) + '">Last ' + d + ' days</button>';
+      }).join('') + '</div></div>';
+    if (I.error) return head + '<div class="list"><div class="empty">Insights could not be loaded: ' + esc(I.error) + '</div></div>';
+    if (!data) return head + '<div class="list"><div class="empty">Loading…</div></div>';
+    // Every day of the period, including days with nobody.
+    var byDay = {}, series = [];
+    data.days.forEach(function (d) { byDay[d.day] = d; });
+    for (var k = I.days - 1; k >= 0; k--) {
+      var iso = new Date(Date.now() - k * 86400000).toISOString().slice(0, 10);
+      series.push(byDay[iso] || { day: iso, visitors: 0, visits: 0 });
+    }
+    var sum = function (list, f) { return list.reduce(function (t, x) { return t + (x[f] || 0); }, 0); };
+    var visitors = sum(series, 'visitors'), visits = sum(series, 'visits');
+    var tabs = Object.keys(TAB_NAME).map(function (t) {
+      return data.tabs.filter(function (x) { return x.tab === t; })[0] || { tab: t, views: 0, visitors: 0, seconds: 0 };
+    }).sort(function (a, b) { return b.seconds - a.seconds || b.views - a.views; });
+    var allSeconds = sum(tabs, 'seconds') || 1;
+    var items = data.items.map(function (x) { x.total = x.opens + x.plays + x.saves + x.shares; return x; })
+      .sort(function (a, b) { return b.total - a.total; }).slice(0, 20);
+    var num = function (n) { return '<td class="num">' + (n || '<span class="zero">0</span>') + '</td>'; };
+    return head +
+      '<div class="stats"><div class="stat"><b>' + visitors + '</b><span>Visitors, counted each day</span></div>' +
+      '<div class="stat"><b>' + visits + '</b><span>Visits</span></div>' +
+      '<div class="stat"><b>' + (Math.round(visitors / I.days * 10) / 10) + '</b><span>Visitors a day, on average</span></div>' +
+      '<div class="stat"><b>' + (data.installs || 0) + '</b><span>App installs</span></div></div>' +
+      '<section class="panel"><h3>Visitors per day</h3>' + (visitors ? visitorsChart(series) : '<div class="empty">Nobody has been counted in this period yet.</div>') + '</section>' +
+      '<section class="panel"><h3>Where people spend time</h3><div class="scroll"><table class="data"><thead><tr><th>Menu</th><th class="num">Time spent</th><th class="share">Share of time</th><th class="num">Views</th><th class="num">Visitors</th><th class="num">Time per view</th></tr></thead><tbody>' +
+      tabs.map(function (t) {
+        var pct = Math.round(t.seconds / allSeconds * 100);
+        return '<tr><td><b>' + TAB_NAME[t.tab] + '</b></td><td class="num">' + duration(t.seconds) + '</td>' +
+          '<td class="share"><span class="meter"><i style="width:' + pct + '%"></i></span><span class="pct">' + pct + '%</span></td>' +
+          num(t.views) + num(t.visitors) + '<td class="num">' + (t.views ? duration(t.seconds / t.views) : '—') + '</td></tr>';
+      }).join('') + '</tbody></table></div></section>' +
+      '<section class="panel"><h3>Most used posts</h3>' + (items.length
+        ? '<div class="scroll"><table class="data"><thead><tr><th>Post</th><th>Kind</th><th class="num">Opened</th><th class="num">Played</th><th class="num">Saved</th><th class="num">Shared</th><th class="num">Total</th></tr></thead><tbody>' +
+          items.map(function (x) {
+            return '<tr><td><b>' + esc(x.title || x.item) + '</b></td><td>' + (TYPES[x.kind] ? TYPES[x.kind].name : cap(x.kind || '')) + '</td>' +
+              num(x.opens) + num(x.plays) + num(x.saves) + num(x.shares) + '<td class="num"><b>' + x.total + '</b></td></tr>';
+          }).join('') + '</tbody></table></div>'
+        : '<div class="empty">No opens, plays, saves or shares counted in this period yet.</div>') + '</section>' +
+      '<p class="role-note">“Saved” is Save image on a verse or Save on a reel. A visitor is counted once per day; the same person on two days counts twice, because the app keeps no lasting identifier. Visitors who ask not to be tracked are not counted' +
+      (S.mode === 'supabase' ? ', and neither is this Studio or a developer’s own computer.' : '. In local mode, only visits made in this browser are counted.') + '</p>';
   }
 
   function newView() {
@@ -384,7 +530,8 @@
     if (state.screen === 'signin') root.innerHTML = signin();
     else if (state.screen === 'check') root.innerHTML = checkEmail();
     else {
-      var v = state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : teamView();
+      var v = state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() :
+        state.view === 'insights' ? insightsView() : teamView();
       root.innerHTML = shell(v);
       if (state.view === 'media') resolveMediaElements();
     }
@@ -507,10 +654,13 @@
     var b = ev.target.closest('button');
     if (!b) return;
     var d = b.dataset;
-    if (b.id === 'back') { state.screen = 'signin'; render(); }
+    if (b.id === 'google') S.signInWithGoogle().catch(function (err) { state.authError = err.message; render(); });
+    else if (b.id === 'back') { state.screen = 'signin'; render(); }
     else if (b.id === 'signout') S.signOut().then(function () { state.session = null; state.screen = 'signin'; state.view = 'posts'; render(); });
-    else if (d.view) go(d.view);
-    else if (d.filter) { state.filter = d.filter; render(); }
+    else if (d.view) { go(d.view); if (d.view === 'insights') loadInsights(); }
+    else if (d.status) { state.status = d.status; render(); }
+    else if (d.sort) { state.sort = { key: d.sort, dir: state.sort.key === d.sort ? -state.sort.dir : (d.sort === 'date' || d.sort === 'changed' ? -1 : 1) }; render(); }
+    else if (d.days) { state.insights.days = +d.days; render(); loadInsights(); }
     else if (d.new) {
       state.editing = { type: d.new, status: 'draft', show_on_today: true, topics: [], translation: 'WEB', kind: 'Devotion', _mode: 'now' };
       state.view = 'edit'; state.errors = {}; state.confirmDelete = false; render(); window.scrollTo(0, 0);
@@ -545,6 +695,8 @@
   });
 
   root.addEventListener('input', function (ev) {
+    // Searching redraws only the rows, so the search box keeps its cursor.
+    if (ev.target.id === 'postSearch') { state.q = ev.target.value; document.getElementById('postRows').innerHTML = postRows(); return; }
     if (!state.editing) return;
     var f = ev.target.dataset.f;
     if (!f) return;
@@ -572,11 +724,19 @@
     var again = document.getElementById('newTopic'); if (again) again.focus();
   }
   root.addEventListener('change', function (ev) {
+    if (ev.target.id === 'postType') { state.filter = ev.target.value; render(); return; }
     if (!state.editing) return;
     if (ev.target.dataset.check) state.editing[ev.target.dataset.check] = ev.target.checked;
     if (ev.target.dataset.f) { state.editing[ev.target.dataset.f] = ev.target.value; refreshPreview(); }
     if (ev.target.dataset.file) handleFile(ev.target.files[0]);
   });
+  // Chart: say the day's numbers in words when it is pointed at or focused.
+  function sayDay(ev) {
+    var g = ev.target.closest && ev.target.closest('.chart .day'), out = document.getElementById('chartSay');
+    if (g && out) out.textContent = g.getAttribute('data-say');
+  }
+  root.addEventListener('mouseover', sayDay);
+  root.addEventListener('focusin', sayDay);
   root.addEventListener('dragover', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); z.classList.add('drag'); } });
   root.addEventListener('dragleave', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) z.classList.remove('drag'); });
   root.addEventListener('drop', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); handleFile(ev.dataTransfer.files[0]); } });

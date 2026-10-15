@@ -7,6 +7,50 @@
   if (!app || !C) return;
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  // ---------- insights: anonymous usage counts ----------
+  // Counts visits, tab views and time, and opens, saves, shares and plays, so the team can see what
+  // helps families (Studio > Insights). No names, emails or cookies: the visitor id is a random
+  // string that changes every day. Nothing is counted when the browser asks not to be tracked, or
+  // on a developer's own computer.
+  var counts = (function () {
+    var S = window.LLStore, queue = [], timer = null, fallbackId = '';
+    var off = !S || !S.track || navigator.doNotTrack === '1' || navigator.globalPrivacyControl === true ||
+      (S.mode === 'supabase' && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname));
+    function randomId() { return Math.random().toString(36).slice(2, 12) + Math.random().toString(36).slice(2, 8); }
+    function visitor() {
+      var day = new Date().toISOString().slice(0, 10);
+      try {
+        var saved = (localStorage.getItem('ll.visitor') || '').split('|');
+        if (saved[0] === day && saved[1]) return saved[1];
+        var id = randomId();
+        localStorage.setItem('ll.visitor', day + '|' + id);
+        return id;
+      } catch (err) { return fallbackId || (fallbackId = randomId()); }
+    }
+    function send() {
+      clearTimeout(timer); timer = null;
+      if (!queue.length) return;
+      var rows = queue; queue = [];
+      S.track(rows);
+    }
+    // thing: { kind, item, title } for a post, or nothing for page-level counts.
+    function add(name, tab, thing, seconds) {
+      if (off) return;
+      queue.push({ visitor: visitor(), name: name, tab: tab || null, kind: thing ? thing.kind : null, item: thing ? thing.item : null,
+        title: thing ? String(thing.title || '').slice(0, 160) : null,
+        value: seconds == null ? null : Math.max(0, Math.min(3600, Math.round(seconds))),
+        device: window.innerWidth >= 900 ? 'computer' : 'phone' });
+      if (queue.length >= 20) send(); else if (!timer) timer = setTimeout(send, 8000);
+    }
+    return { add: add, send: send };
+  })();
+  // What a post is called in the counts: 'post:27' for Studio posts, 'verse:joshua-1-9' for built-in ones.
+  function thing(kind, o) {
+    var name = kind === 'verse' ? o.ref : o.title;
+    var key = o._k || kind + ':' + String(o.slug || name || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return { kind: kind, item: key, title: name };
+  }
+
   function isLongVerse(v) { return String(v && v.text || '').trim().length > 200; }
 
   // ---------- posts from the Studio ----------
@@ -61,7 +105,7 @@
         if (p.type !== 'audio') return;
         var f = p.fields || {};
         audioAt[p.id] = eps.length;
-        eps.push({ title: p.title, meta: f.kind || 'Audio', dur: f.seconds || toSeconds(f.minutes), color: f.color || '#a07fd6', src: p._src || '', _id: p.id });
+        eps.push({ title: p.title, meta: f.kind || 'Audio', dur: f.seconds || toSeconds(f.minutes), color: f.color || '#a07fd6', src: p._src || '', _id: p.id, _k: 'post:' + p.id });
         if (f.builtin) copyOf[f.builtin] = eps.length - 1;
       });
       posts.forEach(function (p) {
@@ -70,7 +114,7 @@
           var ep = f.audioId != null && audioAt[f.audioId] != null ? audioAt[f.audioId] : -1;
           var words = [f.body, f.family, f.prayer].join(' ').split(/\s+/).filter(Boolean).length;
           if (ep >= 0) eps[ep].devotion = devs.length;
-          devs.push({ slug: p.slug, title: p.title, kicker: 'Devotion · ' + Math.max(1, Math.round(words / 180)) + ' min read',
+          devs.push({ _k: 'post:' + p.id, slug: p.slug, title: p.title, kicker: 'Devotion · ' + Math.max(1, Math.round(words / 180)) + ' min read',
             color: pinks[devs.length % 3], ink: '#3a1426', episode: ep, teaser: f.teaser || '',
             html: mdToHtml(f.body) + (f.ref ? '<p class="meta">' + esc(f.ref) + '</p>' : '') +
               (f.family ? '<p><b>For families tonight:</b> ' + esc(f.family) + '</p>' : '') +
@@ -79,11 +123,11 @@
           if (p.show_on_today) today.push({ type: 'devotion', i: devs.length - 1 });
         } else if (p.type === 'reel') {
           var look = reelLook.filter(function (l) { return l[1] === f.look; })[0] || reelLook[reels.length % 3];
-          reels.push({ title: p.title, len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '' });
+          reels.push({ _k: 'post:' + p.id, title: p.title, len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '' });
           if (f.builtin) copyOf[f.builtin] = reels.length - 1;
           if (p.show_on_today) today.push({ type: 'reel', i: reels.length - 1 });
         } else if (p.type === 'verse') {
-          verses.push({ text: f.verse || '', ref: f.ref || '', topics: f.topics && f.topics.length ? f.topics : ['Verse'], translation: f.translation || 'WEB' });
+          verses.push({ _k: 'post:' + p.id, text: f.verse || '', ref: f.ref || '', topics: f.topics && f.topics.length ? f.topics : ['Verse'], translation: f.translation || 'WEB' });
           if (f.builtin) copyOf[f.builtin] = verses.length - 1;
           if (p.show_on_today) today.push({ type: 'verse', i: verses.length - 1 });
         } else if (p.type === 'game') {
@@ -99,7 +143,7 @@
         var map = [], kept = [];
         builtins.forEach(function (b, i) {
           var copy = copyOf[kind + ':' + key(b)];
-          if (copy != null) map[i] = copy; else { map[i] = studio.length + kept.length; kept.push(b); }
+          if (copy != null) map[i] = copy; else { map[i] = studio.length + kept.length; b._k = kind + ':' + key(b); kept.push(b); }
         });
         return { list: studio.concat(kept), map: map };
       }
@@ -172,9 +216,18 @@
   }
 
   // ---------- routing: #today, #watch, #read/brave, ... ----------
-  var current = 'today';
+  var current = 'today', shownOnce = false, tabSince = Date.now();
+  // Time on the tab that is being left (or hidden), in seconds.
+  function countTabTime() {
+    var seconds = (Date.now() - tabSince) / 1000;
+    tabSince = Date.now();
+    if (shownOnce && seconds >= 1) counts.add('tab_time', current, null, seconds);
+  }
   function show(tab) {
     closeOverlays();
+    if (!shownOnce) counts.add('visit', tab);
+    if (!shownOnce || tab !== current) { countTabTime(); counts.add('tab_view', tab); }
+    shownOnce = true;
     current = tab;
     $$('.p-view').forEach(function (v) { v.classList.toggle('on', v.dataset.view === tab); });
     $$('.p-tab').forEach(function (a) {
@@ -330,7 +383,11 @@
   })();
 
   // ---------- pause animations off screen and when the app is hidden ----------
-  document.addEventListener('visibilitychange', function () { app.classList.toggle('asleep', document.hidden); });
+  document.addEventListener('visibilitychange', function () {
+    app.classList.toggle('asleep', document.hidden);
+    if (document.hidden) { countTabTime(); counts.send(); } else tabSince = Date.now();
+  });
+  window.addEventListener('pagehide', function () { countTabTime(); counts.send(); });
   if ('IntersectionObserver' in window) {
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (en) { en.target.classList.toggle('inview', en.isIntersecting); });
@@ -390,9 +447,12 @@
   var savedReels = {};
   try { savedReels = JSON.parse(store('savedReels') || '{}') || {}; } catch (err) { savedReels = {}; }
   $$('.p-reel').forEach(function (el, i) { if (savedReels[i]) el.querySelector('.save').classList.add('saved'); });
+  var countedReel = -1;
   function updateReels() {
+    if (current !== 'watch') countedReel = -1;
     $$('.p-reel').forEach(function (el, i) {
       var playing = current === 'watch' && i === visibleReel && !el.classList.contains('userpaused');
+      if (playing && countedReel !== i && C.reels[i]) { countedReel = i; counts.add('play', 'watch', thing('reel', C.reels[i])); }
       el.classList.toggle('playing', playing);
       var v = el.querySelector('video');
       if (v) { if (playing) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } else v.pause(); }
@@ -415,9 +475,11 @@
       var s = e.target.closest('.save');
       s.classList.toggle('saved');
       savedReels[i] = s.classList.contains('saved');
+      if (savedReels[i]) counts.add('save', current, thing('reel', C.reels[i]));
       store('savedReels', JSON.stringify(savedReels));
       toast(savedReels[i] ? 'Saved on this device' : 'Removed from saved');
     } else if (e.target.closest('.share')) {
+      counts.add('share', current, thing('reel', C.reels[i]));
       share(C.reels[i].title, C.reels[i].caption, location.origin + location.pathname + '#watch');
     }
   });
@@ -491,6 +553,7 @@
   }
   function playEp(i) {
     if (player.ep === i) { setPlaying(!player.playing); return; }
+    counts.add('play', current, thing('audio', C.episodes[i]));
     setPlaying(false);
     player.ep = i; player.t = 0;
     if (C.episodes[i].src) { audio.src = C.episodes[i].src; audio.currentTime = 0; }
@@ -531,6 +594,7 @@
   function openArticle(i, fromRoute) {
     if (!fromRoute) { location.hash = 'read/' + C.devotions[i].slug; return; }
     var d = C.devotions[i], a = $('#pArticle');
+    counts.add('open', current, thing('devotion', d));
     a.innerHTML = '<button class="back" type="button" data-close>← Back</button>' +
       '<div class="hero" style="background:' + d.color + ';color:' + d.ink + '"><span class="p-kicker">' + esc(d.kicker) + '</span><b>' + esc(d.title) + '</b></div>' +
       '<div style="padding-top:16px;display:flex;gap:8px;flex-wrap:wrap">' + (d.episode >= 0 ? '<button class="p-btn listen" type="button" data-ep="' + d.episode + '">▶ Listen to this devotion</button>' : '') +
@@ -548,6 +612,7 @@
   }
   function openSheet(i) {
     var d = C.devotions[i];
+    counts.add('open', current, thing('devotion', d));
     $('#pSheetBody').innerHTML = '<div class="p-txt"><div class="meta">' + esc(d.kicker) + '</div><h5>' + esc(d.title) + '</h5>' + d.html +
       '<button class="p-btn" type="button" data-read="' + i + '" style="justify-self:start;background:#3a1426">Open as a page →</button></div>';
     $('#pSheetWrap').classList.add('on');
@@ -604,11 +669,13 @@
     var t = e.target.closest('[data-verse]');
     if (!t) return;
     story.list = shown(); story.k = +t.dataset.verse; story.single = isLongVerse(C.verses[story.list[story.k]]);
+    counts.add('open', current, thing('verse', C.verses[story.list[story.k]]));
     $('#pStory').classList.add('on');
     renderStory();
   });
   function openFullVerse(i) {
     story.list = [i]; story.k = 0; story.single = true;
+    counts.add('open', current, thing('verse', C.verses[i]));
     $('#pStory').classList.add('on');
     renderStory();
   }
@@ -670,6 +737,7 @@
     return cv;
   }
   function saveVerse(i) {
+    counts.add('save', current, thing('verse', C.verses[i]));
     var cv = verseImage(i), name = 'little-light-' + C.verses[i].ref.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.png';
     cv.toBlob(function (blob) {
       if (!blob) { toast('Could not create the image'); return; }
@@ -723,6 +791,7 @@
     $$('[data-install]').forEach(function (b) { b.hidden = false; });
   });
   window.addEventListener('appinstalled', function () {
+    counts.add('install', current);
     $$('[data-install]').forEach(function (b) { b.hidden = true; });
     toast('Little Light is installed');
   });
@@ -748,9 +817,10 @@
     else if (d.read != null) openArticle(+d.read);
     else if (d.reel != null) openReel(+d.reel);
     else if (d.saveVerse != null) saveVerse(+d.saveVerse);
-    else if (d.shareVerse != null) { var v = C.verses[+d.shareVerse]; share(v.ref, '“' + v.text + '” ' + v.ref + ' (' + (v.translation || 'WEB') + ')', pageUrl('#verses')); }
-    else if (d.shareDev != null) { var dv = C.devotions[+d.shareDev]; share(dv.title, dv.teaser, pageUrl('#read/' + dv.slug)); }
+    else if (d.shareVerse != null) { var v = C.verses[+d.shareVerse]; counts.add('share', current, thing('verse', v)); share(v.ref, '“' + v.text + '” ' + v.ref + ' (' + (v.translation || 'WEB') + ')', pageUrl('#verses')); }
+    else if (d.shareDev != null) { var dv = C.devotions[+d.shareDev]; counts.add('share', current, thing('devotion', dv)); share(dv.title, dv.teaser, pageUrl('#read/' + dv.slug)); }
     else if (d.preview != null) {
+      counts.add('open', current, { kind: 'game', item: 'game:preview', title: 'Free preview' });
       if (C.gamePreviewUrl) window.open(C.gamePreviewUrl, '_blank', 'noopener');
       else toast('The free preview opens here once the browser build is published.');
     }

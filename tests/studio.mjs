@@ -200,6 +200,38 @@ await page.click('.row >> text=Ephesians 6:10-18');
 await page.waitForSelector('#history li:nth-child(3)');
 check((await page.$eval('#f_verse', (t) => t.value)).startsWith('Be strong in the Lord'), 'history: the restored version is saved as the newest version');
 
+// ---------- posts table: search, filters, sorting ----------
+await page.click('.side [data-view="posts"]');
+await page.waitForSelector('table.posts');
+const titles = () => page.$$eval('#postRows tr.row .title b', (x) => x.map((e) => e.textContent));
+const allPosts = (await titles()).length;
+await page.fill('#postSearch', 'weary');
+check((await titles()).join() === 'Rest for the weary <img src=x onerror=alert(1)>', 'table: search finds a post by its title');
+check(await page.evaluate(() => document.activeElement.id) === 'postSearch', 'table: the search box keeps the cursor while typing');
+await page.fill('#postSearch', 'armor of god');
+check((await titles()).join() === 'Ephesians 6:10-18', 'table: search also looks inside the text and topics');
+await page.fill('#postSearch', '');
+await page.click('[data-status="scheduled"]');
+check((await titles()).join() === 'Jonah is coming soon', 'table: the Scheduled filter shows only scheduled posts');
+await page.click('[data-status="all"]');
+await page.selectOption('#postType', 'verse');
+check((await titles()).join() === 'Ephesians 6:10-18', 'table: the kind filter shows only verses');
+await page.selectOption('#postType', 'all');
+await page.click('[data-sort="title"]');
+const sorted = await titles();
+check(sorted.length === allPosts && sorted.join() === sorted.slice().sort((a, b) => a.toLowerCase() < b.toLowerCase() ? -1 : 1).join(), 'table: a column heading sorts the rows');
+check((await page.$eval('#postRows', (t) => t.textContent)).includes('since publishing'), 'table: posts edited after publishing are marked');
+
+// ---------- insights: counts from the app visit above ----------
+await page.click('.side [data-view="insights"]');
+await page.waitForSelector('.stats');
+check(Number(await page.$eval('.stat b', (b) => b.textContent)) >= 1, 'insights: the visit to the app is counted');
+const timeTable = await page.$eval('.panel:nth-of-type(2)', (p) => p.textContent);
+check(/Verses/.test(timeTable) && /Read/.test(timeTable), 'insights: time and views are shown per menu');
+const used = await page.$eval('.panel:nth-of-type(3)', (p) => p.textContent);
+check(used.includes('Rest for the weary'), 'insights: the devotion opened in the app is listed');
+check(await page.evaluate(() => JSON.parse(localStorage.getItem('ll.events.v1')).every((r) => !('email' in r) && r.visitor.length >= 8)), 'insights: rows hold a random daily id and no personal details');
+
 // ---------- delete, sign out, strangers stay out ----------
 await page.click('.side [data-view="posts"]');
 await page.click('.row >> text=Jonah is coming soon');
