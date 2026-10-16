@@ -15,12 +15,16 @@ function check(ok, label) {
   if (!ok) failures++;
 }
 
-async function openApp(viewport) {
-  const context = await browser.newContext({ viewport, acceptDownloads: true });
+async function openApp(viewport, sw = true, versesOn = true) {
+  // Service workers would fetch the real js/config.js past the route below, so tests that change
+  // what the page loads block them.
+  const context = await browser.newContext({ viewport, acceptDownloads: true, ...(sw ? {} : { serviceWorkers: 'block' }) });
   // Block external font requests so the test does not depend on the network.
   await context.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
   // Tests run in local mode so they never touch the real database.
   await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  // Verses is "coming soon" by default; the computer checks below need it on.
+  if (versesOn) await context.addInitScript(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -31,8 +35,51 @@ async function openApp(viewport) {
 
 // ---------- phone ----------
 {
-  const { context, page, errors } = await openApp({ width: 390, height: 844 });
+  const { context, page, errors } = await openApp({ width: 390, height: 844 }, false, false);
   const onView = () => page.$eval('.p-view.on', (v) => v.dataset.view);
+  const soonOpen = () => page.$eval('#pSoon', (s) => s.classList.contains('on'));
+
+  // Built-in default (no setting saved): Verses is "coming soon", every way in shows the message.
+  check(await page.isVisible('.p-tab[data-tab="verses"]'), 'nav: Verses tab stays visible while coming soon');
+  await page.click('.p-tab[data-tab="verses"]');
+  await page.waitForTimeout(150);
+  check(await soonOpen(), 'nav: tapping Verses shows the coming-soon message');
+  check((await onView()) === 'today' && !page.url().includes('#verses'), 'nav: Verses section is not opened');
+  check((await page.$eval('#pSoonTitle', (t) => t.textContent)) === 'Verses is coming soon', 'nav: message names the menu');
+  await page.click('[data-soon-close]');
+  check(!(await soonOpen()), 'nav: Okay closes the message');
+  await page.click('.p-ring[data-go="verses"]');
+  await page.waitForTimeout(150);
+  check(await soonOpen(), 'nav: the Today shortcut shows the message too');
+  await page.keyboard.press('Escape');
+  check(!(await soonOpen()), 'nav: Escape closes the message');
+  await page.click('.p-slide [data-go="verses"]');
+  await page.waitForTimeout(150);
+  check(await soonOpen() && (await onView()) === 'today', 'nav: the More verses button shows the message');
+  await page.click('[data-soon-close]');
+  await page.goto(base + '#verses');
+  await page.waitForSelector('#app[data-ready]');
+  check(await soonOpen() && (await onView()) === 'today', 'nav: opening #verses directly shows the message');
+  await page.click('[data-soon-close]');
+
+  // A saved setting: hidden menus disappear, a custom message (as text, never HTML) is used.
+  await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'coming_soon', play: 'hidden' }, message: '<img src=x> Soon!' } })));
+  await page.reload();
+  await page.waitForSelector('#app[data-ready]');
+  check(!(await page.isVisible('.p-tab[data-tab="play"]')) && !(await page.isVisible('.p-ring[data-go="play"]')), 'nav: a hidden menu is removed from the tab bar and Today');
+  await page.goto(base + '#play');
+  await page.waitForSelector('#app[data-ready]');
+  check((await onView()) === 'today' && !(await soonOpen()), 'nav: #play goes to Today when Play is hidden');
+  await page.click('.p-tab[data-tab="verses"]');
+  await page.waitForTimeout(150);
+  check((await page.$eval('#pSoonMsg', (m) => m.textContent)) === '<img src=x> Soon!' && !(await page.$('#pSoonMsg img')), 'nav: custom message is shown as text');
+  await page.click('[data-soon-close]');
+
+  // Everything on for the rest of the journey.
+  await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
+  await page.goto(base + '#today');
+  await page.reload();
+  await page.waitForSelector('#app[data-ready]');
 
   for (const tab of ['watch', 'listen', 'read', 'verses', 'play', 'today']) {
     await page.click(`.p-tab[data-tab="${tab}"]`);

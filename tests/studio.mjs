@@ -148,6 +148,20 @@ check(!(await app.$eval('#pStory', (el) => el.querySelector('.verse').getBoundin
 await app.keyboard.press('Escape');
 await app.click('.p-tab[data-tab="verses"]');
 await app.waitForTimeout(150);
+check(await app.$eval('#pSoon', (s) => s.classList.contains('on')), 'menus: Verses is coming soon by default');
+await app.click('[data-soon-close]');
+// The owner switches Verses on in the Studio.
+await page.click('.side [data-view="site"]');
+check(await page.isDisabled('#siteForm select[disabled]'), 'menus: Today cannot be switched off');
+await page.selectOption('#nav_verses', 'on');
+await page.fill('#nav_message', 'Almost ready!');
+await page.click('#siteForm button[type=submit]');
+await page.waitForTimeout(200);
+check(await page.$eval('#nav_verses', (s) => s.value) === 'on', 'menus: the setting is saved');
+await app.reload();
+await app.waitForSelector('#app[data-ready]');
+await app.click('.p-tab[data-tab="verses"]');
+await app.waitForTimeout(150);
 check((await app.$eval('#pGrid', (g) => g.textContent)).includes('Be strong in the Lord'), 'app: new verse is in Verses');
 await app.click('#pGrid .p-tile.long');
 check((await app.$eval('#pStory .verse', (el) => el.textContent)).includes('for all the saints.'), 'app: long verse tile opens the complete passage');

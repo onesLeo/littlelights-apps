@@ -44,6 +44,27 @@
       throw err;
     });
   }
+  // ---------- which menus are on (site setting 'nav') ----------
+  // The last value is kept on the device; if the database can't be reached (or the setting
+  // doesn't exist yet) the saved copy is used, then the built-in default.
+  var NAV_KEY = 'll.navSettings';
+  var NAV = null;
+  function loadNav() {
+    var S = window.LLStore;
+    if (!S || !S.getSetting) return Promise.resolve();
+    var saved = null;
+    try { saved = S.normalizeNav(JSON.parse(localStorage.getItem(NAV_KEY) || 'null')); } catch (err) { saved = null; }
+    NAV = saved || S.navDefault();
+    var fresh = S.getSetting('nav').then(function (v) {
+      var n = S.normalizeNav(v);
+      if (!n) return;
+      NAV = n;
+      try { localStorage.setItem(NAV_KEY, JSON.stringify(n)); } catch (err) { /* storage blocked */ }
+    });
+    var slow = new Promise(function (resolve) { setTimeout(resolve, 4000); });
+    return Promise.race([fresh, slow]).catch(function () {});
+  }
+
   function mergeStudioPosts() {
     var S = window.LLStore;
     if (!S) return Promise.resolve();
@@ -184,9 +205,35 @@
     });
     updateReels();
   }
+  function navState(tab) { return tab === 'today' || !NAV ? 'on' : NAV.menus[tab] || 'on'; }
+  // Hide menus that are switched off, and mark the "coming soon" ones.
+  function applyNav() {
+    TABS.forEach(function (tab) {
+      var st = navState(tab);
+      $$('.p-tab[data-tab="' + tab + '"], [data-go="' + tab + '"]').forEach(function (el) {
+        el.hidden = st === 'hidden';
+        if (st === 'coming_soon') el.setAttribute('data-soon', ''); else el.removeAttribute('data-soon');
+      });
+    });
+  }
+  var TAB_NAME = { watch: 'Watch', listen: 'Listen', read: 'Read', verses: 'Verses', play: 'Play' };
+  function showSoon(tab) {
+    var box = $('#pSoon');
+    $('#pSoonTitle').innerHTML = esc(TAB_NAME[tab] || 'This') + ' is coming soon';
+    $('#pSoonMsg').innerHTML = esc(NAV ? NAV.message : '');
+    box.classList.add('on');
+    var ok = $('#pSoon [data-soon-close]'); if (ok) ok.focus();
+  }
+  function closeSoon() { $('#pSoon').classList.remove('on'); }
   function route() {
     var parts = (location.hash || '#today').slice(1).split('/');
     var tab = TABS.indexOf(parts[0]) >= 0 ? parts[0] : 'today';
+    if (navState(tab) !== 'on') {
+      // Stay where we are (Today on a fresh visit) and drop the address back.
+      if (navState(tab) === 'coming_soon') showSoon(tab);
+      if (history.replaceState) history.replaceState(null, '', current === 'today' ? location.pathname + location.search : '#' + current);
+      return;
+    }
     if (tab === 'read' && parts[1]) {
       var i = indexBySlug(parts[1]);
       if (current !== 'read') show('read');
@@ -729,6 +776,7 @@
 
   // ---------- overlays and global buttons ----------
   function closeOverlays() {
+    closeSoon();
     $('#pSheetWrap').classList.remove('on');
     $('#pArticle').classList.remove('on');
     $('#pFull').classList.remove('on');
@@ -741,6 +789,7 @@
     if (d.mode != null) setNight(!app.classList.contains('night'), true);
     else if (d.calm != null) setCalm(!app.classList.contains('calm'), true);
     else if (d.install != null && installEvent) { installEvent.prompt(); installEvent = null; }
+    else if (d.soonClose != null) closeSoon();
     else if (d.go) go(d.go);
     else if (d.ep != null && !b.closest('#pFull')) playEp(+d.ep);
     else if (d.sheet != null) openSheet(+d.sheet);
@@ -765,10 +814,12 @@
     }
   });
 
+  $('#pSoon').addEventListener('click', function (e) { if (e.target.id === 'pSoon') closeSoon(); });
+  applyNav();
   route();
   app.dataset.ready = '1';
   }
-  mergeStudioPosts().then(startApp);
+  Promise.all([mergeStudioPosts(), loadNav()]).then(startApp);
 
   // ---------- offline support ----------
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {

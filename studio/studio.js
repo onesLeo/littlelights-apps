@@ -42,6 +42,7 @@
     posts: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>',
     plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
     media: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 16l5-5 4 4 3-3 6 6"/></svg>',
+    site: '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
     team: '<svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.5"/><path d="M3 19c.8-3.3 3.2-5 6-5s5.2 1.7 6 5M16 5.5a3 3 0 010 6M17.5 14c1.8.5 3 2.2 3.5 5"/></svg>',
     site: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.6 2.5 13.4 0 16M12 4c-2.5 2.6-2.5 13.4 0 16"/></svg>'
   };
@@ -176,7 +177,12 @@
 
   // ---------- data ----------
   function loadAll() {
-    return Promise.all([S.listPosts(), S.listTeam()]).then(function (r) { state.posts = r[0] || []; state.team = r[1] || []; });
+    // A missing site_settings table (SQL not applied yet) must not stop the Studio from loading.
+    var nav = S.getSetting('nav').then(function (v) { state.navError = ''; return v; }, function (err) { state.navError = err.message; return null; });
+    return Promise.all([S.listPosts(), S.listTeam(), nav]).then(function (r) {
+      state.posts = r[0] || []; state.team = r[1] || [];
+      state.nav = S.normalizeNav(r[2]) || S.navDefault();
+    });
   }
   function enter(session) {
     state.session = session;
@@ -217,7 +223,7 @@
       '<button class="btn ghost" type="button" id="back">Use a different email</button></div></main>';
   }
   function shell(inner) {
-    var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['team', 'Team', ICON.team]];
+    var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['site', 'Menus', ICON.site], ['team', 'Team', ICON.team]];
     return '<div class="shell"><aside class="side">' +
       '<div class="brand"><span class="dot"></span><span>Little Light Studio</span></div>' +
       '<nav aria-label="Studio">' + nav.map(function (n) {
@@ -360,6 +366,23 @@
           '<' + (isVideo ? 'video' : 'audio') + ' controls preload="none" data-src="' + esc(p.media_url) + '"></' + (isVideo ? 'video' : 'audio') + '></div></div>';
       }).join('') + '</div>' : '<div class="list"><div class="empty">No files yet. Upload one when you write an audio or reel post.</div></div>');
   }
+  var NAV_LABEL = { watch: 'Watch', listen: 'Listen', read: 'Read', verses: 'Verses', play: 'Play' };
+  var NAV_STATE_LABEL = { on: 'On', coming_soon: 'Coming soon', hidden: 'Hidden' };
+  function siteView() {
+    var n = state.nav || S.navDefault(), owner = isOwner();
+    return '<div class="top"><div><h2>Menus</h2><p>Choose which menus visitors see in the app. “Coming soon” keeps the menu but shows a friendly message when tapped.</p></div></div>' +
+      (state.navError ? '<p class="role-note" role="alert">The menu settings could not be loaded (' + esc(state.navError) + '). If the <code>site_settings</code> table hasn’t been created yet, run supabase/schema.sql first. Until then the app uses its built-in default (Verses: coming soon).</p>' : '') +
+      (owner ? '' : '<p class="role-note">Only owners can change the menus.</p>') +
+      '<form class="form" id="siteForm" novalidate>' +
+      '<label class="field"><span>Today</span><select class="select" disabled><option>Always on</option></select></label>' +
+      S.NAV_MENUS.map(function (m) {
+        return '<label class="field"><span>' + esc(NAV_LABEL[m]) + '</span><select class="select" id="nav_' + m + '"' + (owner ? '' : ' disabled') + '>' +
+          S.NAV_STATES.map(function (st) { return '<option value="' + st + '"' + (n.menus[m] === st ? ' selected' : '') + '>' + esc(NAV_STATE_LABEL[st]) + '</option>'; }).join('') + '</select></label>';
+      }).join('') +
+      '<label class="field"><span>Coming-soon message</span><textarea class="input" id="nav_message" rows="3" maxlength="300"' + (owner ? '' : ' disabled') + '>' + esc(n.message) + '</textarea>' +
+      '<small>Shown under “Verses is coming soon” (or the menu’s name). Keep it short and friendly.</small></label>' +
+      (owner ? '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>Save menus</button>' : '') + '</form>';
+  }
   function teamView() {
     return '<div class="top"><div><h2>Team</h2><p>Only people on this list can sign in to the Studio.</p></div></div>' +
       (isOwner() ? '<form class="form invite" id="inviteForm" novalidate>' +
@@ -384,7 +407,7 @@
     if (state.screen === 'signin') root.innerHTML = signin();
     else if (state.screen === 'check') root.innerHTML = checkEmail();
     else {
-      var v = state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : teamView();
+      var v = state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : state.view === 'site' ? siteView() : teamView();
       root.innerHTML = shell(v);
       if (state.view === 'media') resolveMediaElements();
     }
@@ -495,6 +518,16 @@
     } else if (id === 'postForm') {
       if (!canPublish()) return save('draft');
       save(state.editing._mode === 'schedule' ? 'scheduled' : 'published');
+    } else if (id === 'siteForm') {
+      if (!isOwner()) return;
+      var value = { menus: {}, message: document.getElementById('nav_message').value.trim() };
+      S.NAV_MENUS.forEach(function (m) { value.menus[m] = document.getElementById('nav_' + m).value; });
+      value = S.normalizeNav(value);
+      state.busy = true; render();
+      S.saveSetting('nav', value, state.email).then(function (saved) {
+        state.busy = false; state.navError = ''; state.nav = S.normalizeNav(saved) || value;
+        toast('Menus saved. Visitors see the change next time the app loads.'); render();
+      }).catch(fail);
     } else if (id === 'inviteForm') {
       var em = document.getElementById('inviteEmail').value.trim().toLowerCase(), role = document.getElementById('inviteRole').value;
       state.errors = {};
