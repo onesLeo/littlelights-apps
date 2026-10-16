@@ -54,6 +54,11 @@ await page.evaluate(() => window.LLStore.deletePost(7));
 const del = calls.find((c) => c.method === 'DELETE');
 check(!!del && del.query.includes('id=eq.7'), 'delete: only that post is removed');
 
+const gets = [];
+page.on('request', (r) => { if (r.method() === 'GET' && r.url().includes('/rest/v1/posts')) gets.push(r.url()); });
+await page.evaluate(() => window.LLStore.publishedPosts());
+check(gets.length > 0 && !decodeURIComponent(gets[0]).includes('select=*') && !gets[0].includes('author_email'), 'public read: asks only for the columns visitors may read (no author_email)');
+
 // Menu settings: written to site_settings as one upsert of the 'nav' row.
 const navValue = { menus: { watch: 'on', listen: 'on', read: 'on', verses: 'coming_soon', play: 'hidden' }, message: 'Soon!' };
 const navSaved = await page.evaluate((v) => window.LLStore.saveSetting('nav', v).then((r) => ({ ok: true, r }), (e) => ({ ok: false, error: e.message })), navValue);

@@ -266,7 +266,8 @@
     removeMember: function (email) { return loadClient().then(function (c) { return c.from('team_members').delete().eq('email', email); }).then(must); },
     publishedPosts: function () {
       return loadClient().then(function (c) {
-        return c.from('posts').select('*').in('status', ['published', 'scheduled']).lte('publish_at', nowIso()).order('publish_at', { ascending: false });
+        // Visitors may read every column except author_email (column grants in the database), so `*` is refused.
+        return c.from('posts').select('id,type,status,publish_at,title,slug,show_on_today,fields,media_url,created_at,updated_at').in('status', ['published', 'scheduled']).lte('publish_at', nowIso()).order('publish_at', { ascending: false });
       }).then(must);
     }
   };
