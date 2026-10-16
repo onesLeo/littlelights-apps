@@ -75,6 +75,17 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check((await page.$eval('#pSoonMsg', (m) => m.textContent)) === '<img src=x> Soon!' && !(await page.$('#pSoonMsg img')), 'nav: custom message is shown as text');
   await page.click('[data-soon-close]');
 
+  // Approved copy (Oct 2026): free game, Android closed test, no dead sign-up form, no audio-less Listen button.
+  const html = await page.content();
+  check(html.includes('Little Light: Bible Journeys is completely free. No ads, no purchases, nothing to unlock.'), 'copy: Play subhead says the game is free');
+  check(!html.includes('App Store') && !html.includes('Play the free preview') && !html.includes('Free preview'), 'copy: no App Store badge, preview button or Free preview status');
+  check(html.includes('14-day closed test') && !!(await page.$('.p-stores a[href$="/join"]')), 'copy: store line explains the closed test and links to /join');
+  check(new Set(await page.$$eval('#pMap .st', (s) => s.map((x) => x.textContent))).size === 1, 'copy: all journey statuses are the same');
+  check(!(await page.$('#pNewsEmail')) && html.includes('Weekly encouragement for families is on its way. Check back soon.'), 'copy: newsletter form is replaced by a note');
+  check(html.includes('>Add Little Light to your home screen<'), 'copy: install button label');
+  check(!(await page.$('.p-slide.s2 [data-ep], .p-slide [data-sheet="0"] + [data-ep]')), 'copy: Today devotion card has no Listen button');
+  check(await page.evaluate(() => window.LL_CONTENT.verses.some((v) => v.ref === 'Proverbs 17:17' && v.text === 'A friend loves at all times; and a brother is born for adversity.')), 'copy: Proverbs 17:17 is the full WEB verse');
+
   // Everything on for the rest of the journey.
   await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
   await page.goto(base + '#today');

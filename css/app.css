@@ -681,3 +681,4 @@ img, svg { max-width: 100%; }
 .calm .p-soon-card { animation: none; }
 @media (prefers-reduced-motion: reduce) { .p-soon-card { animation: none; } }
 .p-tab[hidden], .p-ring[hidden], .p-btn[hidden] { display: none !important; }
+.p-stores .p-join { display: inline-block; margin-top: 8px; color: inherit; text-decoration: underline; font-weight: 800; }

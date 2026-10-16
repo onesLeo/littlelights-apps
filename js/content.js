@@ -69,7 +69,7 @@ window.LL_CONTENT = {
   verses: [
     { text: 'Be strong and courageous. Don’t be afraid. Don’t be dismayed, for Yahweh your God is with you wherever you go.', ref: 'Joshua 1:9', topics: ['When I’m afraid'] },
     { text: 'When I am afraid, I will put my trust in you.', ref: 'Psalm 56:3', topics: ['When I’m afraid', 'Trust'] },
-    { text: 'A friend loves at all times.', ref: 'Proverbs 17:17', topics: ['Friendship'] },
+    { text: 'A friend loves at all times; and a brother is born for adversity.', ref: 'Proverbs 17:17', topics: ['Friendship'] },
     { text: 'Man looks at the outward appearance, but Yahweh looks at the heart.', ref: '1 Samuel 16:7', topics: ['God sees me'] },
     { text: 'Your word is a lamp to my feet, and a light for my path.', ref: 'Psalm 119:105', topics: ['Light'] },
     { text: 'I set my rainbow in the cloud, and it will be a sign of a covenant between me and the earth.', ref: 'Genesis 9:13', topics: ['Trust'] },
@@ -79,11 +79,11 @@ window.LL_CONTENT = {
   ],
 
   journeys: [
-    { n: 1, name: 'David’s Valley', virtue: 'Courage', color: '#f7c23f', status: 'Free preview' },
-    { n: 2, name: 'The King’s Camp', virtue: 'Friendship', color: '#ee8fb2', status: 'Ready' },
-    { n: 3, name: 'The Beginning', virtue: 'Faithful Heart', color: '#69ba7e', status: '' },
-    { n: 4, name: 'Noah’s Ark', virtue: 'Trust', color: '#62a6ea', status: 'Ready' },
-    { n: 5, name: 'Jonah and the Great Fish', virtue: 'Mercy', color: '#a07fd6', status: '' }
+    { n: 1, name: 'David’s Valley', virtue: 'Courage', color: '#f7c23f', status: 'In closed test' },
+    { n: 2, name: 'The King’s Camp', virtue: 'Friendship', color: '#ee8fb2', status: 'In closed test' },
+    { n: 3, name: 'The Beginning', virtue: 'Faithful Heart', color: '#69ba7e', status: 'In closed test' },
+    { n: 4, name: 'Noah’s Ark', virtue: 'Trust', color: '#62a6ea', status: 'In closed test' },
+    { n: 5, name: 'Jonah and the Great Fish', virtue: 'Mercy', color: '#a07fd6', status: 'In closed test' }
   ],
 
   // Set this when the Godot browser build is published.
