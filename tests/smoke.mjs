@@ -91,6 +91,11 @@ async function openApp(viewport, sw = true, versesOn = true) {
   await page.goto(base + '#today');
   await page.reload();
   await page.waitForSelector('#app[data-ready]');
+  await page.click('.p-tab[data-tab="play"]');
+  await page.waitForTimeout(150);
+  const join = await page.$eval('.p-stores .p-join', (a) => ({ h: a.getBoundingClientRect().height, bg: getComputedStyle(a).backgroundImage, c: getComputedStyle(a).color }));
+  check(join.h >= 48 && join.bg.includes('gradient') && join.c === 'rgb(42, 26, 5)', `copy: Join the testers is a big gold button (${Math.round(join.h)}px)`);
+  await page.click('.p-tab[data-tab="today"]');
 
   for (const tab of ['watch', 'listen', 'read', 'verses', 'play', 'today']) {
     await page.click(`.p-tab[data-tab="${tab}"]`);
