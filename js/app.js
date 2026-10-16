@@ -73,7 +73,7 @@
         return p.media_url ? S.resolveMedia(p.media_url).then(function (u) { p._src = u; }) : null;
       })).then(function () { return posts; });
     }).then(function (posts) {
-      var eps = [], devs = [], reels = [], verses = [], news = [], audioAt = {}, today = [];
+      var eps = [], devs = [], reels = [], verses = [], news = [], audioAt = {}, today = [], featured = null;
       // Posts moved from js/content.js carry `fields.builtin` (for example "devotion:brave"); once
       // published they replace the built-in item they came from.
       var copyOf = {};
@@ -82,7 +82,8 @@
         if (p.type !== 'audio') return;
         var f = p.fields || {};
         audioAt[p.id] = eps.length;
-        eps.push({ title: p.title, meta: f.kind || 'Audio', dur: f.seconds || toSeconds(f.minutes), color: f.color || '#a07fd6', src: p._src || '', _id: p.id });
+        eps.push({ title: p.title, meta: f.kind || 'Audio', dur: f.seconds || toSeconds(f.minutes), color: f.color || '#a07fd6', src: p._src || '', _id: p.id,
+          verse: f.verse || '', ref: f.ref || '' });
         if (f.builtin) copyOf[f.builtin] = eps.length - 1;
       });
       posts.forEach(function (p) {
@@ -111,7 +112,10 @@
           news.push({ title: p.title, text: f.text || '', button: f.button || '', date: p.publish_at });
           if (p.show_on_today) today.push({ type: 'game', i: news.length - 1 });
         } else if (p.type === 'audio' && p.show_on_today) {
-          today.push({ type: 'audio', i: audioAt[p.id] });
+          // The newest audio marked for Today fills the Today audio card and the Listen hero
+          // (see bindFeaturedAudio), so it doesn't get a second card of its own.
+          if (featured == null) featured = audioAt[p.id];
+          else today.push({ type: 'audio', i: audioAt[p.id] });
         }
       });
       // Studio posts come first, then the built-in items that have no published copy yet.
@@ -147,6 +151,7 @@
       // Buttons written in index.html point at built-in items by position (see startApp).
       C.builtinAt = { 'ep': E.map, 'sheet': D.map, 'read': D.map, 'share-dev': D.map, 'reel': R.map, 'save-verse': V.map, 'share-verse': V.map };
       C.news = news;
+      C.featuredAudio = featured; // Studio posts come first in C.episodes, so the index stays valid.
       C.today = today.slice(0, 5);
       // Topics added in the Studio get their own chip in Verses.
       verses.forEach(function (v) { v.topics.forEach(function (t) { if (C.topics.indexOf(t) < 0) C.topics = C.topics.concat([t]); }); });
@@ -164,6 +169,21 @@
       if (to != null) b.setAttribute('data-' + attr, to);
     });
   });
+  // Today audio card and Listen "This week": the newest published audio marked for Today,
+  // otherwise the built-in recording written in index.html.
+  (function bindFeaturedAudio() {
+    if (C.featuredAudio == null) return;
+    var e = C.episodes[C.featuredAudio];
+    if (!e) return;
+    var line = e.verse ? '“' + e.verse + '”' + (e.ref ? ' ' + e.ref : '') : e.meta;
+    $$('[data-featured-audio]').forEach(function (box) {
+      var set = function (sel, text) { var el = box.querySelector(sel); if (el) el.innerHTML = esc(text); };
+      set('[data-fa="kicker"]', (box.dataset.featuredAudio === 'today' ? 'Audio · ' : 'This week · ') + fmt(e.dur));
+      set('[data-fa="title"]', e.title);
+      set('[data-fa="text"]', line);
+      var b = box.querySelector('[data-fa="play"]'); if (b) b.setAttribute('data-ep', C.featuredAudio);
+    });
+  })();
   var ICON_PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg>';
   var ICON_PAUSE = '<svg viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
   var ICON_SUN = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';

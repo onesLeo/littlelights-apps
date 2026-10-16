@@ -51,7 +51,11 @@ window.LL_CONTENT = {
     { title: 'God sees the heart', meta: 'Devotion', dur: 160, color: '#f6c9d8', devotion: 1, src: '' },
     { title: 'Keep building', meta: 'Devotion', dur: 175, color: '#fde0e9', devotion: 2, src: '' },
     { title: 'Bedtime prayer: stay close tonight', meta: 'Prayer for families', dur: 90, color: '#a07fd6', src: '' },
-    { title: 'Story time: David and Jonathan', meta: 'Bible story for kids', dur: 380, color: '#e46a4c', src: '' }
+    { title: 'Story time: David and Jonathan', meta: 'Bible story for kids', dur: 380, color: '#e46a4c', src: '' },
+    // Built-in copy of the Psalm 56:3 devotion. Its Studio post carries fields.builtin
+    // 'audio:when-i-am-afraid-psalm-56-3', so once published it replaces this entry (no duplicate).
+    { title: 'When I Am Afraid — Psalm 56:3', meta: 'Devotion', dur: 115, color: '#a07fd6', src: 'media/devotion-psalm-56-3.mp3',
+      verse: 'When I am afraid, I will put my trust in you.', ref: 'Psalm 56:3' }
   ],
 
   // `src` is empty until real videos exist; the reel then shows an animated placeholder.
