@@ -207,13 +207,13 @@
   function signin() {
     var err = state.authError;
     return '<main class="auth"><form class="auth-card" id="signinForm" novalidate>' +
-      '<div class="brand"><span class="dot"></span>Little Light Studio</div>' +
-      '<div><h1>Sign in to post</h1><p style="margin-top:6px">For the Little Light team. Visitors never need an account.</p></div>' +
+      '<div class="brand"><span class="dot"></span>Salt and Light Studio</div>' +
+      '<div><h1>Sign in to post</h1><p style="margin-top:6px">For the Salt and Light team. Visitors never need an account.</p></div>' +
       modeBar() +
       '<label class="field"><span>Email</span><input class="input' + (err ? ' err' : '') + '" id="email" type="email" autocomplete="email" placeholder="you@example.com" value="' + esc(state.email) + '">' +
       (err ? '<span class="errmsg" role="alert">' + esc(err) + '</span>' : '<small>' + (S.mode === 'local' ? 'The first email to sign in becomes the owner.' : 'We’ll email you a one-time sign-in link. No password to remember.') + '</small>') + '</label>' +
       '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>' + (S.mode === 'local' ? 'Sign in' : state.busy ? 'Sending…' : 'Email me a sign-in link') + '</button>' +
-      '<div class="note">Only people on the team can sign in. Anyone else sees “This email isn’t on the Little Light team.”</div>' +
+      '<div class="note">Only people on the team can sign in. Anyone else sees “This email isn’t on the Salt and Light team.”</div>' +
       '</form></main>';
   }
   function checkEmail() {
@@ -225,7 +225,7 @@
   function shell(inner) {
     var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['site', 'Menus', ICON.site], ['team', 'Team', ICON.team]];
     return '<div class="shell"><aside class="side">' +
-      '<div class="brand"><span class="dot"></span><span>Little Light Studio</span></div>' +
+      '<div class="brand"><span class="dot"></span><span>Salt and Light Studio</span></div>' +
       '<nav aria-label="Studio">' + nav.map(function (n) {
         var on = state.view === n[0] || (n[0] === 'new' && state.view === 'edit' && state.editing && !state.editing.id);
         return '<button class="nav' + (on ? ' on' : '') + '" type="button" data-view="' + n[0] + '"' + (on ? ' aria-current="page"' : '') + '>' + n[2] + n[1] +

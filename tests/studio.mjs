@@ -228,7 +228,7 @@ await page.waitForSelector('#signinForm');
 await page.fill('#email', 'stranger@example.org');
 await page.click('#signinForm button[type=submit]');
 await page.waitForSelector('.errmsg');
-check((await text('.errmsg')).includes('isn’t on the Little Light team'), 'sign-in: people not on the team are turned away');
+check((await text('.errmsg')).includes('isn’t on the Salt and Light team'), 'sign-in: people not on the team are turned away');
 
 check(errors.length === 0, `no script errors ${errors.join(' | ')}`);
 await browser.close();

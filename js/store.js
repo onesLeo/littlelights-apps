@@ -79,7 +79,7 @@
     signInWithEmail: function (email) {
       var team = local._team();
       if (team.length && !team.some(function (m) { return m.email === email.toLowerCase(); })) {
-        return Promise.reject(new Error('This email isn’t on the Little Light team.'));
+        return Promise.reject(new Error('This email isn’t on the Salt and Light team.'));
       }
       if (!team.length) writeJSON(TEAM_KEY, [{ email: email.toLowerCase(), role: 'owner', invited_at: nowIso() }]);
       var s = { email: email.toLowerCase(), role: local._roleOf(email) };
@@ -203,7 +203,7 @@
         var email = s.user.email.toLowerCase();
         return client.from('team_members').select('role').eq('email', email).maybeSingle().then(function (r) {
           if (r.error || !r.data) {
-            return client.auth.signOut().then(function () { throw new Error('This email isn’t on the Little Light team.'); });
+            return client.auth.signOut().then(function () { throw new Error('This email isn’t on the Salt and Light team.'); });
           }
           return { email: email, role: r.data.role };
         });

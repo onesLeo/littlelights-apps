@@ -96,10 +96,13 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(html.includes('14-day closed test') && !!(await page.$('.p-stores a[href$="/join"]')), 'copy: store line explains the closed test and links to /join');
   check(new Set(await page.$$eval('#pMap .st', (s) => s.map((x) => x.textContent))).size === 1, 'copy: all journey statuses are the same');
   check(!(await page.$('#pNewsEmail')) && html.includes('Weekly encouragement for families is on its way. Check back soon.'), 'copy: newsletter form is replaced by a note');
-  check(html.includes('>Add Little Light to your home screen<'), 'copy: install button label');
+  check(html.includes('>Add Salt and Light to your home screen<'), 'copy: install button label');
   check(!(await page.$('.p-slide.s2 [data-ep], .p-slide [data-sheet="0"] + [data-ep]')), 'copy: Today devotion card has no Listen button');
   check(await page.evaluate(() => window.LL_CONTENT.verses.some((v) => v.ref === 'Proverbs 17:17' && v.text === 'A friend loves at all times; and a brother is born for adversity.')), 'copy: Proverbs 17:17 is the full WEB verse');
 
+  check(await page.title() === 'Salt and Light' && (await page.textContent('.p-brand span')) === 'Salt and Light', 'brand: site is called Salt and Light');
+  check(html.includes('<meta name="application-name" content="Salt and Light">') && html.includes('<meta name="apple-mobile-web-app-title" content="Salt and Light">'), 'brand: app name meta tags');
+  check((html.match(/Little Light: Bible Journeys/g) || []).length >= 3, 'brand: the game keeps its name');
   // Everything on for the rest of the journey.
   await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
   await page.goto(base + '#today');
@@ -198,7 +201,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   await page.screenshot({ path: 'test-results/computer-article.png' });
 
   const manifest = await page.evaluate(async () => (await fetch('manifest.webmanifest')).json());
-  check(manifest.name === 'Little Light' && manifest.icons.length >= 3, 'app: manifest is valid');
+  check(manifest.name === 'Salt and Light' && manifest.short_name === 'Salt and Light' && manifest.icons.length >= 3, 'app: manifest is valid');
   const sw = await page.evaluate(() => Promise.race([
     navigator.serviceWorker.ready.then(() => true),
     new Promise((r) => setTimeout(() => r(false), 4000)),

@@ -550,7 +550,7 @@
     full.innerHTML =
       '<button class="down" type="button" data-close>⌄ Close</button>' +
       '<div class="bigart" style="background:radial-gradient(circle at 50% 40%,' + e.color + ',#2d2352 90%)"><i></i></div>' +
-      '<div><b>' + esc(e.title) + '</b><br><small>' + esc(e.meta) + ' · Little Light</small></div>' +
+      '<div><b>' + esc(e.title) + '</b><br><small>' + esc(e.meta) + ' · Salt and Light</small></div>' +
       '<input type="range" id="pRange" min="0" max="' + Math.round(duration()) + '" step="1" value="' + player.t + '" aria-label="Position">' +
       '<div class="times"><span id="pTimeNow">' + fmt(player.t) + '</span><span>' + fmt(duration()) + '</span></div>' +
       '<div class="ctls"><button type="button" data-skip="-15">−15s</button><button class="main" type="button" id="pFullPP" aria-label="Play or pause"></button><button type="button" data-skip="15">+15s</button></div>' +
@@ -586,11 +586,11 @@
     closeOverlays();
     a.classList.add('on');
     a.scrollTop = 0;
-    document.title = d.title + ' · Little Light';
+    document.title = d.title + ' · Salt and Light';
   }
   function closeArticle() {
     $('#pArticle').classList.remove('on');
-    document.title = 'Little Light';
+    document.title = 'Salt and Light';
     if (location.hash.indexOf('#read/') === 0) history.replaceState(null, '', '#read');
   }
   function openSheet(i) {
@@ -712,7 +712,7 @@
     g.fillText((v.topics[0] || 'Verse').toUpperCase(), 96, top - size - 30);
     g.fillText(v.ref.toUpperCase() + ' · ' + (v.translation || 'WEB'), 96, y + 20);
     g.globalAlpha = .75;
-    g.fillText('Little Light', 96, 1260);
+    g.fillText('Salt and Light', 96, 1260);
     g.globalAlpha = 1;
     return cv;
   }
@@ -771,7 +771,7 @@
   });
   window.addEventListener('appinstalled', function () {
     $$('[data-install]').forEach(function (b) { b.hidden = true; });
-    toast('Little Light is installed');
+    toast('Salt and Light is installed');
   });
 
   // ---------- overlays and global buttons ----------
