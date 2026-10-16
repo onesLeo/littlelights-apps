@@ -554,7 +554,9 @@ img, svg { max-width: 100%; }
   .p-app:not(.night) .p-welcome { color: #26384b; }
   .p-app:not(.night) .p-welcome .p-kicker { opacity: .9; }
   .p-sky .p-cloud svg { filter: drop-shadow(0 4px 8px rgba(42,75,107,.16)); }
-  .v-today .p-stage, .p-app.night .v-today .p-stage { min-width: 0; border-radius: 0; box-shadow: none; }
+  /* The feed grows with its cards and the page scrolls; a fixed-height stage clipped the last card. */
+  .v-today .p-stage, .p-app.night .v-today .p-stage { min-width: 0; height: auto; overflow: visible; border-radius: 0; box-shadow: none; }
+  .v-today.on { padding-bottom: 56px; }
   .v-today .p-rings, .v-today .p-rail, .v-today .p-hint { display: none; }
   .v-today #pFeed { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; height: auto; overflow: visible; scroll-snap-type: none; }
   .v-today .p-slide { height: auto; min-height: 230px; padding: 24px; border-radius: 24px; gap: 12px; justify-content: flex-start; scroll-snap-align: none; }

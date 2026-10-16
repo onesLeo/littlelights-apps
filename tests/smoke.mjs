@@ -33,6 +33,20 @@ async function openApp(viewport, sw = true, versesOn = true) {
   return { context, page, errors };
 }
 
+// ---------- short desktop window: Today scrolls to the very last card ----------
+{
+  const { context, page, errors } = await openApp({ width: 1024, height: 500 }, false);
+  const r = await page.evaluate(() => {
+    const v = document.querySelector('.v-today'); v.scrollTop = 1e6;
+    const last = [...document.querySelectorAll('#pFeed .p-slide, .v-today .p-sidecard')].reduce((m, e) => Math.max(m, e.getBoundingClientRect().bottom), 0);
+    const stage = document.querySelector('.v-today .p-stage');
+    return { last, bottom: v.getBoundingClientRect().bottom, clipped: stage.scrollHeight > stage.clientHeight + 2 };
+  });
+  check(!r.clipped && r.last <= r.bottom, `1024x500: Today scrolls to the last card (${Math.round(r.last)} <= ${Math.round(r.bottom)})`);
+  check(errors.length === 0, '1024x500: no script errors');
+  await context.close();
+}
+
 // ---------- phone ----------
 {
   const { context, page, errors } = await openApp({ width: 390, height: 844 }, false, false);
