@@ -158,7 +158,24 @@
     }).catch(function (err) { if (window.console) console.warn('Studio posts could not be loaded:', err); });
   }
 
+  // Episodes without a recording (built-in placeholders) are left out everywhere: the Listen list,
+  // Today, and devotions' Listen buttons. Indexes that pointed at them become -1.
+  function dropSilentEpisodes() {
+    var keep = [], at = [];
+    C.episodes.forEach(function (e, i) { at[i] = e.src ? keep.length : -1; if (e.src) keep.push(e); });
+    if (keep.length === C.episodes.length) return;
+    var re = function (i) { return i == null || i < 0 ? -1 : at[i]; };
+    C.builtinAt = C.builtinAt || {};
+    var ep = C.builtinAt.ep;
+    C.builtinAt.ep = (ep || C.episodes.map(function (e, i) { return i; })).map(re);
+    C.devotions.forEach(function (d) { d.episode = re(d.episode); });
+    if (C.featuredAudio != null) C.featuredAudio = re(C.featuredAudio) < 0 ? null : re(C.featuredAudio);
+    if (C.today) C.today = C.today.filter(function (t) { if (t.type !== 'audio') return true; t.i = re(t.i); return t.i >= 0; });
+    C.episodes = keep;
+  }
+
   function startApp() {
+  dropSilentEpisodes();
 
   var $ = function (s, r) { return (r || app).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || app).querySelectorAll(s)); };
@@ -168,6 +185,13 @@
       var to = C.builtinAt[attr][+b.getAttribute('data-' + attr)];
       if (to != null) b.setAttribute('data-' + attr, to);
     });
+  });
+  // A button whose recording was left out disappears; a card with nothing left to play goes too.
+  Array.prototype.forEach.call(document.querySelectorAll('[data-ep="-1"]'), function (b) {
+    var card = b.closest('[data-featured-audio]');
+    if (card && card.dataset.featuredAudio === 'today') card.remove();
+    else if (card) card.hidden = true;
+    else b.remove();
   });
   // Today audio card and Listen "This week": the newest published audio marked for Today,
   // otherwise the built-in recording written in index.html.

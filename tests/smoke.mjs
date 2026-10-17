@@ -129,7 +129,21 @@ async function openApp(viewport, sw = true, versesOn = true) {
   await page.waitForTimeout(150);
   check((await onView()) === 'listen', 'phone: story ring jumps to Listen');
 
-  await page.click('.p-row[data-ep="3"]');
+  const rows = await page.$$eval('#pEps .p-row', (r) => r.map((x) => x.textContent));
+  check(rows.length === 1 && rows[0].includes('Psalm 56:3'), `listen: only episodes with a recording are listed (${rows.length})`);
+  check(await page.evaluate(() => window.LL_CONTENT.episodes.every((e) => e.src)), 'listen: no silent placeholder episodes remain');
+  check(await page.isVisible('.p-now [data-fa="play"]'), 'listen: This week plays the Psalm 56:3 devotion');
+  check((await page.$$('[data-ep="-1"]')).length === 0, 'no buttons point at a left-out episode');
+  await page.click('.p-tab[data-tab="read"]');
+  await page.waitForTimeout(150);
+  check(!(await page.$eval('#pCards', (c) => c.textContent.includes('▶ Audio'))), 'read: devotions without a recording show no audio badge');
+  await page.click('#pCards .p-card');
+  await page.waitForTimeout(250);
+  check(!(await page.$('#pArticle [data-ep]')), 'read: a devotion without a recording has no Listen button');
+  await page.keyboard.press('Escape');
+  await page.click('.p-tab[data-tab="listen"]');
+  await page.waitForTimeout(150);
+  await page.click('#pEps .p-row');
   check(await page.$eval('#app', (a) => a.classList.contains('has-mini')), 'phone: mini player appears');
   await page.click('.p-tab[data-tab="verses"]');
   check(await page.$eval('#app', (a) => a.classList.contains('has-mini')), 'phone: mini player stays when changing tabs');

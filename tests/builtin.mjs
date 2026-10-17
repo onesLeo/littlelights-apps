@@ -56,7 +56,7 @@ check(devs.filter((s) => s === 'brave').length === 1 && devs.length === 3, 'devo
 const brave = await C(page, () => window.LL_CONTENT.devotions.find((d) => d.slug === 'brave'));
 check(brave.title.includes('(Studio)'), 'devotions: the Studio copy of "brave" is used');
 const braveEp = await C(page, () => { const d = window.LL_CONTENT.devotions.find((x) => x.slug === 'brave'); return d.episode >= 0 ? window.LL_CONTENT.episodes[d.episode].title : null; });
-check(braveEp === 'You don’t have to feel brave to be brave', 'devotions: while its audio copy is a draft, "brave" still plays the built-in recording');
+check(braveEp === null, 'devotions: "brave" has no Listen link while its recording is a silent placeholder');
 const sheet = await C(page, () => window.LL_CONTENT.devotions[+document.querySelector('.p-slide.s2 [data-sheet]').dataset.sheet].slug);
 check(sheet === 'brave', 'Today: the devotion Read button still opens "brave"');
 const bedtime = await C(page, () => window.LL_CONTENT.episodes[+document.querySelector('.p-slide.s4 [data-ep]').dataset.ep].title);
