@@ -731,7 +731,7 @@
 
   // ---------- read ----------
   $('#pCards').innerHTML = C.devotions.map(function (d, i) {
-    return '<a class="p-card' + (i === 0 ? ' feat' : '') + '" href="#read/' + d.slug + '" style="background:' + d.color + ';color:' + d.ink + ';text-decoration:none">' +
+    return '<a class="p-card' + (i === 0 ? ' feat' : '') + '" href="#read/' + d.slug + '" style="--c:' + d.color + ';color:' + d.ink + ';text-decoration:none">' +
       '<span class="p-kicker">' + esc(d.kicker) + '</span><b>' + esc(d.title) + '</b><span>' + esc(d.teaser) + '</span>' +
       '<span class="foot"><span>Read →</span>' + (d.episode >= 0 ? '<span>▶ Audio ' + fmt(C.episodes[d.episode].dur) + '</span>' : '') + '</span></a>';
   }).join('');

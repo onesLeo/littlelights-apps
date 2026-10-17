@@ -404,6 +404,42 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
   check(o2.inView && o2.hit.length === 0, 'owl: perched in place straight away in calm mode');
   await c2.context.close();
 }
+// ---------- frosted glass cards: fallback exists, text keeps AA contrast over the real sky ----------
+{
+  const css = await (await fetch(base + 'css/app.css')).text();
+  check(/@supports\s+not\s*\(\(backdrop-filter/.test(css) && /-webkit-backdrop-filter:\s*blur/.test(css), 'glass: -webkit- prefix and an @supports not (backdrop-filter) solid fallback exist');
+  check(!/@keyframes[^}]*\{[^@]*backdrop-filter/.test(css), 'glass: no animated filters');
+  for (const theme of ['day', 'night']) {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, serviceWorkers: 'block' });
+    await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+    await context.addInitScript((t) => { localStorage.setItem('ll.theme', t); localStorage.setItem('ll.calm', '1'); }, theme);
+    const page = await context.newPage();
+    await page.goto(base + '#today'); await page.waitForSelector('#app[data-ready]'); await page.waitForTimeout(800);
+    const cards = await page.$$('.v-today .p-slide, .p-sidecard');
+    check(cards.length >= 5 && await page.$eval('.p-sidecard', (c) => /blur/.test(getComputedStyle(c).backdropFilter || getComputedStyle(c).webkitBackdropFilter)), `glass ${theme}: cards are frosted (backdrop blur)`);
+    let worst = { r: 99, name: '' };
+    for (const card of cards) {
+      const box = await card.boundingBox(); if (!box || box.y > 900 || box.height < 60) continue;
+      const info = await card.evaluate((c) => { const cs = getComputedStyle(c); c.querySelectorAll('*').forEach((e) => { e.dataset.vis = e.style.visibility; e.style.visibility = 'hidden'; }); return { color: cs.color, name: c.className }; });
+      const clip = { x: box.x + 18, y: box.y + 18, width: box.width - 36, height: Math.min(box.height, 900 - box.y) - 36 };
+      const png = (await page.screenshot({ clip })).toString('base64');
+      await card.evaluate((c) => c.querySelectorAll('*').forEach((e) => { e.style.visibility = e.dataset.vis || ''; }));
+      const r = await page.evaluate(async ({ png, color }) => {
+        const img = new Image(); img.src = 'data:image/png;base64,' + png; await img.decode();
+        const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const g = cv.getContext('2d'); g.drawImage(img, 0, 0);
+        const d = g.getImageData(0, 0, cv.width, cv.height).data;
+        const lum = (c) => { const v = c.map((n) => { n /= 255; return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+        const t = color.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number); let min = 99;
+        for (let i = 0; i < d.length; i += 4 * 3) { const bg = [d[i], d[i + 1], d[i + 2]]; const tx = t.map((v, k) => v * 0.85 + bg[k] * 0.15); const a = lum(tx), b = lum(bg); min = Math.min(min, (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)); }
+        return min;
+      }, { png, color: info.color });
+      if (r < worst.r) worst = { r, name: info.name };
+      check(r >= 4.5, `glass ${theme}: "${info.name}" text vs its busiest background pixel ${r.toFixed(2)}:1 (AA 4.5)`);
+    }
+    console.log(`     glass ${theme}: worst card ${worst.name} ${worst.r.toFixed(2)}:1`);
+    await context.close();
+  }
+}
 // Layout and motion regressions at the smallest phone and desktop breakpoints.
 for (const viewport of [{ width: 320, height: 568 }, { width: 900, height: 650 }, { width: 1024, height: 768 }]) {
   const { context, page } = await openApp(viewport);
