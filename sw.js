@@ -1,11 +1,12 @@
 // Offline support: the app shell is cached on install; fonts are cached the first time they load.
 // Bump VERSION whenever a cached file changes so visitors get the new one.
-const VERSION = 'll-v28';
+const VERSION = 'll-v29';
 const SHELL = [
   './',
   'index.html',
   'css/app.css',
   'fonts/fonts.css',
+  'fonts/parisienne-normal-400.woff2',
   'fonts/bricolage-normal-400.woff2',
   'fonts/bricolage-normal-600.woff2',
   'fonts/bricolage-normal-800.woff2',

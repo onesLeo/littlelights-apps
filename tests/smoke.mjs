@@ -100,7 +100,39 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(!(await page.$('.p-slide.s2 [data-ep], .p-slide [data-sheet="0"] + [data-ep]')), 'copy: Today devotion card has no Listen button');
   check(await page.evaluate(() => window.LL_CONTENT.verses.some((v) => v.ref === 'Proverbs 17:17' && v.text === 'A friend loves at all times; and a brother is born for adversity.')), 'copy: Proverbs 17:17 is the full WEB verse');
 
-  check(await page.title() === 'Salt and Light' && (await page.textContent('.p-brand span')) === 'Salt and Light', 'brand: site is called Salt and Light');
+  check(await page.title() === 'Salt and Light' && (await page.getAttribute('.p-brand .wm', 'aria-label')) === 'Salt and Light', 'brand: site is called Salt and Light');
+  // Calligraphy wordmark: accessible name, candle i, alignment and contrast.
+  const wm = await page.evaluate(async () => {
+    await document.fonts.load('22px Parisienne');
+    const all = [...document.querySelectorAll('.wm')];
+    const ids = all.map((w) => w.querySelector('linearGradient').id);
+    const lum = (c) => { const v = c.match(/\d+(\.\d+)?/g).slice(0, 3).map((n) => { n /= 255; return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+    const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+    const vis = document.querySelector('.p-logo .wm:not(.wm-onlight)').cloneNode(true); vis.style.fontSize = '22px'; document.getElementById('app').appendChild(vis);
+    const l = vis.querySelector('.wm-l'); const svg = l.querySelector('svg');
+    const probe = document.createElement('span'); probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+    l.appendChild(probe);
+    const base = probe.getBoundingClientRect().bottom; probe.remove();
+    const fs = parseFloat(getComputedStyle(vis).fontSize);
+    const stem = svg.querySelector('rect').getBoundingClientRect();
+    return {
+      n: all.length, labels: all.every((w) => w.getAttribute('role') === 'img' && w.getAttribute('aria-label') === 'Salt and Light'),
+      hidden: all.every((w) => w.querySelector('svg').getAttribute('aria-hidden') === 'true' && [...w.children].every((c) => c.getAttribute('aria-hidden') === 'true')),
+      unique: new Set(ids).size === ids.length, font: getComputedStyle(vis).fontFamily.includes('Parisienne') && document.fonts.check('22px Parisienne'),
+      baseline: Math.abs(stem.bottom - base) / fs, xh: Math.abs((stem.bottom - stem.top) - 0.36 * fs) / fs,
+      creamOnNavy: ratio(getComputedStyle(vis.querySelector('.wm-s')).color, 'rgb(15,13,32)'),
+      plumOnLight: ratio(getComputedStyle(document.querySelector('.wm-onlight .wm-s')).color, 'rgb(251,246,238)'),
+      plumOnNavy: ratio('rgb(59,31,74)', 'rgb(15,13,32)'),
+      flame: getComputedStyle(svg.querySelector('.wm-flame')).animationName, glow: getComputedStyle(l).animationName,
+      _: vis.remove(),
+    };
+  });
+  check(wm.n >= 5 && wm.labels && wm.hidden, 'wordmark: every header logo is labelled "Salt and Light" with the candle hidden from screen readers');
+  check(wm.unique, 'wordmark: each candle has its own gradient id');
+  check(wm.font, 'wordmark: self-hosted Parisienne is loaded');
+  check(wm.baseline < 0.03 && wm.xh < 0.03, `wordmark: candle sits on the baseline and reaches the x-height (${wm.baseline.toFixed(3)}em, ${wm.xh.toFixed(3)}em)`);
+  check(wm.plumOnNavy < 3 && wm.creamOnNavy >= 7 && wm.plumOnLight >= 7, `wordmark: cream on the navy header, plum only on light backgrounds (${wm.creamOnNavy.toFixed(1)}:1, ${wm.plumOnLight.toFixed(1)}:1)`);
+  check(wm.flame === 'wm-flicker' && wm.glow === 'wm-glow', 'wordmark: flame flickers and Light glows');
   check(html.includes('<meta name="application-name" content="Salt and Light">') && html.includes('<meta name="apple-mobile-web-app-title" content="Salt and Light">'), 'brand: app name meta tags');
   check((html.match(/Little Light: Bible Journeys/g) || []).length >= 3, 'brand: the game keeps its name');
   // Everything on for the rest of the journey.
@@ -198,6 +230,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
 
   await page.click('.p-rings [data-calm]');
   check(await page.$eval('#app', (a) => a.classList.contains('calm')), 'phone: calm mode turns on');
+  check(await page.$$eval('.wm-flame', (f) => f.every((x) => getComputedStyle(x).animationName === 'none')), 'phone: calm mode keeps the wordmark flame still');
 
   await page.click('.p-tab[data-tab="watch"]');
   await page.click('.p-reel .save');
@@ -251,6 +284,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 900, height: 650 }
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.waitForTimeout(100);
   check(await page.$eval('#app', (a) => a.classList.contains('calm')), `${viewport.width}px: system reduced motion enables Calm mode`);
+  check(await page.$$eval('.wm-flame', (f) => f.every((x) => getComputedStyle(x).animationName === 'none')), `${viewport.width}px: reduced motion keeps the wordmark flame still`);
   await page.evaluate(() => document.querySelector('[data-mode]').click());
   await page.evaluate(() => document.querySelector('#pOwl').click());
   check(await page.$eval('#pOwl', (o) => !o.classList.contains('hoot')), `${viewport.width}px: owl responds without hopping in Calm mode`);

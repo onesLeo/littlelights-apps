@@ -48,7 +48,28 @@ img, svg { max-width: 100%; }
 .p-head { position: sticky; top: 0; z-index: 3; padding: 22px 18px 12px; display: flex; align-items: center; justify-content: space-between; background: inherit; }
 .p-head h3 { font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
 .p-logo { display: flex; align-items: center; gap: 7px; font-weight: 800; font-size: 14px; }
-.p-logo i { width: 10px; height: 10px; border-radius: 50%; background: #fff3c4; box-shadow: 0 0 10px 3px rgba(255,230,140,.7); }
+
+/* Calligraphy wordmark: "Salt and" + "Light" with a candle for the i.
+   The candle SVG is sized from Parisienne's metrics: 0.49em tall (i-dot top + 3/100),
+   stem from the baseline to the x-height (0.36em), flame centred at dot height. */
+.wm { --wm-s: #F6EEDC; --wm-g1: #F5C26B; --wm-g2: #F4A38C; --wm-g0: #FFF6D8; --wm-glow: rgba(245,194,107,.45);
+  font-family: 'Parisienne', 'Newsreader', cursive; font-weight: 400; letter-spacing: 0; white-space: nowrap; line-height: 1.15; display: inline-block; }
+.wm-s { color: var(--wm-s); }
+.wm-l { background: linear-gradient(90deg, var(--wm-g1), var(--wm-g2)); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 .22em var(--wm-glow)); animation: wm-glow 5s ease-in-out infinite; }
+.wm-i { display: inline-block; width: .18em; height: .49em; vertical-align: baseline; overflow: visible; margin: 0 .02em 0 .04em; }
+.wm-a { stop-color: var(--wm-g1); } .wm-b { stop-color: var(--wm-g2); } .wm-c { stop-color: var(--wm-g0); }
+.wm-wick { stroke: var(--wm-g2); stroke-width: 1.4; stroke-linecap: round; fill: none; }
+.wm-flame { transform-box: fill-box; transform-origin: 50% 100%; animation: wm-flicker 2.6s ease-in-out infinite; }
+/* Light backgrounds: plum (#3B1F4A) and a deeper gold so both parts pass WCAG AA. */
+.wm-onlight { --wm-s: #3B1F4A; --wm-g1: #9A5410; --wm-g2: #A63D2F; --wm-g0: #E9A23B; --wm-glow: rgba(245,194,107,.35); }
+.p-app.night .wm-onlight { --wm-s: #F6EEDC; --wm-g1: #F5C26B; --wm-g2: #F4A38C; --wm-g0: #FFF6D8; --wm-glow: rgba(245,194,107,.45); }
+.p-logo .wm { font-size: 22px; }
+.p-brand .wm { font-size: 27px; }
+@keyframes wm-flicker { 0%, 100% { transform: scale(1, 1) rotate(0); } 22% { transform: scale(.94, 1.06) rotate(-2deg); } 48% { transform: scale(1.04, .95) rotate(1.5deg); } 71% { transform: scale(.97, 1.04) rotate(-1deg); } }
+@keyframes wm-glow { 0%, 100% { filter: drop-shadow(0 0 .16em var(--wm-glow)); } 50% { filter: drop-shadow(0 0 .32em var(--wm-glow)); } }
+.p-app.calm .wm-flame, .p-app.calm .wm-l { animation: none; }
+@media (prefers-reduced-motion: reduce) { .wm-flame, .wm-l { animation: none !important; } }
 .p-kicker { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; font-weight: 700; opacity: .75; }
 
 /* TODAY feed */
@@ -342,7 +363,6 @@ img, svg { max-width: 100%; }
 .p-app.night .s5 > svg .p-sunmoon { filter: drop-shadow(0 0 10px rgba(220,230,255,.8)); }
 .p-app.night .p-sunmoon { fill: #eef2ff; }
 .p-app.night .v-read, .p-app.night .v-read .p-head, .p-app.night .p-article { background: #1a1422; color: #efe6f2; }
-.p-app.night .v-read .p-logo { color: #efe6f2 !important; }
 .p-app.night .p-card { filter: brightness(.9); }
 .p-app.night .p-sheet { background: #2a1822; color: #f8dbe6; }
 .p-app.night .p-sheet .p-btn { background: #f8dbe6 !important; color: #2a1822; }
@@ -607,7 +627,6 @@ img, svg { max-width: 100%; }
   .p-brand i { position: relative; flex-shrink: 0; transition: box-shadow .25s ease; }
   .p-brand i::before { content: ""; position: absolute; inset: -10px; border-radius: 50%; }
   .p-brand i b { position: absolute; width: 320px; height: 320px; left: calc(50% - 160px); top: calc(50% - 160px); border: 1px solid #fff3c4; border-radius: 50%; box-shadow: 0 0 3px rgba(255,224,137,.4); opacity: 0; pointer-events: none; z-index: -1; }
-  .p-brand span { background: linear-gradient(90deg, #ffe089 0%, #fff8dc 35%, #f4efe2 50%, #f4efe2 100%); background-size: 250% 100%; background-position: 100% 0; background-clip: text; -webkit-background-clip: text; color: transparent; }
   .p-brand:has(> i:hover) i, .p-brand:focus-visible i { box-shadow: 0 0 16px 6px rgba(255,230,140,.9); }
   .p-brand:has(> i:hover) i b, .p-brand:focus-visible i b { animation: brand-wave 2s cubic-bezier(.2,.5,.35,1) both; }
   .p-brand i b:nth-child(2) { animation-delay: .16s !important; }
@@ -617,18 +636,15 @@ img, svg { max-width: 100%; }
   .p-tab { transition: color .2s ease, background-color .2s ease, text-shadow .2s ease; }
   .p-tab:focus-visible { color: #fff3c4; text-shadow: 0 0 12px rgba(255,224,137,.65); }
   .p-tab:focus-visible svg { filter: drop-shadow(0 0 4px rgba(255,224,137,.55)); }
-  .p-brand:has(> i:hover) span, .p-brand:focus-visible span { animation: brand-shine .9s ease-out both; }
   .p-app.calm .p-brand i { transition: none; }
   .p-app.calm .p-brand i b { animation: none; }
-  .p-app.calm .p-brand span { animation: none; }
-  .p-app.calm .p-brand:has(> i:hover) span, .p-app.calm .p-brand:focus-visible span { background-position: 0% 0; text-shadow: 0 0 12px rgba(255,224,137,.7); }
 }
 @media (min-width: 900px) and (hover: hover) {
   .p-tab:hover { color: #fff3c4; background: rgba(255,243,196,.08); text-shadow: 0 0 12px rgba(255,224,137,.65); }
   .p-tab:hover svg { filter: drop-shadow(0 0 4px rgba(255,224,137,.55)); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .p-brand i b, .p-brand span { animation: none !important; }
+  .p-brand i b { animation: none !important; }
   .p-brand i { transition: none; }
 }
 

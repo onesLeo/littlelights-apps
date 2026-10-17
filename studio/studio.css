@@ -210,3 +210,20 @@ p { margin: 0; }
 .btn.small { min-height: 34px; padding: 6px 12px; font-size: 13px; }
 a.nav { text-decoration: none; }
 .role-note { font-size: 12.5px; color: var(--muted); }
+
+/* Calligraphy wordmark (shared with the site header). */
+@font-face { font-family: 'Parisienne'; font-style: normal; font-weight: 400; font-display: swap; src: url(../fonts/parisienne-normal-400.woff2) format('woff2'); }
+.wm { --wm-s: #3B1F4A; --wm-g1: #9A5410; --wm-g2: #A63D2F; --wm-g0: #E9A23B; --wm-glow: rgba(245,194,107,.35);
+  font-family: 'Parisienne', cursive; font-weight: 400; font-size: 26px; white-space: nowrap; line-height: 1.15; display: inline-block; }
+:root[data-theme="dark"] .wm { --wm-s: #F6EEDC; --wm-g1: #F5C26B; --wm-g2: #F4A38C; --wm-g0: #FFF6D8; --wm-glow: rgba(245,194,107,.45); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .wm { --wm-s: #F6EEDC; --wm-g1: #F5C26B; --wm-g2: #F4A38C; --wm-g0: #FFF6D8; --wm-glow: rgba(245,194,107,.45); } }
+.wm-s { color: var(--wm-s); }
+.wm-l { background: linear-gradient(90deg, var(--wm-g1), var(--wm-g2)); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 .2em var(--wm-glow)); }
+.wm-i { display: inline-block; width: .18em; height: .49em; vertical-align: baseline; overflow: visible; margin: 0 .02em 0 .04em; }
+.wm-a { stop-color: var(--wm-g1); } .wm-b { stop-color: var(--wm-g2); } .wm-c { stop-color: var(--wm-g0); }
+.wm-wick { stroke: var(--wm-g2); stroke-width: 1.4; stroke-linecap: round; fill: none; }
+.wm-flame { transform-box: fill-box; transform-origin: 50% 100%; animation: wm-flicker 2.6s ease-in-out infinite; }
+@keyframes wm-flicker { 0%, 100% { transform: scale(1, 1) rotate(0); } 22% { transform: scale(.94, 1.06) rotate(-2deg); } 48% { transform: scale(1.04, .95) rotate(1.5deg); } 71% { transform: scale(.97, 1.04) rotate(-1deg); } }
+@media (prefers-reduced-motion: reduce) { .wm-flame { animation: none !important; } }
+.brand .wm-tag { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; align-self: center; }
+@media (max-width: 860px) { .side .brand .wm-tag { display: none; } }

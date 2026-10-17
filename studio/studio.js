@@ -1,3 +1,5 @@
+// Calligraphy wordmark (same markup as the site header). The candle is the i.
+function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and Light"><span class="wm-s" aria-hidden="true">Salt and </span><span class="wm-l" aria-hidden="true">L<svg class="wm-i" viewBox="0 0 18 49" aria-hidden="true" focusable="false"><defs><linearGradient id="GID" x1="0" y1="0" x2="0" y2="1"><stop class="wm-a" offset="0"/><stop class="wm-b" offset="1"/></linearGradient><radialGradient id="GIDf" cx=".5" cy=".65" r=".6"><stop class="wm-c" offset="0"/><stop class="wm-a" offset=".55"/><stop class="wm-b" offset="1"/></radialGradient></defs><g transform="translate(0 49) skewX(-10) translate(0 -49)"><rect x="6.2" y="13" width="5.6" height="36" rx="2.8" fill="url(#GID)"/><path class="wm-wick" d="M9.0 12.5v-2.2"/><g class="wm-flame"><path d="M9.0 0C13.6 5.5 14.0 9.8 9.0 12.6C4.0 9.8 4.4 5.5 9.0 0Z" fill="url(#GIDf)"/></g></g></svg>ght</span></span>'.replace(/GID/g, id); }
 // Little Light Studio: sign in, write, schedule and publish posts.
 // Talks to the data layer in js/store.js (local mode or Supabase).
 (function () {
@@ -209,7 +211,7 @@
   function signin() {
     var err = state.authError;
     return '<main class="auth"><form class="auth-card" id="signinForm" novalidate>' +
-      '<div class="brand"><span class="dot"></span>Salt and Light Studio</div>' +
+      '<div class="brand">' + wordmark('wms1') + '<small class="wm-tag">Studio</small></div>' +
       '<div><h1>Sign in to post</h1><p style="margin-top:6px">For the Salt and Light team. Visitors never need an account.</p></div>' +
       modeBar() +
       '<label class="field"><span>Email</span><input class="input' + (err ? ' err' : '') + '" id="email" type="email" autocomplete="email" placeholder="you@example.com" value="' + esc(state.email) + '">' +
@@ -227,7 +229,7 @@
   function shell(inner) {
     var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['site', 'Menus', ICON.site], ['builtins', 'Built-in content', ICON.media], ['team', 'Team', ICON.team]];
     return '<div class="shell"><aside class="side">' +
-      '<div class="brand"><span class="dot"></span><span>Salt and Light Studio</span></div>' +
+      '<div class="brand">' + wordmark('wms2') + '<small class="wm-tag">Studio</small></div>' +
       '<nav aria-label="Studio">' + nav.map(function (n) {
         var on = state.view === n[0] || (n[0] === 'new' && state.view === 'edit' && state.editing && !state.editing.id);
         return '<button class="nav' + (on ? ' on' : '') + '" type="button" data-view="' + n[0] + '"' + (on ? ' aria-current="page"' : '') + '>' + n[2] + n[1] +
