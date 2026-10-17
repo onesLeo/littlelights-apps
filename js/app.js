@@ -104,7 +104,10 @@
     if (!S) return Promise.resolve();
     return loadPublished(S).then(function (posts) {
       return Promise.all(posts.map(function (p) {
-        return p.media_url ? S.resolveMedia(p.media_url).then(function (u) { p._src = u; }) : null;
+        var f = p.fields || {}, jobs = [];
+        if (p.media_url) jobs.push(S.resolveMedia(p.media_url).then(function (u) { p._src = u; }));
+        if (Array.isArray(f.parts)) f.parts.forEach(function (pt) { if (pt && pt.media_url) jobs.push(S.resolveMedia(pt.media_url).then(function (u) { pt._src = u; })); });
+        return Promise.all(jobs);
       })).then(function () { return posts; });
     }).then(function (posts) {
       var eps = [], devs = [], reels = [], verses = [], news = [], audioAt = {}, today = [], featured = null;
@@ -117,7 +120,7 @@
         var f = p.fields || {};
         audioAt[p.id] = eps.length;
         eps.push({ title: p.title, meta: f.kind || 'Audio', dur: f.seconds || toSeconds(f.minutes), color: f.color || '#a07fd6', src: p._src || '', _id: p.id,
-          verse: f.verse || '', ref: f.ref || '', transcript: f.transcript || '' });
+          verse: f.verse || '', ref: f.ref || '', transcript: f.transcript || '', date: p.publish_at || p.created_at || '' });
         if (f.builtin) copyOf[f.builtin] = eps.length - 1;
       });
       posts.forEach(function (p) {
@@ -127,7 +130,7 @@
           var words = [f.body, f.family, f.prayer].join(' ').split(/\s+/).filter(Boolean).length;
           if (ep >= 0) eps[ep].devotion = devs.length;
           devs.push({ slug: p.slug, title: p.title, kicker: 'Devotion · ' + Math.max(1, Math.round(words / 180)) + ' min read',
-            color: pinks[devs.length % 3], ink: '#3a1426', episode: ep, teaser: f.teaser || '',
+            color: pinks[devs.length % 3], ink: '#3a1426', episode: ep, teaser: f.teaser || '', date: p.publish_at || p.created_at || '',
             html: mdToHtml(f.body) + (f.ref ? '<p class="meta">' + esc(f.ref) + '</p>' : '') +
               (f.family ? '<p><b>For families tonight:</b> ' + esc(f.family) + '</p>' : '') +
               (f.prayer ? '<div class="pray">' + esc(f.prayer) + '</div>' : '') });
@@ -135,11 +138,11 @@
           if (p.show_on_today) today.push({ type: 'devotion', i: devs.length - 1 });
         } else if (p.type === 'reel') {
           var look = reelLook.filter(function (l) { return l[1] === f.look; })[0] || reelLook[reels.length % 3];
-          reels.push({ title: p.title, len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '' });
+          reels.push({ title: p.title, len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '', date: p.publish_at || p.created_at || '', parts: Array.isArray(f.parts) && f.parts.length ? f.parts : null });
           if (f.builtin) copyOf[f.builtin] = reels.length - 1;
           if (p.show_on_today) today.push({ type: 'reel', i: reels.length - 1 });
         } else if (p.type === 'verse') {
-          verses.push({ text: f.verse || '', ref: f.ref || '', topics: f.topics && f.topics.length ? f.topics : ['Verse'], translation: f.translation || 'WEB' });
+          verses.push({ text: f.verse || '', ref: f.ref || '', topics: f.topics && f.topics.length ? f.topics : ['Verse'], translation: f.translation || 'WEB', date: p.publish_at || p.created_at || '' });
           if (f.builtin) copyOf[f.builtin] = verses.length - 1;
           if (p.show_on_today) today.push({ type: 'verse', i: verses.length - 1 });
         } else if (p.type === 'game') {
@@ -233,6 +236,49 @@
     });
   }
 
+  // ---------- list filters: Latest/Oldest by post date + type chips from real fields; kept in sessionStorage ----------
+  var FILTER_KEY = 'll.filters', FILTER_APPLY = {};
+  function fall() { try { return JSON.parse(sessionStorage.getItem(FILTER_KEY) || '{}') || {}; } catch (e) { return {}; } }
+  function fstate(page) { var s = fall()[page] || {}; return { sort: s.sort === 'old' ? 'old' : 'new', type: s.type || 'All' }; }
+  function fset(page, patch) { var a = fall(), s = fstate(page); for (var k in patch) s[k] = patch[k]; a[page] = s; try { sessionStorage.setItem(FILTER_KEY, JSON.stringify(a)); } catch (e) {} }
+  function dateOf(d) { var t = Date.parse(d || C.builtinDate || ''); return isNaN(t) ? 0 : t; }
+  // Stable sort by date; equal dates keep their original order in both directions.
+  function sortIdx(idx, dateFn, dir) {
+    return idx.map(function (k, n) { return { k: k, n: n, t: dateOf(dateFn(k)) }; })
+      .sort(function (a, b) { return (dir === 'old' ? a.t - b.t : b.t - a.t) || a.n - b.n; }).map(function (x) { return x.k; });
+  }
+  // The control only appears when a page has 3 or more items; chips only when there are 2+ real types.
+  function filterBar(page, count, types) {
+    if (count <= 2) return '';
+    var s = fstate(page), ty = types.length > 1 ? ['All'].concat(types) : [];
+    if (ty.indexOf(s.type) < 0) s.type = 'All';
+    return '<div class="p-filter glass glass--dark" data-fpage="' + page + '">' +
+      '<div class="p-fsort" role="group" aria-label="Sort">' + [['new', 'Latest'], ['old', 'Oldest']].map(function (o) {
+        return '<button type="button" data-fsort="' + o[0] + '" aria-pressed="' + (s.sort === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>' +
+      (ty.length ? '<div class="p-fchips" role="group" aria-label="Show">' + ty.map(function (t) {
+        return '<button type="button" class="p-fchip" data-ftype="' + esc(t) + '" aria-pressed="' + (s.type === t) + '">' + esc(t) + '</button>'; }).join('') + '</div>' : '') +
+      '</div>';
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-fsort], [data-ftype]'); if (!b) return;
+    var bar = b.closest('[data-fpage]'); if (!bar) return;
+    var page = bar.dataset.fpage;
+    if (b.dataset.fsort) fset(page, { sort: b.dataset.fsort }); else fset(page, { type: b.dataset.ftype });
+    var which = b.dataset.fsort ? '[data-fsort="' + b.dataset.fsort + '"]' : '[data-ftype="' + b.dataset.ftype + '"]';
+    if (FILTER_APPLY[page]) FILTER_APPLY[page]();
+    var again = document.querySelector('[data-fpage="' + page + '"] ' + which); if (again) again.focus();
+  });
+  // Reorders and filters existing items in place (DOM order, so keyboard order matches what is seen).
+  function applyDom(page, box, items, dateFn, typeFn) {
+    var s = fstate(page);
+    var order = sortIdx(items.map(function (_, k) { return k; }), function (k) { return dateFn(items[k]); }, s.sort);
+    order.forEach(function (k) { box.appendChild(items[k]); });
+    items.forEach(function (el) { el.classList.toggle('f-out', s.type !== 'All' && typeFn(el) !== s.type); });
+  }
+  function mountBar(page, html, before) {
+    var old = document.querySelector('.p-filter[data-fpage="' + page + '"]'); if (old) old.remove();
+    if (!html || !before) return; before.insertAdjacentHTML('beforebegin', html);
+  }
   function startApp() {
   dropLeftOut();
   // Verses switched off: no verse cards on Today (built-in or Studio) and no verse buttons.
@@ -263,12 +309,35 @@
     else if (box) box.remove();
     else b.remove();
   });
-  (function markRow() {
+  function markRow() {
     var feed = document.getElementById('pFeed');
     if (!feed) return;
-    var n = feed.querySelectorAll('.p-slide:is(.s2, .s3, .s4):not(.s-studio)').length;
+    var n = feed.querySelectorAll('.p-slide:is(.s2, .s3, .s4):not(.s-studio):not(.f-out)').length;
     feed.classList.remove('mid-0', 'mid-1', 'mid-2', 'mid-3');
     feed.classList.add('mid-' + n);
+  }
+  markRow();
+  // Today filters: every post card except the built-in welcome slide, which keeps its place.
+  // Types come from the card kind each slide already has (Verse, Devotion, Reel, Audio, Game).
+  (function todayFilters() {
+    var feed = $('#pFeed'); if (!feed) return;
+    var KIND = { s1: 'Verse', s2: 'Devotion', s3: 'Reel', s4: 'Audio', s5: 'Game' };
+    var typeOf = function (el) { for (var k in KIND) if (el.classList.contains(k)) return KIND[k]; return ''; };
+    var welcome = feed.querySelector('.p-slide.s1:not(.s-studio)');
+    var all = $$('.p-slide', feed), at = welcome ? all.indexOf(welcome) : -1;
+    var items = all.filter(function (el) { return el !== welcome; });
+    var types = []; items.forEach(function (el) { var t = typeOf(el); if (t && types.indexOf(t) < 0) types.push(t); });
+    var wide = matchMedia('(min-width: 900px)');
+    function apply() {
+      var html = filterBar('today', items.length, types);
+      mountBar('today', html, wide.matches || !welcome ? feed : null);
+      if (html && !wide.matches && welcome) welcome.insertAdjacentHTML('beforeend', html);
+      applyDom('today', feed, items, function (el) { return el.dataset.date; }, typeOf);
+      if (welcome) { var kids = $$('.p-slide', feed); feed.insertBefore(welcome, kids[Math.min(at, kids.length)] || null); if (kids.indexOf(welcome) < 0 && at >= kids.length) feed.appendChild(welcome); }
+      markRow();
+    }
+    FILTER_APPLY.today = apply; apply();
+    wide.addEventListener('change', apply);
   })();
   // Today audio card and Listen "This week": the newest published audio marked for Today,
   // otherwise the built-in recording written in index.html.
@@ -405,6 +474,8 @@
       }
     });
     feedEl.insertAdjacentHTML('afterbegin', html);
+    var lists = { devotion: C.devotions, reel: C.reels, audio: C.episodes, verse: C.verses, game: C.news };
+    $$('#pFeed .p-slide.s-studio').forEach(function (s, k) { var t = C.today[k]; var it = t && lists[t.type] && lists[t.type][t.i]; if (it) s.dataset.date = it.date || ''; });
     var hint = $('#pHint');
     if (hint) { feedEl.firstElementChild.appendChild(hint); feedEl.firstElementChild.classList.add('has-hint'); }
   })();
@@ -601,28 +672,44 @@
   window.LL_ytEmbed = ytEmbed; window.LL_ytId = ytId;
   var reelsEl = $('#pReels');
   function rIcon(d) { return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + d + '"/></svg>'; }
-  var segs = '<div class="p-rsegs" aria-hidden="true">' + C.reels.map(function () { return '<i><b></b></i>'; }).join('') + '</div>';
-  reelsEl.innerHTML = C.reels.map(function (r, i) {
-    var yid = ytId(r.youtube);
-    var scene = r.src
-      ? '<video src="' + esc(r.src) + '" playsinline muted controls preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
-      : yid ? '<div class="p-yt-slot" data-yt="' + yid + '" style="position:absolute;inset:0;background:#000"></div>'
-      : reelScene(r.kind);
+  // A story is a reel with one or more parts (consecutive clips). `parts` is optional; a reel without it is one part.
+  var LOOKS = { robe: '#e46a4c', rain: '#3d7fc4', sea: '#1f3a6e' };
+  function partsOf(r) {
+    var ps = Array.isArray(r.parts) && r.parts.length ? r.parts : [r];
+    return ps.map(function (p) { var kind = p.kind || p.look || r.kind; return { src: p._src || p.src || '', youtube: p.youtube || '', len: p.len || p.minutes || (ps.length === 1 ? r.len : '') || '', kind: kind, bg: p.bg || LOOKS[p.look] || r.bg }; });
+  }
+  function storyKey(r) { return 'reel:' + String(r.title || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+  var curStory = -1, parts = [];
+  function renderReelStory(i) {
+    var r = C.reels[i]; curStory = i; parts = partsOf(r);
     // Read / Listen only appear when the reel post links a devotion (fields.devotion = slug) or audio (fields.audio = title).
-    var acts = '<button type="button" class="save p-ract" aria-label="Save">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
+    var acts = '<button type="button" class="save p-ract' + (savedReels[i] ? ' saved' : '') + '" aria-label="Save">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
       '<button type="button" class="share p-ract" aria-label="Share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button>' +
       (r.read ? '<button type="button" class="p-ract" data-read-slug="' + esc(r.read) + '" aria-label="Read the devotion">' + rIcon('M3 5h7a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H3zM21 5h-7a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h7z') + '<span>Read</span></button>' : '') +
       (r.listen ? '<button type="button" class="p-ract" data-listen-title="' + esc(r.listen) + '" aria-label="Listen">' + rIcon('M4 14v-2a8 8 0 0 1 16 0v2M4 14h3v6H4zM17 14h3v6h-3z') + '<span>Listen</span></button>' : '');
-    return '<article class="p-reel" data-i="' + i + '" style="--rc:' + esc(r.bg) + ';background:' + esc(r.bg) + '" aria-label="' + esc(r.title) + '">' +
-      '<div class="scene"><div class="p-rkb">' + scene + '</div></div><div class="p-rfade" aria-hidden="true"></div>' +
-      '<div class="p-rtop">' + segs + '<span class="p-rchip">Reel' + (r.len ? ' · ' + esc(r.len) : '') + '</span></div>' +
-      '<div class="tapzone p-rzones"><button type="button" class="z-prev" aria-label="Previous reel"><span aria-hidden="true">‹</span></button><button type="button" class="z-mid" aria-label="Pause or play"></button><button type="button" class="z-next" aria-label="Next reel"><span aria-hidden="true">›</span></button></div>' +
-      '<div class="p-rend" hidden><b>That’s all for now</b><button type="button" class="p-ragain">↻ Watch again</button></div><div class="paused" aria-hidden="true"><span class="ic-pause"></span><span class="ic-play"></span></div>' +
-      '<div class="side">' + acts + '</div>' +
-      '<div class="cap"><b class="p-rtitle">' + esc(r.title) + '</b>' + (r.caption ? '<p>' + esc(r.caption) + '</p><button type="button" class="more" aria-haspopup="dialog">more</button>' : '') +
-      (r.youtube && !yid ? '<a class="p-yt" href="' + esc(r.youtube) + '" target="_blank" rel="noopener">Watch on YouTube</a>' : '') + '</div>' +
-      '</article>';
-  }).join('');
+    var many = parts.length > 1;
+    reelsEl.innerHTML = parts.map(function (pt, k) {
+      var yid = ytId(pt.youtube);
+      var scene = pt.src
+        ? '<video src="' + esc(pt.src) + '" playsinline muted controls preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
+        : yid ? '<div class="p-yt-slot" data-yt="' + yid + '" style="position:absolute;inset:0;background:#000"></div>'
+        : reelScene(pt.kind);
+      return '<article class="p-reel" data-i="' + i + '" data-p="' + k + '" style="--rc:' + esc(pt.bg) + ';background:' + esc(pt.bg) + '" aria-label="' + esc(r.title) + (many ? ', part ' + (k + 1) + ' of ' + parts.length : '') + '">' +
+        '<div class="scene"><div class="p-rkb">' + scene + '</div></div><div class="p-rfade" aria-hidden="true"></div>' +
+        '<div class="p-rtop"><div class="p-rsegs" aria-hidden="true"></div><span class="p-rchip">Reel' + (many ? ' · ' + (k + 1) + '/' + parts.length : '') + (pt.len ? ' · ' + esc(pt.len) : '') + '</span></div>' +
+        '<div class="tapzone p-rzones"><button type="button" class="z-prev" aria-label="Previous part"><span aria-hidden="true">‹</span></button><button type="button" class="z-mid" aria-label="Pause or play"></button><button type="button" class="z-next" aria-label="Next part"><span aria-hidden="true">›</span></button></div>' +
+        '<div class="p-rend" hidden></div><div class="paused" aria-hidden="true"><span class="ic-pause"></span><span class="ic-play"></span></div>' +
+        '<div class="side">' + acts + '</div>' +
+        '<div class="cap"><b class="p-rtitle">' + esc(r.title) + '</b>' + (r.caption ? '<p>' + esc(r.caption) + '</p><button type="button" class="more" aria-haspopup="dialog">more</button>' : '') +
+        (pt.youtube && !yid ? '<a class="p-yt" href="' + esc(pt.youtube) + '" target="_blank" rel="noopener">Watch on YouTube</a>' : '') + '</div>' +
+        '</article>';
+    }).join('');
+  }
+  // Finished stories are remembered on this device only (localStorage); nothing is sent anywhere.
+  function watchedMap() { try { return JSON.parse(store('watched') || '{}') || {}; } catch (e) { return {}; } }
+  function isWatched(i) { return !!watchedMap()[storyKey(C.reels[i])]; }
+  function markWatched(i) { var m = watchedMap(); m[storyKey(C.reels[i])] = 1; store('watched', JSON.stringify(m)); }
+  window.LL_watched = { clear: function () { store('watched', '{}'); renderWatch(); }, get: watchedMap };
   var rSheet = document.createElement('div');
   rSheet.className = 'p-rsheet glass glass--dark'; rSheet.id = 'pReelSheet'; rSheet.hidden = true;
   rSheet.setAttribute('role', 'dialog'); rSheet.setAttribute('aria-modal', 'true'); rSheet.setAttribute('aria-labelledby', 'pReelSheetT');
@@ -636,18 +723,17 @@
   function closeReelSheet() { if (rSheet.hidden) return false; rSheet.hidden = true; if (rSheetFrom) rSheetFrom.focus(); updateReels(); return true; }
   rSheet.addEventListener('click', function (e) { if (e.target === rSheet || e.target.closest('.p-rsheet-x')) closeReelSheet(); });
   // ---------- Story player ----------
-  // The sequence is the list the player was opened from: the Watch gallery opens all reels in gallery order
-  // (earlier ones show full), a single "Watch" button elsewhere (Today) opens just that one reel.
+  // The progress bars and taps move between the parts of the open story only; the end screen offers
+  // Watch again and up to two unwatched stories instead of running into the next story by itself.
   var seq = [], pos = 0, visibleReel = 0, clock = { t: 0, dur: 0, real: false, last: 0 }, raf = 0, holdT = 0, held = false, ended = false;
   var savedReels = {};
   try { savedReels = JSON.parse(store('savedReels') || '{}') || {}; } catch (err) { savedReels = {}; }
-  $$('.p-reel').forEach(function (el, i) { if (savedReels[i]) el.querySelector('.save').classList.add('saved'); });
   function lenSec(s) { var m = String(s || '').match(/(\d+):(\d\d)/); return m ? +m[1] * 60 + +m[2] : 30; }
-  function reelEl(i) { return reelsEl.querySelector('.p-reel[data-i="' + i + '"]'); }
+  function reelEl(k) { return reelsEl.querySelector('.p-reel[data-p="' + k + '"]'); }
   function motionOff() { return app.classList.contains('calm') || matchMedia('(prefers-reduced-motion: reduce)').matches; }
   function buildSegs() {
     $$('.p-reel', reelsEl).forEach(function (el) {
-      var k = seq.indexOf(+el.dataset.i); el.classList.toggle('inseq', k >= 0);
+      var k = +el.dataset.p;
       el.querySelector('.p-rsegs').innerHTML = seq.map(function (_, n) { return '<i class="' + (n < k ? 'done' : n === k ? 'cur' : '') + '"><b></b></i>'; }).join('');
     });
   }
@@ -674,11 +760,11 @@
   });
   function updateReels() {
     $$('.p-reel', reelsEl).forEach(function (el) {
-      var i = +el.dataset.i, on = watchOpen && i === visibleReel;
+      var i = +el.dataset.i, on = watchOpen && +el.dataset.p === visibleReel;
       el.classList.toggle('on', on);
       var playing = on && isPlaying();
       el.classList.toggle('playing', playing);
-      if (on) reelsEl.style.setProperty('--rc', C.reels[i].bg);
+      if (on) reelsEl.style.setProperty('--rc', parts[+el.dataset.p].bg);
       var slot = el.querySelector('.p-yt-slot');
       if (slot) {
         if (on) { if (!slot.firstChild) { slot.innerHTML = '<iframe src="' + ytEmbed(slot.dataset.yt) + '" title="' + esc(C.reels[i].title) + '" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" style="width:100%;height:100%;border:0"></iframe>';
@@ -698,18 +784,22 @@
     var el = reelEl(visibleReel); el.querySelector('.p-rend').hidden = true;
     var v = el.querySelector('video'); if (v) try { v.currentTime = 0; } catch (x) {}
     if (again) ytSend(el, 'seekTo', [0, true]);
-    clock = { t: 0, dur: lenSec(C.reels[visibleReel].len), real: false, last: 0 };
+    clock = { t: 0, dur: lenSec(parts[visibleReel].len), real: false, last: 0 };
     reelsEl.classList.toggle('instant', motionOff());
     buildSegs(); paint(); updateReels();
   }
   function restartReel() { var el = reelEl(visibleReel), v = el.querySelector('video'); if (v) try { v.currentTime = 0; } catch (x) {} ytSend(el, 'seekTo', [0, true]); clock.t = 0; ended = false; el.querySelector('.p-rend').hidden = true; paint(); updateReels(); }
   function nextReel(auto) {
     if (pos < seq.length - 1) { showReel(pos + 1); return; }
-    if (auto) { ended = true; clock.t = clock.dur; paint(); var el = reelEl(visibleReel); el.querySelector('.p-rend').hidden = false; updateReels(); el.querySelector('.p-ragain').focus(); }
+    if (auto) { ended = true; clock.t = clock.dur; paint(); markWatched(curStory); var el = reelEl(visibleReel), end = el.querySelector('.p-rend');
+      var nexts = watchOrder().filter(function (j) { return j !== curStory && !isWatched(j); }).slice(0, 2);
+      end.innerHTML = '<b>That’s all for now</b><button type="button" class="p-ragain">↻ Watch again</button>' + (nexts.length ? '<div class="p-rnexts" role="group" aria-label="Next story">' + nexts.map(function (j) { var r = C.reels[j];
+        return '<button type="button" class="p-rnext" data-story="' + j + '" style="--bg:' + esc(r.bg) + '"><span class="p-wthumb">' + thumb(r) + '</span><span class="p-rnext-t"><small>Next story</small><b>' + esc(r.title) + '</b></span></button>'; }).join('') + '</div>' : '');
+      end.hidden = false; updateReels(); renderWatch(); end.querySelector('.p-ragain').focus(); }
   }
   function prevReel() { if (clock.t > 3 || pos === 0) restartReel(); else showReel(pos - 1); }
   function togglePause(el) { el.classList.toggle('userpaused'); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); updateReels(); }
-  window.LL_reel = { next: function () { nextReel(); }, prev: prevReel, show: showReel, seek: function (t) { clock.t = t; paint(); }, state: function () { return { pos: pos, reel: visibleReel, seq: seq.slice(), t: clock.t, dur: clock.dur, real: clock.real, ended: ended, playing: !!isPlaying() }; } };
+  window.LL_reel = { next: function () { nextReel(); }, prev: prevReel, show: showReel, seek: function (t) { clock.t = t; paint(); }, open: function (i) { openStory(i); }, state: function () { return { story: curStory, parts: parts.length, pos: pos, reel: visibleReel, seq: seq.slice(), t: clock.t, dur: clock.dur, real: clock.real, ended: ended, playing: !!isPlaying() }; } };
   // Tap zones (left third: previous/restart, centre: pause, right third: next), press-and-hold pauses, swipe navigates.
   var down = null;
   reelsEl.addEventListener('pointerdown', function (e) {
@@ -731,13 +821,14 @@
     var reel = e.target.closest('.p-reel');
     if (!reel) return;
     var i = +reel.dataset.i;
-    if (e.target.closest('.p-rzones')) {
+    if (e.target.closest('.p-rzones') && !e.target.closest('.p-rend')) {
       if (reelsEl._suppress && Date.now() - reelsEl._suppress < 400) { reelsEl._suppress = 0; return; }
       if (e.target.closest('.z-next')) nextReel(); else if (e.target.closest('.z-prev')) prevReel(); else togglePause(reel);
       return;
     }
     e.stopPropagation();
-    if (e.target.closest('.p-ragain')) { showReel(0, true); var z = reelEl(visibleReel).querySelector('.z-mid'); if (z) z.focus(); }
+    if (e.target.closest('.p-rnext')) { openStory(+e.target.closest('.p-rnext').dataset.story); }
+    else if (e.target.closest('.p-ragain')) { showReel(0, true); var z = reelEl(visibleReel).querySelector('.z-mid'); if (z) z.focus(); }
     else if (e.target.closest('.more')) { openReelSheet(i, e.target.closest('.more')); updateReels(); }
     else if (e.target.closest('[data-read-slug]')) { closeWatch(); location.hash = 'read/' + e.target.closest('[data-read-slug]').dataset.readSlug; }
     else if (e.target.closest('[data-listen-title]')) { var t = e.target.closest('[data-listen-title]').dataset.listenTitle; closeWatch(); var k = C.episodes.findIndex(function (x) { return x.title === t; }); go('listen'); if (k >= 0) playEp(k); } else if (e.target.closest('.save')) {
@@ -759,22 +850,33 @@
     return '<div class="p-wscene" aria-hidden="true">' + reelScene(r.kind) + '</div>';
   }
   function playIcon() { return '<span class="p-wplay" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>'; }
+  // Order: the chosen sort (Latest/Oldest by post date), then unwatched stories before watched ones.
+  function watchOrder() {
+    var idx = sortIdx(C.reels.map(function (_, k) { return k; }), function (k) { return C.reels[k].date; }, fstate('watch').sort);
+    return idx.filter(function (k) { return !isWatched(k); }).concat(idx.filter(function (k) { return isWatched(k); }));
+  }
   function renderWatch() {
     wGal.removeAttribute('aria-busy');
     if (!C.reels.length) { wGal.innerHTML = '<div class="p-wempty glass glass--dark"><b>No videos yet</b><p>New Bible story videos are on their way. Check back soon.</p></div>'; return; }
-    var h = C.reels[0];
-    wGal.innerHTML = '<h2 class="p-wtitle">Watch</h2>' +
-      '<button type="button" class="p-whero glass glass--dark" data-watch="0" style="--bg:' + esc(h.bg) + '" aria-label="Play ' + esc(h.title) + (h.len ? ', ' + esc(h.len) : '') + '">' +
+    var order = watchOrder(), hi = order[0], h = C.reels[hi], anyW = order.some(isWatched);
+    var tick = function (k) { return isWatched(k) ? '<span class="p-wwatched"><span aria-hidden="true">✓</span> Watched</span>' : ''; };
+    var focusWas = document.activeElement && wGal.contains(document.activeElement) ? document.activeElement.dataset.watch : null;
+    wGal.innerHTML = '<div class="p-wtop"><h2 class="p-wtitle">Watch</h2>' + (anyW ? '<button type="button" class="p-wclear" data-clear-watched>Clear watched</button>' : '') + '</div>' +
+      filterBar('watch', C.reels.length, []) +
+      '<button type="button" class="p-whero glass glass--dark' + (isWatched(hi) ? ' watched' : '') + '" data-watch="' + hi + '" style="--bg:' + esc(h.bg) + '" aria-label="Play ' + esc(h.title) + (h.len ? ', ' + esc(h.len) : '') + (isWatched(hi) ? ', watched' : '') + '">' +
       '<span class="p-wthumb">' + thumb(h) + '</span><span class="p-wshade"></span>' + playIcon() +
-      '<span class="p-winfo"><span class="p-kicker">Featured' + (h.len ? ' · ' + esc(h.len) : '') + '</span><b>' + esc(h.title) + '</b>' + (h.caption ? '<small>' + esc(h.caption) + '</small>' : '') + '</span></button>' +
-      (C.reels.length > 1 ? '<h3 class="p-wsub">More videos</h3><div class="p-wgrid">' + C.reels.slice(1).map(function (r, k) {
-        return '<button type="button" class="p-wcard" data-watch="' + (k + 1) + '" style="--bg:' + esc(r.bg) + '" aria-label="Play ' + esc(r.title) + (r.len ? ', ' + esc(r.len) : '') + '">' +
-          '<span class="p-wthumb">' + thumb(r) + playIcon() + (r.len ? '<span class="p-wdur">' + esc(r.len) + '</span>' : '') + '</span>' +
+      '<span class="p-winfo"><span class="p-kicker">' + (isWatched(hi) ? 'Watched' : 'Featured') + (h.len ? ' · ' + esc(h.len) : '') + '</span><b>' + esc(h.title) + '</b>' + (h.caption ? '<small>' + esc(h.caption) + '</small>' : '') + '</span>' + tick(hi) + '</button>' +
+      (order.length > 1 ? '<h3 class="p-wsub">More videos</h3><div class="p-wgrid">' + order.slice(1).map(function (k) {
+        var r = C.reels[k];
+        return '<button type="button" class="p-wcard' + (isWatched(k) ? ' watched' : '') + '" data-watch="' + k + '" style="--bg:' + esc(r.bg) + '" aria-label="Play ' + esc(r.title) + (r.len ? ', ' + esc(r.len) : '') + (isWatched(k) ? ', watched' : '') + '">' +
+          '<span class="p-wthumb">' + thumb(r) + playIcon() + (r.len ? '<span class="p-wdur">' + esc(r.len) + '</span>' : '') + tick(k) + '</span>' +
           '<b>' + esc(r.title) + '</b></button>';
       }).join('') + '</div>' : '');
+    if (focusWas != null) { var f = wGal.querySelector('[data-watch="' + focusWas + '"]'); if (f) f.focus(); }
   }
+  FILTER_APPLY.watch = renderWatch;
   renderWatch();
-  wGal.addEventListener('click', function (e) { var b = e.target.closest('[data-watch]'); if (b) openReel(+b.dataset.watch, C.reels.map(function (_, k) { return k; })); });
+  wGal.addEventListener('click', function (e) { var b = e.target.closest('[data-watch]'); if (b) openReel(+b.dataset.watch); var cl = e.target.closest('[data-clear-watched]'); if (cl) { window.LL_watched.clear(); var h = wGal.querySelector('.p-whero'); if (h) h.focus(); } });
   function closeWatch() {
     if (!watchOpen) return;
     rSheet.hidden = true; watchOpen = false; wPlayer.hidden = true; wPlayer.classList.remove('on'); updateReels();
@@ -788,13 +890,16 @@
       if (!f.length) return; var a = f[0], z = f[f.length - 1];
       if (e.shiftKey && document.activeElement === a) { z.focus(); e.preventDefault(); } else if (!e.shiftKey && document.activeElement === z) { a.focus(); e.preventDefault(); } }
   });
-  // openReel(i, list): list is the sequence to play (defaults to just this reel).
-  function openReel(i, list) {
-    watchReturn = document.activeElement;
+  // openReel(i): opens story i; its parts are the sequence.
+  function openStory(i) {
+    rSheet.hidden = true; renderReelStory(i); seq = parts.map(function (_, k) { return k; });
+    showReel(0); $('#pWatchClose').focus();
+  }
+  function openReel(i) {
+    if (!watchOpen) watchReturn = document.activeElement;
     go('watch');
-    seq = (list && list.length ? list : [i]).slice();
     watchOpen = true; wPlayer.hidden = false; wPlayer.classList.add('on');
-    setTimeout(function () { showReel(Math.max(0, seq.indexOf(i))); $('#pWatchClose').focus(); }, 0);
+    setTimeout(function () { openStory(i); }, 0);
   }
   document.addEventListener('keydown', function (e) {
     if (current !== 'watch' || !watchOpen || !rSheet.hidden || e.target.closest('input, textarea')) return;
@@ -816,6 +921,15 @@
     return '<button class="p-row" type="button" data-ep="' + i + '"><span class="p-art" style="background:' + e.color + '"><i></i></span>' +
       '<span><b>' + esc(e.title) + '</b><small>' + esc(e.meta) + ' · ' + fmt(e.dur) + '</small></span><span class="p-pp">' + ICON_PLAY + '</span></button>';
   }).join('');
+  (function listenFilters() {
+    var box = $('#pEps'), rows = $$('.p-row', box), types = [];
+    rows.forEach(function (r) { var m = C.episodes[+r.dataset.ep].meta; if (m && types.indexOf(m) < 0) types.push(m); });
+    function apply() {
+      mountBar('listen', filterBar('listen', rows.length, types), box.closest('.p-list') || box);
+      applyDom('listen', box, rows, function (r) { return C.episodes[+r.dataset.ep].date; }, function (r) { return C.episodes[+r.dataset.ep].meta; });
+    }
+    FILTER_APPLY.listen = apply; apply();
+  })();
   function renderPlayer() {
     var has = player.ep >= 0;
     app.classList.toggle('has-mini', has);
@@ -827,8 +941,8 @@
     $('#pMiniProg').style.width = (player.t / d * 100) + '%';
     $('#pMiniPP').innerHTML = player.playing ? ICON_PAUSE : ICON_PLAY;
     $('#pMiniPP').setAttribute('aria-label', player.playing ? 'Pause' : 'Play');
-    $$('.p-row').forEach(function (r, i) {
-      var on = i === player.ep;
+    $$('.p-row').forEach(function (r) {
+      var on = +r.dataset.ep === player.ep;
       r.classList.toggle('now', on);
       r.querySelector('.p-pp').innerHTML = on && player.playing ? ICON_PAUSE : ICON_PLAY;
     });
@@ -918,10 +1032,19 @@
 
   // ---------- read ----------
   $('#pCards').innerHTML = C.devotions.map(function (d, i) {
-    return '<a class="p-card' + (i === 0 ? ' feat' : '') + '" href="#read/' + d.slug + '" style="--c:' + d.color + ';color:' + d.ink + ';text-decoration:none">' +
+    return '<a class="p-card' + (i === 0 ? ' feat' : '') + '" data-i="' + i + '" href="#read/' + d.slug + '" style="--c:' + d.color + ';color:' + d.ink + ';text-decoration:none">' +
       '<span class="p-kicker">' + esc(d.kicker) + '</span><b>' + esc(d.title) + '</b><span>' + esc(d.teaser) + '</span>' +
       '<span class="foot"><span>Read →</span>' + (d.episode >= 0 ? '<span>▶ Audio ' + fmt(C.episodes[d.episode].dur) + '</span>' : '') + '</span></a>';
   }).join('');
+  (function readFilters() {
+    var box = $('#pCards'), cards = $$('.p-card', box);
+    function apply() {
+      mountBar('read', filterBar('read', cards.length, []), box);
+      applyDom('read', box, cards, function (el) { return C.devotions[+el.dataset.i].date; }, function () { return ''; });
+      cards.forEach(function (el) { el.classList.remove('feat'); }); var first = box.querySelector('.p-card:not(.f-out)'); if (first) first.classList.add('feat');
+    }
+    FILTER_APPLY.read = apply; apply();
+  })();
   function openArticle(i, fromRoute) {
     if (!fromRoute) { location.hash = 'read/' + C.devotions[i].slug; return; }
     var d = C.devotions[i], a = $('#pArticle');
@@ -982,7 +1105,7 @@
     return '<button class="p-chip' + (t === 'All' ? ' on' : '') + '" type="button" data-chip="' + esc(t) + '" aria-pressed="' + (t === 'All') + '">' + esc(t) + '</button>';
   }).join('');
   function shown() {
-    return C.verses.map(function (v, i) { return i; }).filter(function (i) { return filter === 'All' || C.verses[i].topics.indexOf(filter) >= 0; });
+    return sortIdx(C.verses.map(function (v, i) { return i; }), function (i) { return C.verses[i].date; }, fstate('verses').sort).filter(function (i) { return filter === 'All' || C.verses[i].topics.indexOf(filter) >= 0; });
   }
   function renderGrid() {
     $('#pGrid').innerHTML = shown().map(function (i, k) {
@@ -991,6 +1114,8 @@
     }).join('');
   }
   renderGrid();
+  FILTER_APPLY.verses = function () { mountBar('verses', filterBar('verses', C.verses.length, []), $('#pChips')); renderGrid(); };
+  FILTER_APPLY.verses();
   $('#pChips').addEventListener('click', function (e) {
     var c = e.target.closest('[data-chip]');
     if (!c) return;

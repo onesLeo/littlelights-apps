@@ -85,3 +85,21 @@ The devotions, audio, reels and verses that used to live only in `js/content.js`
 
 - **Insights** (views, finished, saves, shares): designed in the Studio mockup; next step.
 - A custom domain email for sign-in links (Supabase’s built-in email service has a low hourly limit; connect your own SMTP under *Authentication → Emails* before launch).
+
+## Story parts (reels with several clips)
+
+A reel can be a story made of consecutive parts. The Studio has no parts editor yet; add them in the post's
+`fields` JSON as `parts`, an array where each part has the same media shape as a reel:
+
+```json
+{ "parts": [
+  { "media_url": "videos/robe-1.mp4", "minutes": "0:20" },
+  { "youtube": "https://youtu.be/XXXXXXXXXXX", "minutes": "0:15" },
+  { "look": "rain", "minutes": "0:12" }
+] }
+```
+
+- `media_url` (uploaded video), `youtube` (played via youtube-nocookie), or neither (the animated `look`: robe, rain or sea).
+- `minutes` is the length shown on the chip and used for the progress bar when the real length is not available.
+- A reel without `parts` is a single part. The progress bars show the parts of that story only.
+- Built-ins in `js/content.js` take the same `parts` array (use `src`, `youtube`, `kind`, `len`).

@@ -241,7 +241,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   await page.click('.p-wcard[data-watch="1"]'); await page.waitForTimeout(200);
   check(await page.evaluate(() => !document.querySelector('#pWatchPlayer').hidden && document.activeElement.id === 'pWatchClose' && document.querySelector('#pWatchClose').getAttribute('aria-label') === 'Close video'), 'Watch: a card opens the player and focuses the labelled close button');
   check(await page.$eval('#pWatchClose', (b) => { const r = b.getBoundingClientRect(); return r.width >= 44 && r.height >= 44 && getComputedStyle(b).borderRadius === '50%'; }), 'Watch: close button is round and at least 44px');
-  check(await page.evaluate(() => [...document.querySelectorAll('.p-reel')].findIndex((r) => r.classList.contains('playing'))) === 1, 'Watch: the chosen reel plays in the player');
+  check(await page.evaluate(() => window.LL_reel.state().story === 1 && !!document.querySelector('.p-reel.on.playing')), 'Watch: the chosen reel plays in the player');
   check(await page.$$eval('.p-reel video', (v) => v.every((x) => x.muted)), 'Watch: no video starts with sound');
   await page.keyboard.press('Escape'); await page.waitForTimeout(150);
   check(await page.evaluate(() => document.querySelector('#pWatchPlayer').hidden && document.activeElement.dataset.watch === '1' && !document.querySelector('.p-reel.playing')), 'Watch: Escape closes the player, stops it and returns focus to the card');
@@ -253,6 +253,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check((await page.evaluate(() => localStorage.getItem('ll.savedReels') || '')).includes('true'), 'phone: Watch Save is remembered in local storage');
   await page.reload();
   await page.waitForSelector('#app[data-ready]');
+  await page.click('.p-whero'); await page.waitForTimeout(150);
   check(await page.$eval('.p-reel .save', (b) => b.classList.contains('saved')), 'phone: Watch Save stays marked after reload');
   await page.evaluate(() => window.LL_closeWatch && window.LL_closeWatch());
 
@@ -322,7 +323,7 @@ const flareState = (sel) => (s) => {
   await page.mouse.move(700, 600); await page.waitForTimeout(500);
   const down = await page.evaluate(flareState(), S);
   check(Math.abs(down.sy - 1) < 0.01 && down.halo2 === 0 && down.burst === 'none', 'flare: flame eases back when the pointer leaves');
-  for (let i = 0; i < 15 && !(await page.evaluate(() => document.activeElement.classList.contains('p-brand'))); i++) await page.keyboard.press('Tab');
+  for (let i = 0; i < 40 && !(await page.evaluate(() => document.activeElement.classList.contains('p-brand'))); i++) await page.keyboard.press('Tab');
   await page.waitForTimeout(450);
   check((await page.evaluate(flareState(), S)).sy >= 1.8, 'flare: keyboard focus on the logo flares the candle');
   check((await page.evaluate(() => window.__cls)) === 0, 'flare: no cumulative layout shift');
@@ -436,6 +437,8 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
       [`phone ${t} listen bars`, { width: 390, height: 844 }, '#listen', '.v-listen .p-head, .p-tabs, .p-list .p-row, .p-mini', async (pg) => { await pg.click('.p-row'); await pg.waitForTimeout(300); await pg.evaluate(() => { const v = document.querySelector('.v-listen'); if (v) v.scrollTop = 120; }); }],
       [`phone ${t} player`, { width: 390, height: 844 }, '#listen', '.p-full.on', async (pg) => { await pg.click('.p-row'); await pg.waitForTimeout(300); await pg.click('#pMiniOpen'); await pg.waitForTimeout(700); }],
       [`desktop ${t} watch`, { width: 1440, height: 900 }, '#watch', '.p-whero, .p-wcard', async () => {}],
+      [`desktop ${t} today filters`, { width: 1440, height: 900 }, '#today', '.p-filter', async () => {}],
+      [`phone ${t} watch filters`, { width: 390, height: 844 }, '#watch', '.p-filter', async () => {}],
       [`phone ${t} watch`, { width: 390, height: 844 }, '#watch', '.p-whero, .p-wcard', async () => {}],
       [`phone ${t} sheet`, { width: 390, height: 844 }, '#today', '.p-sheet', async (pg) => { await pg.locator('[data-sheet]:visible').first().click(); await pg.waitForTimeout(700); }],
     ])]) {
@@ -454,10 +457,10 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
       // Text elements (not buttons) and their own colours; then hide the content and sample what is behind each one.
       const info = await card.evaluate((c, surface) => {
         const cr = c.getBoundingClientRect();
-        const texts = [...c.querySelectorAll(surface ? 'h1, h2, h3, h4, p, b, span, small, .p-kicker, label' : '.p-kicker, .big, p, b, .verse, .ref, span, small')].filter((e) => (surface ? !e.closest('.p-btn, .p-mini button, .p-full button') && !e.children.length : !e.closest('.p-btn, button')) && e.textContent.trim() && e.getClientRects().length)
-          .map((e) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); let op = 1; for (let x = e; x && x !== c.parentElement; x = x.parentElement) op *= +getComputedStyle(x).opacity; return { sel: e.tagName + '.' + e.className, x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height, color: cs.color, op }; });
+        const texts = [...c.querySelectorAll(surface ? 'h1, h2, h3, h4, p, b, span, small, .p-kicker, label, .p-filter button' : '.p-kicker, .big, p, b, .verse, .ref, span, small')].filter((e) => (surface ? !e.closest('.p-btn, .p-mini button, .p-full button') && !e.children.length : !e.closest('.p-btn, button')) && e.textContent.trim() && e.getClientRects().length)
+          .map((e) => { let r = e.getBoundingClientRect(); if (e.matches('button')) { const g = document.createRange(); g.selectNodeContents(e); r = g.getBoundingClientRect(); } const cs = getComputedStyle(e); let op = 1; for (let x = e; x && x !== c.parentElement; x = x.parentElement) op *= +getComputedStyle(x).opacity; return { sel: e.tagName + '.' + e.className, x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height, color: cs.color, op }; });
         (surface ? c.querySelectorAll('*') : c.querySelectorAll('*')).forEach((e) => { e.dataset.vis = e.style.visibility;
-          if (!c.matches('.p-whero, .p-wcard') || ((e.matches('svg, .p-wplay') || e.closest('.p-wplay')) && !e.closest('.p-wscene'))) { e.style.visibility = 'hidden'; return; }
+          if (!c.matches('.p-whero, .p-wcard, .p-filter') || ((e.matches('svg, .p-wplay') || e.closest('.p-wplay')) && !e.closest('.p-wscene'))) { e.style.visibility = 'hidden'; return; }
           e.dataset.col = e.style.cssText; e.style.setProperty('color', 'transparent', 'important'); e.style.setProperty('-webkit-text-fill-color', 'transparent', 'important'); e.style.setProperty('text-shadow', 'none', 'important'); e.style.setProperty('transition', 'none', 'important'); });
         return { texts, name: c.className };
       }, surface);
@@ -497,9 +500,9 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
     const page = await context.newPage();
     await page.goto(base + '#watch'); await page.waitForSelector('#app[data-ready]');
     await page.click('.p-whero'); await page.waitForTimeout(300);
-    const n = await page.$$eval('.p-reel', (r) => r.length);
+    const n = await page.evaluate(() => window.LL_CONTENT.reels.length);
     if (theme === 'day') {
-      check(await page.$$eval('.p-reel', (rs) => rs.every((r, i) => r.querySelectorAll('.p-rsegs i').length === rs.length && r.querySelectorAll('.p-rsegs i')[i].classList.contains('cur'))), `reel ${tag}: one progress segment per reel, the current one filling`);
+      check(await page.$$eval('.p-reel', (rs) => rs.length === 1 && rs[0].querySelectorAll('.p-rsegs i').length === 1 && rs[0].querySelector('.p-rsegs i').classList.contains('cur')), `reel ${tag}: a 1-part story has one progress segment`);
       check(await page.$eval('.p-reel .p-rchip', (e) => /^Reel · \d+:\d\d$/.test(e.textContent)), `reel ${tag}: "Reel · 0:48" chip`);
       check(await page.$eval('.p-reel .p-rtitle', (e) => getComputedStyle(e).fontWeight === '800' && /Bricolage/.test(getComputedStyle(e).fontFamily)), `reel ${tag}: bold display title (self-hosted Bricolage 800)`);
       check(await page.$$eval('.p-reel .side', (s) => s.every((x) => [...x.querySelectorAll('.p-ract span')].map((e) => e.textContent).join() === 'Save,Share')), `reel ${tag}: only Save and Share when no devotion or audio is linked`);
@@ -517,8 +520,8 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
     }
     let worst = { r: 99, w: '' };
     for (let i = 0; i < n; i++) {
-      await page.evaluate((i) => window.LL_reel.show(i), i); await page.waitForTimeout(300);
-      const reel = await page.$(`.p-reel[data-i="${i}"]`);
+      await page.evaluate((i) => window.LL_reel.open(i), i); await page.waitForTimeout(300);
+      const reel = await page.$('.p-reel.on');
       const box = await reel.boundingBox();
       const texts = await reel.evaluate((c) => { const cr = c.getBoundingClientRect();
         const t = [...c.querySelectorAll('.p-rtitle, .cap p, .more, .p-rchip, .p-ract span')].map((e) => { const r = e.getBoundingClientRect(); return { sel: e.className || e.tagName, x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height, color: getComputedStyle(e).color }; });
@@ -554,21 +557,29 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
 }
 // ---------- story navigation: sequence segments, tap zones, restart, keys, auto-advance, end state ----------
 {
-  const open = async (vp, hash = '#watch') => {
+  const contentSrc = await (await fetch(base + 'js/content.js')).text();
+  // Test data only: reel 0 becomes a 3-part story; dates make reel 0 the newest and reel 2 the oldest.
+  const stubbed = contentSrc.replace("{ title: 'Why Jonathan gave David his robe',", "{ date: '2026-05-01', parts: [{ kind: 'robe', len: '0:20' }, { kind: 'rain', len: '0:15' }, { kind: 'sea', len: '0:10' }], title: 'Why Jonathan gave David his robe',")
+    .replace("{ title: 'Noah kept building',", "{ date: '2026-03-01', title: 'Noah kept building',").replace("{ title: 'Jonah and the second chance',", "{ date: '2026-02-01', title: 'Jonah and the second chance',");
+  check(stubbed !== contentSrc && (stubbed.match(/date: '2026-0/g) || []).length === 3, 'story: test data stub applied');
+  const open = async (vp, hash = '#watch', stub = true) => {
     const context = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
     await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+    if (stub) await context.route('**/js/content.js', (r) => r.fulfill({ contentType: 'text/javascript', body: stubbed }));
     const page = await context.newPage(); await page.goto(base + hash); await page.waitForSelector('#app[data-ready]');
     return { context, page };
   };
   const st = (page) => page.evaluate(() => window.LL_reel.state());
   const segs = (page) => page.$eval('.p-reel.on', (r) => [...r.querySelectorAll('.p-rsegs i')].map((i) => i.className || '-').join(','));
   const { context, page } = await open({ width: 1440, height: 900 });
-  const N = await page.evaluate(() => window.LL_CONTENT.reels.length);
-  await page.click('.p-wcard[data-watch="1"]'); await page.waitForTimeout(300);
-  check((await st(page)).seq.length === N && (await segs(page)) === ['done', 'cur', '-'].slice(0, N).join(','), `story: opened from the gallery, ${N} reels show ${N} segments; earlier full, later empty (${await segs(page)})`);
+  check(await page.$eval('.p-whero', (h) => h.dataset.watch === '0'), 'story: the hero is the newest unwatched story');
+  await page.click('.p-whero'); await page.waitForTimeout(300);
+  check((await st(page)).parts === 3 && (await segs(page)) === 'cur,-,-', `story: a 3-part story shows 3 segments (${await segs(page)})`);
+  await page.evaluate(() => window.LL_reel.next()); await page.waitForTimeout(200);
+  check((await segs(page)) === 'done,cur,-', 'story: earlier parts show full, later ones empty');
   await page.waitForTimeout(1200);
   const s1 = await st(page);
-  check(s1.t > 0.5 && s1.dur === 58 && !s1.real && await page.$eval('.p-reel.on .p-rsegs i.cur b', (b) => /scaleX\(0\.0[1-9]/.test(b.style.transform)), `story: the current segment fills with playback (fallback to the chip 0:58, t=${s1.t.toFixed(2)})`);
+  check(s1.t > 0.5 && s1.dur === 15 && !s1.real && await page.$eval('.p-reel.on .p-rsegs i.cur b', (b) => /scaleX\(0\.0[1-9]/.test(b.style.transform)), `story: the current segment fills with playback (fallback to the part length 0:15, t=${s1.t.toFixed(2)})`);
   const zone = async (cls) => { const b = await page.$(`.p-reel.on .${cls}`); const r = await b.boundingBox(); await page.mouse.click(r.x + r.width / 2, r.y + r.height / 2); await page.waitForTimeout(250); };
   check(await page.$eval('.p-reel.on .p-rzones', (z) => { const [a, b, c] = [...z.children].map((x) => x.getBoundingClientRect().width); return Math.abs(a - b) < 2 && Math.abs(b - c) < 2; }), 'story: three equal tap zones (left, centre, right thirds)');
   await zone('z-next'); check((await st(page)).pos === 2, 'story: tapping the right third goes to the next reel');
@@ -598,6 +609,9 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
   const end = await st(page);
   check(end.ended && end.pos === 2 && !end.playing && await page.$eval('.p-reel.on .p-rend', (e) => !e.hidden && /Watch again/.test(e.textContent)) && await page.evaluate(() => document.activeElement.classList.contains('p-ragain')), 'story: the last reel stops on a "Watch again" end state (no loop, no jump to the feed)');
   check(!(await page.$eval('#pWatchPlayer', (p) => p.hidden)), 'story: the player stays open at the end');
+  await page.waitForTimeout(800); check((await st(page)).story === 0, 'story: never auto-advances into another story');
+  check(await page.$$eval('.p-reel.on .p-rnext', (b) => b.length === 2 && b.every((x) => x.dataset.story !== '0' && /Next story/.test(x.textContent))), 'story: the end screen offers up to 2 other unwatched stories as "Next story"');
+  check(await page.evaluate(() => JSON.parse(localStorage.getItem('ll.watched') || '{}')['reel:why-jonathan-gave-david-his-robe'] === 1), 'story: a finished story is remembered in localStorage');
   await page.screenshot({ path: 'test-results/reel-end.png' });
   await page.click('.p-reel.on .p-ragain'); await page.waitForTimeout(200);
   const again = await st(page); check(again.pos === 0 && !again.ended && again.playing && again.t < 1, 'story: Watch again restarts the sequence from the first reel');
@@ -605,11 +619,44 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
   check(await page.$eval('.p-reel.on', (r) => getComputedStyle(r).transitionDuration.split(',').every((d) => parseFloat(d) === 0)), 'story: calm mode switches reels instantly (no fade)');
   await page.keyboard.press('Escape'); await page.waitForTimeout(100);
   check(await page.$eval('#pWatchPlayer', (p) => p.hidden), 'story: Escape still closes the player');
+  check(await page.evaluate(() => { const els = [...document.querySelectorAll('#pWatchGal [data-watch]')]; const last = els[els.length - 1]; return els[0].dataset.watch === '1' && last.dataset.watch === '0' && last.classList.contains('watched') && /Watched/.test(last.textContent) && !els[0].classList.contains('watched'); }), 'Watch page: unwatched first (hero = newest unwatched), watched last with a Watched tick');
+  await page.click('[data-clear-watched]'); await page.waitForTimeout(150);
+  check(await page.evaluate(() => document.querySelector('.p-whero').dataset.watch === '0' && !document.querySelector('.p-wcard.watched, [data-clear-watched]') && localStorage.getItem('ll.watched') === '{}'), 'Watch page: Clear watched resets the order and ticks');
+  // Next story card opens that story.
+  await page.click('.p-whero'); await page.waitForTimeout(200);
+  for (let k = 0; k < 3; k++) { await page.evaluate(() => window.LL_reel.seek(window.LL_reel.state().dur - 0.2)); await page.waitForTimeout(600); }
+  await page.click('.p-reel.on .p-rnext'); await page.waitForTimeout(250);
+  const ns = await st(page); check(ns.story === 1 && ns.parts === 1 && !ns.ended && (await segs(page)) === 'cur', 'story: a Next story card opens that story with its own bars');
+  await page.keyboard.press('Escape');
+  // Filters on Watch: Latest/Oldest by date, kept in sessionStorage, no chips (reels have no type or topic field).
+  check(await page.$$eval('.p-filter[data-fpage="watch"] .p-fchip', (c) => c.length) === 0 && await page.$$eval('.p-filter[data-fpage="watch"] [data-fsort]', (c) => c.length) === 2, 'filters Watch: Latest/Oldest only (no invented chips)');
+  await page.evaluate(() => localStorage.setItem('ll.watched', '{}'));
+  await page.click('.p-filter[data-fpage="watch"] [data-fsort="old"]'); await page.waitForTimeout(150);
+  check(await page.evaluate(() => document.querySelector('.p-whero').dataset.watch === '2' && document.activeElement.dataset.fsort === 'old' && document.activeElement.getAttribute('aria-pressed') === 'true'), 'filters Watch: Oldest puts the oldest story first; focus stays on the pressed button');
+  await page.reload(); await page.waitForSelector('#app[data-ready]');
+  check(await page.evaluate(() => document.querySelector('.p-whero').dataset.watch === '2' && JSON.parse(sessionStorage.getItem('ll.filters')).watch.sort === 'old'), 'filters: the choice persists in sessionStorage');
+  await page.click('.p-filter[data-fpage="watch"] [data-fsort="new"]');
   await context.close();
+  // Filters on Today: type chips from the card kinds; hidden on pages with 2 or fewer items.
+  {
+    const f = await open({ width: 1440, height: 900 }, '#today', false);
+    const chips = await f.page.$$eval('.p-filter[data-fpage="today"] .p-fchip', (c) => c.map((x) => x.textContent).join(','));
+    check(chips === 'All,Devotion,Reel,Audio,Game', `filters Today: chips from existing card kinds (${chips})`);
+    await f.page.click('.p-filter[data-fpage="today"] [data-ftype="Reel"]'); await f.page.waitForTimeout(150);
+    check(await f.page.evaluate(() => { const vis = [...document.querySelectorAll('#pFeed .p-slide')].filter((s) => s.offsetParent); return vis.length >= 1 && vis.every((s) => s.classList.contains('s3')); }), 'filters Today: the Reel chip shows only reel cards');
+    await f.page.keyboard.press('Shift+Tab'); await f.page.keyboard.press('Shift+Tab'); await f.page.keyboard.press('Enter'); await f.page.waitForTimeout(150);
+    check(await f.page.evaluate(() => JSON.parse(sessionStorage.getItem('ll.filters')).today.type === 'All' && document.activeElement.dataset.ftype === 'All'), 'filters: chips work from the keyboard');
+    const rows = await f.page.$$eval('#pEps .p-row', (r) => r.length);
+    check(rows > 2 || (await f.page.$$('.p-filter[data-fpage="listen"]')).length === 0, `filters: hidden on a page with ${rows} item(s)`);
+    check(await f.page.$eval('.p-filter button', (b) => { const s = getComputedStyle(b); return parseFloat(s.minHeight) >= 32; }), 'filters: buttons are at least 32px tall');
+    await f.page.evaluate(() => document.querySelector('#app').classList.add('calm'));
+    check(await f.page.$eval('.p-filter button', (b) => parseFloat(getComputedStyle(b).transitionDuration) === 0), 'filters: no transitions in calm mode');
+    await f.context.close();
+  }
   // One reel opened from Today: one segment.
-  const t = await open({ width: 1440, height: 900 }, '#today');
+  const t = await open({ width: 1440, height: 900 }, '#today', false);
   await t.page.click('[data-reel]'); await t.page.waitForTimeout(300);
-  check((await st(t.page)).seq.length === 1 && (await segs(t.page)) === 'cur', 'story: one reel opened from Today shows one segment');
+  check((await st(t.page)).seq.length === 1 && (await segs(t.page)) === 'cur', 'story: a 1-part story opened from Today shows one segment');
   await t.page.evaluate(() => window.LL_reel.seek(window.LL_reel.state().dur - 0.2)); await t.page.waitForTimeout(700);
   check((await st(t.page)).ended, 'story: a single reel ends on the end state instead of looping');
   await t.context.close();
