@@ -506,10 +506,10 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
       check(await page.$eval('.p-reel .p-ract svg', (s) => { const r = s.getBoundingClientRect(); return r.width >= 44 && getComputedStyle(s).borderRadius === '50%'; }), `reel ${tag}: round action buttons at least 44px`);
       check(!/\blikes?\b|\bcomments?\b/i.test(await page.$eval('#pReels', (e) => e.textContent)), `reel ${tag}: no like counts or comments`);
       check(await page.$eval('.p-reel .p-rkb', (e) => getComputedStyle(e).animationName === 'kenburns'), `reel ${tag}: slow Ken Burns on the art while playing`);
-      await page.click('.p-reel.playing .tapzone'); await page.waitForTimeout(350);
+      await page.click('.p-reel.playing .z-mid'); await page.waitForTimeout(350);
       await page.waitForFunction(() => { const r = document.querySelector('.p-reel.userpaused'); return r && getComputedStyle(r.querySelector('.paused')).opacity === '1'; }, null, { timeout: 3000 }).catch(() => {});
-      check(await page.$eval('.p-reel.userpaused', (r) => getComputedStyle(r.querySelector('.p-rsegs i.cur b')).animationPlayState === 'paused' && getComputedStyle(r.querySelector('.paused')).opacity === '1'), `reel ${tag}: tap pauses, shows the play indicator and stops the progress bar`);
-      await page.click('.p-reel.userpaused .tapzone'); await page.waitForTimeout(100);
+      check(await page.$eval('.p-reel.userpaused', (r) => getComputedStyle(r.querySelector('.paused')).opacity === '1'), `reel ${tag}: tap pauses, shows the play indicator and stops the progress bar`);
+      await page.click('.p-reel.userpaused .z-mid'); await page.waitForTimeout(100);
       await page.click('.p-reel .more'); await page.waitForTimeout(200);
       check(await page.evaluate(() => !document.querySelector('#pReelSheet').hidden && document.activeElement.classList.contains('p-rsheet-x') && document.querySelector('#pReelSheet p').textContent.length > 40), `reel ${tag}: "more" opens the caption sheet and focuses its close button`);
       await page.keyboard.press('Escape'); await page.waitForTimeout(100);
@@ -517,8 +517,8 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
     }
     let worst = { r: 99, w: '' };
     for (let i = 0; i < n; i++) {
-      await page.evaluate((i) => { const f = document.querySelector('#pReels'); f.scrollTop = i * f.clientHeight; }, i); await page.waitForTimeout(250);
-      const reel = (await page.$$('.p-reel'))[i];
+      await page.evaluate((i) => window.LL_reel.show(i), i); await page.waitForTimeout(300);
+      const reel = await page.$(`.p-reel[data-i="${i}"]`);
       const box = await reel.boundingBox();
       const texts = await reel.evaluate((c) => { const cr = c.getBoundingClientRect();
         const t = [...c.querySelectorAll('.p-rtitle, .cap p, .more, .p-rchip, .p-ract span')].map((e) => { const r = e.getBoundingClientRect(); return { sel: e.className || e.tagName, x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height, color: getComputedStyle(e).color }; });
@@ -551,6 +551,75 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
   await page.evaluate(() => document.querySelector('#app').classList.add('calm'));
   check(await page.$eval('.p-reel.playing .p-rkb', (e) => getComputedStyle(e).animationName === 'none'), 'reel: calm mode turns the Ken Burns move off');
   await context.close();
+}
+// ---------- story navigation: sequence segments, tap zones, restart, keys, auto-advance, end state ----------
+{
+  const open = async (vp, hash = '#watch') => {
+    const context = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
+    await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+    const page = await context.newPage(); await page.goto(base + hash); await page.waitForSelector('#app[data-ready]');
+    return { context, page };
+  };
+  const st = (page) => page.evaluate(() => window.LL_reel.state());
+  const segs = (page) => page.$eval('.p-reel.on', (r) => [...r.querySelectorAll('.p-rsegs i')].map((i) => i.className || '-').join(','));
+  const { context, page } = await open({ width: 1440, height: 900 });
+  const N = await page.evaluate(() => window.LL_CONTENT.reels.length);
+  await page.click('.p-wcard[data-watch="1"]'); await page.waitForTimeout(300);
+  check((await st(page)).seq.length === N && (await segs(page)) === ['done', 'cur', '-'].slice(0, N).join(','), `story: opened from the gallery, ${N} reels show ${N} segments; earlier full, later empty (${await segs(page)})`);
+  await page.waitForTimeout(1200);
+  const s1 = await st(page);
+  check(s1.t > 0.5 && s1.dur === 58 && !s1.real && await page.$eval('.p-reel.on .p-rsegs i.cur b', (b) => /scaleX\(0\.0[1-9]/.test(b.style.transform)), `story: the current segment fills with playback (fallback to the chip 0:58, t=${s1.t.toFixed(2)})`);
+  const zone = async (cls) => { const b = await page.$(`.p-reel.on .${cls}`); const r = await b.boundingBox(); await page.mouse.click(r.x + r.width / 2, r.y + r.height / 2); await page.waitForTimeout(250); };
+  check(await page.$eval('.p-reel.on .p-rzones', (z) => { const [a, b, c] = [...z.children].map((x) => x.getBoundingClientRect().width); return Math.abs(a - b) < 2 && Math.abs(b - c) < 2; }), 'story: three equal tap zones (left, centre, right thirds)');
+  await zone('z-next'); check((await st(page)).pos === 2, 'story: tapping the right third goes to the next reel');
+  await page.evaluate(() => window.LL_reel.seek(1)); await zone('z-prev'); check((await st(page)).pos === 1, 'story: tapping the left third early goes to the previous reel');
+  await page.evaluate(() => window.LL_reel.seek(5)); await zone('z-prev'); const r3 = await st(page); check(r3.pos === 1 && r3.t < 1, 'story: tapping the left third past 3s restarts the current reel');
+  await zone('z-mid'); check(!(await st(page)).playing, 'story: tapping the centre pauses'); const tp = (await st(page)).t; await page.waitForTimeout(500); check(Math.abs((await st(page)).t - tp) < 0.01, 'story: the progress bar stops while paused');
+  await zone('z-mid'); check((await st(page)).playing, 'story: tapping the centre again resumes');
+  const mid = await (await page.$('.p-reel.on .z-mid')).boundingBox();
+  await page.mouse.move(mid.x + mid.width / 2, mid.y + mid.height / 2); await page.mouse.down(); await page.waitForTimeout(600);
+  check(!(await st(page)).playing, 'story: press and hold pauses');
+  await page.mouse.up(); await page.waitForTimeout(150);
+  const afterHold = await st(page); check(afterHold.playing && afterHold.pos === 1, 'story: letting go resumes without navigating');
+  await page.keyboard.press('ArrowRight'); check((await st(page)).pos === 2, 'story: Right arrow goes to the next reel');
+  await page.keyboard.press('ArrowLeft'); check((await st(page)).pos === 1, 'story: Left arrow goes back');
+  await page.keyboard.press('Space'); check(!(await st(page)).playing, 'story: Space pauses'); await page.keyboard.press('Space');
+  for (const sel of ['.save', '.share', '.more']) {
+    const before = await st(page);
+    await page.click(`.p-reel.on ${sel}`); await page.waitForTimeout(200);
+    const after = await st(page);
+    check(after.pos === before.pos && after.playing, `story: tapping ${sel.slice(1)} never navigates or pauses`);
+    if (sel === '.more') { await page.click('#pReelSheet .p-rsheet-x'); await page.waitForTimeout(150); check((await st(page)).pos === before.pos && (await st(page)).playing, 'story: closing the sheet never navigates or pauses'); }
+    if (sel === '.save') await page.click(`.p-reel.on .save`);
+  }
+  await page.evaluate(() => window.LL_reel.seek(window.LL_reel.state().dur - 0.2)); await page.waitForTimeout(700);
+  check((await st(page)).pos === 2, 'story: when a reel ends it auto-advances to the next');
+  await page.evaluate(() => window.LL_reel.seek(window.LL_reel.state().dur - 0.2)); await page.waitForTimeout(700);
+  const end = await st(page);
+  check(end.ended && end.pos === 2 && !end.playing && await page.$eval('.p-reel.on .p-rend', (e) => !e.hidden && /Watch again/.test(e.textContent)) && await page.evaluate(() => document.activeElement.classList.contains('p-ragain')), 'story: the last reel stops on a "Watch again" end state (no loop, no jump to the feed)');
+  check(!(await page.$eval('#pWatchPlayer', (p) => p.hidden)), 'story: the player stays open at the end');
+  await page.screenshot({ path: 'test-results/reel-end.png' });
+  await page.click('.p-reel.on .p-ragain'); await page.waitForTimeout(200);
+  const again = await st(page); check(again.pos === 0 && !again.ended && again.playing && again.t < 1, 'story: Watch again restarts the sequence from the first reel');
+  await page.evaluate(() => { document.querySelector('#app').classList.add('calm'); }); await page.keyboard.press('ArrowRight');
+  check(await page.$eval('.p-reel.on', (r) => getComputedStyle(r).transitionDuration.split(',').every((d) => parseFloat(d) === 0)), 'story: calm mode switches reels instantly (no fade)');
+  await page.keyboard.press('Escape'); await page.waitForTimeout(100);
+  check(await page.$eval('#pWatchPlayer', (p) => p.hidden), 'story: Escape still closes the player');
+  await context.close();
+  // One reel opened from Today: one segment.
+  const t = await open({ width: 1440, height: 900 }, '#today');
+  await t.page.click('[data-reel]'); await t.page.waitForTimeout(300);
+  check((await st(t.page)).seq.length === 1 && (await segs(t.page)) === 'cur', 'story: one reel opened from Today shows one segment');
+  await t.page.evaluate(() => window.LL_reel.seek(window.LL_reel.state().dur - 0.2)); await t.page.waitForTimeout(700);
+  check((await st(t.page)).ended, 'story: a single reel ends on the end state instead of looping');
+  await t.context.close();
+  // Horizontal swipe on a phone.
+  const ph = await open({ width: 390, height: 844 });
+  await ph.page.click('.p-whero'); await ph.page.waitForTimeout(300);
+  await ph.page.mouse.move(300, 400); await ph.page.mouse.down(); await ph.page.mouse.move(120, 410, { steps: 5 }); await ph.page.mouse.up(); await ph.page.waitForTimeout(250);
+  check((await st(ph.page)).pos === 1, 'story: swiping left goes to the next reel');
+  await ph.context.close();
+  const rm = await open({ width: 390, height: 844 }); await rm.context.close();
 }
 // ---------- verses switched off by default (site setting 'content') ----------
 for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {

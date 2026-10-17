@@ -1090,3 +1090,27 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 }
 .p-app.calm .p-rkb, .p-app.calm .p-reel .paused, .p-app.calm .p-rsheet-in { animation: none !important; transition: none !important; transform: none !important; }
 @media (prefers-reduced-motion: reduce) { .p-rkb, .p-reel .paused, .p-rsheet-in { animation: none !important; transition: none !important; transform: none !important; } }
+
+/* ---------- Story navigation: one reel at a time, tap zones, end state ---------- */
+#pReels { position: relative; overflow: hidden !important; scroll-snap-type: none; }
+#pReels .p-reel { position: absolute; inset: 0; height: auto; opacity: 0; visibility: hidden; transition: opacity .22s ease, visibility 0s .22s; }
+#pReels .p-reel.on { opacity: 1; visibility: visible; transition: opacity .22s ease; z-index: 1; }
+#pReels.instant .p-reel, .p-app.calm #pReels .p-reel { transition: none !important; }
+@media (prefers-reduced-motion: reduce) { #pReels .p-reel { transition: none !important; } }
+.p-rzones { position: absolute; inset: 0; z-index: 2; display: grid; grid-template-columns: 1fr 1fr 1fr; background: none; border: 0; padding: 0; touch-action: none; }
+.p-rzones button { background: none; border: 0; padding: 0; margin: 0; cursor: pointer; color: #fff; position: relative; -webkit-tap-highlight-color: transparent; }
+.p-rzones .z-mid { cursor: pointer; }
+.p-rzones .z-prev { cursor: w-resize; } .p-rzones .z-next { cursor: e-resize; }
+.p-rzones button span { position: absolute; top: 50%; translate: 0 -50%; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font: 700 26px/1 var(--display); background: rgba(12,8,28,.4); opacity: 0; transition: opacity .2s ease; pointer-events: none; }
+.p-rzones .z-prev span { left: 10px; } .p-rzones .z-next span { right: 76px; }
+@media (hover: hover) { .p-rzones button:hover span { opacity: .75; } }
+.p-rzones button:focus-visible { outline: 3px solid #ffd27a; outline-offset: -6px; border-radius: 20px; }
+.p-rzones button:focus-visible span { opacity: 1; }
+.p-app.calm .p-rzones button span { transition: none; }
+.p-rend { position: absolute; inset: 0; z-index: 7; display: grid; place-content: center; justify-items: center; gap: 16px; background: rgba(8,5,20,.72); color: #fff; text-align: center; }
+.p-rend[hidden] { display: none; }
+.p-rend b { font: 800 24px var(--display); }
+.p-ragain { min-height: 48px; padding: 0 24px; border-radius: 999px; border: 1px solid rgba(255,255,255,.4); background: #fff; color: #1a1330; font: 800 16px var(--display); cursor: pointer; }
+.p-ragain:focus-visible { outline: 3px solid #ffd27a; outline-offset: 3px; }
+.p-rsegs i b { transform: scaleX(0); animation: none !important; }
+.p-rsegs i.done b { transform: none !important; }
