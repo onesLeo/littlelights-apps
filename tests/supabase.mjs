@@ -65,6 +65,12 @@ const navSaved = await page.evaluate((v) => window.LLStore.saveSetting('nav', v)
 const up = calls.find((c) => c.path.endsWith('/site_settings'));
 check(navSaved.ok && !!up && up.method === 'POST' && /merge-duplicates/.test(up.prefer), `settings: saving menus is an upsert into site_settings ${navSaved.error || ''}`);
 check(!!up && up.body.key === 'nav' && up.body.value.menus.play === 'hidden' && !('updated_by' in up.body), 'settings: only key and value are sent (the database stamps who and when)');
+calls.length = 0;
+const hidSaved = await page.evaluate(() => window.LLStore.saveSetting('builtins_hidden', { hidden: ['audio:keep-building'] }).then(() => true, (e) => e.message));
+const hidUp = calls.find((c) => c.path.endsWith('/site_settings'));
+check(hidSaved === true && !!hidUp && hidUp.method === 'POST' && /merge-duplicates/.test(hidUp.prefer) && hidUp.body.key === 'builtins_hidden' && hidUp.body.value.hidden[0] === 'audio:keep-building',
+  'settings: the hidden built-ins list is an upsert of the builtins_hidden row');
+check(await page.evaluate(() => JSON.stringify(window.LLStore.normalizeHidden({ hidden: ['audio:ok', '<b>x</b>', 'post:1', 'audio:ok'] }))) === '["audio:ok"]', 'settings: hidden keys are checked and de-duplicated');
 const odd = await page.evaluate(() => window.LLStore.getSetting('nav').then((v) => window.LLStore.normalizeNav(v)));
 check(odd === null, 'settings: an unexpected answer is ignored (the app falls back to its default)');
 

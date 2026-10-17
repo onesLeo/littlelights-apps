@@ -178,8 +178,10 @@
   // ---------- data ----------
   function loadAll() {
     // A missing site_settings table (SQL not applied yet) must not stop the Studio from loading.
+    var hid = S.getSetting('builtins_hidden').then(function (v) { state.hiddenError = ''; return v; }, function (err) { state.hiddenError = err.message; return null; });
     var nav = S.getSetting('nav').then(function (v) { state.navError = ''; return v; }, function (err) { state.navError = err.message; return null; });
-    return Promise.all([S.listPosts(), S.listTeam(), nav]).then(function (r) {
+    return Promise.all([S.listPosts(), S.listTeam(), nav, hid]).then(function (r) {
+      state.hidden = S.normalizeHidden(r[3]) || [];
       state.posts = r[0] || []; state.team = r[1] || [];
       state.nav = S.normalizeNav(r[2]) || S.navDefault();
     });
@@ -223,7 +225,7 @@
       '<button class="btn ghost" type="button" id="back">Use a different email</button></div></main>';
   }
   function shell(inner) {
-    var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['site', 'Menus', ICON.site], ['team', 'Team', ICON.team]];
+    var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['site', 'Menus', ICON.site], ['builtins', 'Built-in content', ICON.media], ['team', 'Team', ICON.team]];
     return '<div class="shell"><aside class="side">' +
       '<div class="brand"><span class="dot"></span><span>Salt and Light Studio</span></div>' +
       '<nav aria-label="Studio">' + nav.map(function (n) {
@@ -383,6 +385,31 @@
       '<small>Shown under “Verses is coming soon” (or the menu’s name). Keep it short and friendly.</small></label>' +
       (owner ? '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>Save menus</button>' : '') + '</form>';
   }
+  // Items written into the app (js/content.js). A Studio post with the same `builtin` key replaces one
+  // once published; here they can be hidden altogether.
+  function builtinItems() {
+    var C = window.LL_CONTENT || {}, out = [];
+    [['episodes', 'audio', 'Audio', function (e) { return e.title; }], ['devotions', 'devotion', 'Devotion', function (d) { return d.slug; }, function (d) { return d.title; }],
+      ['reels', 'reel', 'Reel', function (r) { return r.title; }], ['verses', 'verse', 'Verse', function (v) { return v.ref; }]].forEach(function (t) {
+      (C[t[0]] || []).forEach(function (item) {
+        out.push({ key: t[1] + ':' + S.slugify(t[3](item)), type: t[2], title: (t[4] || t[3])(item), silent: t[1] === 'audio' && !item.src });
+      });
+    });
+    return out;
+  }
+  function builtinsView() {
+    var owner = isOwner(), hidden = state.hidden || [];
+    return '<div class="top"><div><h2>Built-in content</h2><p>Items that came with the app. Hide any you don’t want visitors to see. A published Studio copy of an item replaces it anyway.</p></div></div>' +
+      (state.hiddenError ? '<p class="role-note" role="alert">The hidden list could not be loaded (' + esc(state.hiddenError) + '). Nothing is hidden until it can be.</p>' : '') +
+      (owner ? '' : '<p class="role-note">Only owners can change this.</p>') +
+      '<div class="list" id="builtinList">' + builtinItems().map(function (it) {
+        var off = hidden.indexOf(it.key) >= 0;
+        return '<div class="row" data-key="' + esc(it.key) + '"><span><b>' + esc(it.title) + '</b><small>' + esc(it.type) + (it.silent ? ' · no recording yet, not shown in the app' : '') + '</small></span>' +
+          '<span style="display:flex;gap:8px;align-items:center"><span class="pill ' + (off ? 'draft' : 'published') + '">' + (off ? 'Hidden' : 'Visible') + '</span>' +
+          (owner ? '<button class="btn ghost small" type="button" data-bhide="' + esc(it.key) + '" aria-pressed="' + off + '">' + (off ? 'Show' : 'Hide') + '</button>' : '') + '</span></div>';
+      }).join('') + '</div>' +
+      (owner ? '<div style="margin-top:16px"><button class="btn primary" type="button" id="saveHidden"' + (state.busy ? ' disabled' : '') + '>Save</button></div>' : '');
+  }
   function teamView() {
     return '<div class="top"><div><h2>Team</h2><p>Only people on this list can sign in to the Studio.</p></div></div>' +
       (isOwner() ? '<form class="form invite" id="inviteForm" novalidate>' +
@@ -407,7 +434,7 @@
     if (state.screen === 'signin') root.innerHTML = signin();
     else if (state.screen === 'check') root.innerHTML = checkEmail();
     else {
-      var v = state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : state.view === 'site' ? siteView() : teamView();
+      var v = state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : state.view === 'site' ? siteView() : state.view === 'builtins' ? builtinsView() : teamView();
       root.innerHTML = shell(v);
       if (state.view === 'media') resolveMediaElements();
     }
@@ -573,6 +600,21 @@
     else if (b.id === 'delNo') { state.confirmDelete = false; render(); }
     else if (b.id === 'delYes') {
       S.deletePost(state.editing.id, state.email).then(function () { toast('Post deleted'); return loadAll(); }).then(function () { go('posts'); }).catch(fail);
+    }
+    else if (d.bhide) {
+      if (!isOwner()) return;
+      var h = state.hidden || (state.hidden = []), at = h.indexOf(d.bhide);
+      if (at >= 0) h.splice(at, 1); else h.push(d.bhide);
+      render();
+    }
+    else if (b.id === 'saveHidden') {
+      if (!isOwner()) return;
+      var value = { hidden: S.normalizeHidden({ hidden: state.hidden || [] }) };
+      state.busy = true; render();
+      S.saveSetting('builtins_hidden', value, state.email).then(function (saved) {
+        state.busy = false; state.hiddenError = ''; state.hidden = S.normalizeHidden(saved) || value.hidden;
+        toast('Saved. Visitors see the change next time the app loads.'); render();
+      }).catch(fail);
     }
     else if (d.remove) S.removeMember(d.remove).then(function () { toast(d.remove + ' was removed from the team.'); return loadAll(); }).then(render).catch(fail);
   });

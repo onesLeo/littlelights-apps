@@ -304,4 +304,15 @@
   window.LLStore.NAV_STATES = NAV_STATES;
   window.LLStore.navDefault = function () { return normalizeNav(NAV_DEFAULT); };
   window.LLStore.normalizeNav = normalizeNav;
+
+  // ---------- built-in items hidden in the Studio (site setting 'builtins_hidden') ----------
+  // value: { hidden: ["audio:keep-building", "verse:joshua-1-9", ...] }. Returns the clean list, or
+  // null when `v` doesn't look like this setting.
+  function normalizeHidden(v) {
+    if (!v || typeof v !== 'object' || !Array.isArray(v.hidden)) return null;
+    var out = [];
+    v.hidden.forEach(function (k) { if (typeof k === 'string' && /^(audio|devotion|reel|verse):[a-z0-9-]{1,60}$/.test(k) && out.indexOf(k) < 0) out.push(k); });
+    return out;
+  }
+  window.LLStore.normalizeHidden = normalizeHidden;
 })();
