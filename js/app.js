@@ -83,6 +83,22 @@
     return Promise.race([fresh, slow]).catch(function () {});
   }
 
+  // ---------- content switches (site setting 'content') ----------
+  // Missing row/key = verses hidden. Same device caching as the other settings.
+  var CONTENT_KEY = 'll.contentSettings';
+  var CONTENT = { verses: false };
+  function loadContent() {
+    var S = window.LLStore;
+    if (!S || !S.getSetting || !S.contentDefault) return Promise.resolve();
+    try { CONTENT = S.normalizeContent(JSON.parse(localStorage.getItem(CONTENT_KEY) || 'null')) || S.contentDefault(); } catch (err) { CONTENT = S.contentDefault(); }
+    var fresh = S.getSetting('content').then(function (v) {
+      CONTENT = S.normalizeContent(v) || S.contentDefault();
+      try { localStorage.setItem(CONTENT_KEY, JSON.stringify(CONTENT)); } catch (err) { /* storage blocked */ }
+    });
+    var slow = new Promise(function (resolve) { setTimeout(resolve, 4000); });
+    return Promise.race([fresh, slow]).catch(function () {});
+  }
+
   function mergeStudioPosts() {
     var S = window.LLStore;
     if (!S) return Promise.resolve();
@@ -219,6 +235,16 @@
 
   function startApp() {
   dropLeftOut();
+  // Verses switched off: no verse cards on Today (built-in or Studio) and no verse buttons.
+  // Bible quotes inside devotions are untouched. The Verses menu keeps its own nav state.
+  if (!CONTENT.verses) {
+    app.classList.add('no-verses');
+    if (C.today) C.today = C.today.filter(function (t) { return t.type !== 'verse'; });
+    Array.prototype.forEach.call(document.querySelectorAll('#pFeed .p-slide.s1 > :is(.p-kicker, .verse, .ref, .p-btns)'), function (el) { el.remove(); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-save-verse], [data-share-verse], [data-open-verse], #pFeed [data-go="verses"]'), function (el) {
+      if (!el.closest('.v-verses')) el.remove();
+    });
+  }
 
   var $ = function (s, r) { return (r || app).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || app).querySelectorAll(s)); };
@@ -383,8 +409,16 @@
   })();
 
   // ---------- day / night and calm mode ----------
+  // The owl flies in only when night mode starts (or the app opens at night), never on navigation.
+  function flyOwl() {
+    var o = $('#pOwl'); if (!o) return;
+    o.classList.remove('fly'); void o.offsetWidth; o.classList.add('fly');
+    o.addEventListener('animationend', function done(e) { if (e.target === o) { o.classList.remove('fly'); o.removeEventListener('animationend', done); } });
+  }
   function setNight(on, save) {
+    var was = app.classList.contains('night');
     app.classList.toggle('night', on);
+    if (on && !was) setTimeout(function () { if (!app.classList.contains('calm')) flyOwl(); if (window.LL_perchFit) window.LL_perchFit(); }, 0);
     document.querySelector('meta[name="theme-color"]').setAttribute('content', on ? '#070b22' : '#0f0d20');
     $$('[data-mode]').forEach(function (b) {
       b.innerHTML = on ? ICON_SUN : ICON_MOON;
@@ -469,7 +503,7 @@
     var layer = document.createElement('div');
     layer.className = 'p-sky';
     today.insertBefore(layer, today.firstChild);
-    var parts = ['.s1 .p-stars', '.s1 .p-orb', '.s1 .p-clouds', '#pOwl', '#pHoot', '.s5 .p-flyowl'].reduce(function (all, sel) {
+    var parts = ['.s1 .p-stars', '.s1 .p-orb', '.s1 .p-clouds', '.s5 .p-flyowl'].reduce(function (all, sel) {
       return all.concat($$(sel).map(function (el) { return { el: el, home: el.parentNode, next: el.nextSibling }; }));
     }, []);
     function place() {
@@ -478,8 +512,32 @@
         else p.home.insertBefore(p.el, p.next && p.next.parentNode === p.home ? p.next : null);
       });
     }
-    place();
-    if (wide.addEventListener) wide.addEventListener('change', place); else if (wide.addListener) wide.addListener(place);
+    // The owl's perch sits in the page itself on a computer (so it scrolls with the welcome text and
+    // the cards never cover it), sized to the free space between the header and the first card.
+    var perch = $('#pPerch'), perchHome = perch && perch.parentNode, perchNext = perch && perch.nextSibling;
+    function perchFit() {
+      if (!perch) return;
+      if (!wide.matches) { perch.classList.remove('no-room'); perch.style.removeProperty('--perch-top'); perch.style.removeProperty('--perch-size'); return; }
+      var stage = $('.v-today .p-stage'); if (!stage || !today.offsetParent) return;
+      var top = stage.getBoundingClientRect().top - today.getBoundingClientRect().top + today.scrollTop;
+      var size = Math.min(120, (top - 4 - 10) / 0.933);
+      perch.classList.toggle('no-room', size < 56);
+      perch.style.setProperty('--perch-size', Math.round(size) + 'px');
+      perch.style.setProperty('--perch-top', Math.round(top - 4 - 0.933 * size) + 'px');
+    }
+    function placePerch() {
+      if (!perch) return;
+      if (wide.matches) { if (perch.parentNode !== today) today.insertBefore(perch, layer.nextSibling); }
+      else if (perch.parentNode !== perchHome) perchHome.insertBefore(perch, perchNext && perchNext.parentNode === perchHome ? perchNext : null);
+      perchFit();
+    }
+    window.LL_perchFit = perchFit;
+    place(); placePerch();
+    window.addEventListener('resize', perchFit);
+    if (window.ResizeObserver) new ResizeObserver(perchFit).observe(today);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(perchFit);
+    function onWide() { place(); placePerch(); }
+    if (wide.addEventListener) wide.addEventListener('change', onWide); else if (wide.addListener) wide.addListener(onWide);
   })();
 
   // ---------- pause animations off screen and when the app is hidden ----------
@@ -699,7 +757,7 @@
 
   // ---------- read ----------
   $('#pCards').innerHTML = C.devotions.map(function (d, i) {
-    return '<a class="p-card' + (i === 0 ? ' feat' : '') + '" href="#read/' + d.slug + '" style="background:' + d.color + ';color:' + d.ink + ';text-decoration:none">' +
+    return '<a class="p-card' + (i === 0 ? ' feat' : '') + '" href="#read/' + d.slug + '" style="--c:' + d.color + ';color:' + d.ink + ';text-decoration:none">' +
       '<span class="p-kicker">' + esc(d.kicker) + '</span><b>' + esc(d.title) + '</b><span>' + esc(d.teaser) + '</span>' +
       '<span class="foot"><span>Read →</span>' + (d.episode >= 0 ? '<span>▶ Audio ' + fmt(C.episodes[d.episode].dur) + '</span>' : '') + '</span></a>';
   }).join('');
@@ -975,7 +1033,7 @@
   app.dataset.ready = '1';
   }
   tagBuiltins();
-  Promise.all([mergeStudioPosts(), loadNav(), loadHidden()]).then(startApp);
+  Promise.all([mergeStudioPosts(), loadNav(), loadHidden(), loadContent()]).then(startApp);
 
   // ---------- offline support ----------
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {

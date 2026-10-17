@@ -271,3 +271,7 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
   .wm .wm-halo2 { transition: none; }
   .wm.flaring .wm-halo2, :focus-visible > .wm .wm-halo2, html:not(.wm-touch) .wm:hover .wm-halo2 { opacity: .5 !important; }
 }
+
+.sub { margin: 28px 0 8px; font-size: 17px; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 600; }
+.check input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--focus, #7b5cd6); }

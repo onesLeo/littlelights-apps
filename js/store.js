@@ -315,4 +315,15 @@
     return out;
   }
   window.LLStore.normalizeHidden = normalizeHidden;
+
+  // ---------- which kinds of content the site shows (site setting 'content') ----------
+  // value: { verses: true|false }. A missing row or key means verses are HIDDEN (Taman's choice,
+  // Oct 2026); nothing is deleted, the owner can switch them back on in the Studio.
+  var CONTENT_DEFAULT = { verses: false };
+  function normalizeContent(v) {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+    return { verses: v.verses === true };
+  }
+  window.LLStore.contentDefault = function () { return { verses: CONTENT_DEFAULT.verses }; };
+  window.LLStore.normalizeContent = normalizeContent;
 })();

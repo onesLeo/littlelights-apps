@@ -24,7 +24,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   // Tests run in local mode so they never touch the real database.
   await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
   // Verses is "coming soon" by default; the computer checks below need it on.
-  if (versesOn) await context.addInitScript(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
+  if (versesOn) await context.addInitScript(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } }, content: { verses: true } })));
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -67,10 +67,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(await soonOpen(), 'nav: the Today shortcut shows the message too');
   await page.keyboard.press('Escape');
   check(!(await soonOpen()), 'nav: Escape closes the message');
-  await page.click('.p-slide [data-go="verses"]');
-  await page.waitForTimeout(150);
-  check(await soonOpen() && (await onView()) === 'today', 'nav: the More verses button shows the message');
-  await page.click('[data-soon-close]');
+  check(!(await page.$('#pFeed [data-go="verses"], #pFeed [data-save-verse]')), 'nav: with verses off by default there is no More verses or Save image button');
   await page.goto(base + '#verses');
   await page.waitForSelector('#app[data-ready]');
   check(await soonOpen() && (await onView()) === 'today', 'nav: opening #verses directly shows the message');
@@ -140,7 +137,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(html.includes('<meta name="application-name" content="Salt and Light">') && html.includes('<meta name="apple-mobile-web-app-title" content="Salt and Light">'), 'brand: app name meta tags');
   check((html.match(/Little Light: Bible Journeys/g) || []).length >= 3, 'brand: the game keeps its name');
   // Everything on for the rest of the journey.
-  await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
+  await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } }, content: { verses: true } })));
   await page.goto(base + '#today');
   await page.reload();
   await page.waitForSelector('#app[data-ready]');
@@ -258,8 +255,8 @@ async function openApp(viewport, sw = true, versesOn = true) {
   const nav = await page.$eval('.p-tabs', (n) => n.getBoundingClientRect().top);
   check(nav < 10, 'computer: menu sits at the top');
   check(await page.$eval('.p-side', (s) => getComputedStyle(s).display !== 'none'), 'computer: side panel is shown');
-  check(await page.$eval('.v-today .p-sky', (k) => !!k.querySelector('.p-orb') && !!k.querySelector('.p-clouds') && !!k.querySelector('#pOwl')),
-    'computer: the sun, clouds and owl fill the page behind the Today feed');
+  check(await page.$eval('.v-today .p-sky', (k) => !!k.querySelector('.p-orb') && !!k.querySelector('.p-clouds') && !!document.querySelector('.v-today > .p-perch #pOwl')),
+    'computer: the sun and clouds fill the sky; the owl perches in the page beside the welcome');
   await page.screenshot({ path: 'test-results/computer-today.png' });
   await page.click('.p-tab[data-tab="verses"]');
   await page.waitForTimeout(150);
@@ -320,7 +317,7 @@ const flareState = (sel) => (s) => {
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
   await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
-  await ctx.addInitScript(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
+  await ctx.addInitScript(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } }, content: { verses: true } })));
   const page = await ctx.newPage();
   for (const tab of ['listen', 'read', 'verses', 'play']) {
     await page.goto(base + '#' + tab); await page.waitForSelector('#app[data-ready]'); await page.waitForTimeout(300);
@@ -340,6 +337,149 @@ const flareState = (sel) => (s) => {
   await p2.tap('.p-brand .wm-l'); await p2.waitForTimeout(400);
   check((await p2.evaluate(() => location.hash)) === '#today' && (await p2.$eval('.p-brand .wm', (w) => w.classList.contains('flaring'))), 'flare: tapping the logo link still navigates to Today');
   await ctx2.close();
+}
+// ---------- night owl: perched on a branch, never covered, no sideways scroll ----------
+async function openNight(viewport, extra = {}) {
+  const context = await browser.newContext({ viewport, serviceWorkers: 'block', ...extra });
+  await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  await context.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('ll.theme', 'night'); sessionStorage.setItem('seeded', '1'); } });
+  const page = await context.newPage(); const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto(base + '#today'); await page.waitForSelector('#app[data-ready]');
+  return { context, page, errors };
+}
+const owlCheck = () => {
+  const owl = document.querySelector('#pOwl'); const r = owl.getBoundingClientRect();
+  const wide = innerWidth >= 900;
+  const blockers = [...document.querySelectorAll(wide ? '.v-today .p-stage, .v-today .p-side > *, .p-welcome h1, .p-welcome p, .p-welcome .p-kicker, .p-tabs, .p-brand' : '.s1 .verse, .s1 .p-btns, .s1 .ref, .s1 .p-kicker, .p-rings, .p-tabs')].filter((e) => e.offsetWidth);
+  const box = (e) => { if (/^(H1|P)$/.test(e.tagName) || e.classList.contains('p-kicker')) { const g = document.createRange(); g.selectNodeContents(e); return g.getBoundingClientRect(); } return e.getBoundingClientRect(); };
+  const hit = blockers.filter((e) => { const b = box(e); return r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top; }).map((e) => e.className || e.tagName);
+  const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height * 0.6);
+  const branch = owl.parentNode.querySelector('.p-branch').getBoundingClientRect();
+  const sc = document.scrollingElement; const today = document.querySelector('.v-today');
+  return { w: r.width, inView: r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth, hit, onTop: !!top && owl.contains(top),
+    feetOnBranch: Math.abs((r.top + r.width * 0.833) - (branch.top + branch.height * 0.3)) < r.width * 0.12,
+    branchAtEdge: wide ? Math.abs(branch.right - today.clientWidth) < 2 : Math.abs(branch.left) < 2,
+    hscroll: sc.scrollWidth > innerWidth + 1 || today.scrollWidth > today.clientWidth + 1, opacity: getComputedStyle(owl.parentNode).opacity,
+    perchPE: getComputedStyle(owl.parentNode).pointerEvents };
+};
+for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1024, height: 768 }, { width: 1280, height: 800 }, { width: 1440, height: 900 }]) {
+  const { context, page, errors } = await openNight(vp);
+  await page.waitForTimeout(2600);
+  const o = await page.evaluate(owlCheck);
+  check(o.w >= 50 && o.inView && o.opacity === '1', `owl ${vp.width}px: owl is fully visible in night mode (${Math.round(o.w)}px)`);
+  check(o.hit.length === 0 && o.onTop, `owl ${vp.width}px: no card or control overlaps the owl ${o.hit.join(',')}`);
+  check(o.feetOnBranch && o.branchAtEdge, `owl ${vp.width}px: owl stands on a branch that grows from the screen edge`);
+  check(!o.hscroll, `owl ${vp.width}px: no horizontal scroll`);
+  check(o.perchPE === 'none', `owl ${vp.width}px: the branch never blocks taps`);
+  if (vp.width >= 900) {
+    await page.evaluate(() => { document.querySelector('.v-today').scrollTop = 300; }); await page.waitForTimeout(100);
+    const s = await page.evaluate(() => { const r = document.querySelector('#pOwl').getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height * 0.6); return r.bottom < 70 || (!!e && document.querySelector('#pOwl').contains(e)); });
+    check(s, `owl ${vp.width}px: scrolling never slides a card over the owl`);
+  }
+  check(errors.length === 0, `owl ${vp.width}px: no script errors ${errors.join(' | ')}`);
+  await context.close();
+}
+{
+  // Fly-in plays when night starts, not on navigation; calm and reduced motion keep it perched and still.
+  const { context, page } = await openNight({ width: 1280, height: 800 });
+  check(await page.$eval('#pOwl', (o) => o.classList.contains('fly') && getComputedStyle(o).animationName === 'owlflyx'), 'owl: flies in when the app opens at night');
+  await page.waitForTimeout(2300);
+  check(await page.$eval('#pOwl', (o) => !o.classList.contains('fly')), 'owl: lands and settles on the branch');
+  await page.click('.p-tab[data-tab="listen"]'); await page.click('.p-tab[data-tab="today"]'); await page.waitForTimeout(50);
+  check(await page.$eval('#pOwl', (o) => !o.classList.contains('fly')), 'owl: does not fly again on page navigation');
+  await page.evaluate(() => document.querySelector('[data-mode]').click()); await page.waitForTimeout(100);
+  check(await page.$eval('#app', (a) => !a.classList.contains('night')), 'owl: day mode hides it');
+  await page.evaluate(() => document.querySelector('[data-mode]').click()); await page.waitForTimeout(80);
+  check(await page.$eval('#pOwl', (o) => o.classList.contains('fly')), 'owl: flies in again when night mode is switched on');
+  check(await page.$eval('#pOwl .lid', (l) => getComputedStyle(l).animationName === 'blink') && await page.$eval('#pOwl .head', (h) => getComputedStyle(h).animationName === 'owlhead'), 'owl: idles with a blink and head tilt');
+  await context.close();
+  const c2 = await openNight({ width: 390, height: 844 }, { reducedMotion: 'reduce' });
+  await c2.page.waitForTimeout(150);
+  const still = await c2.page.evaluate(() => { const o = document.querySelector('#pOwl'); return [o, o.querySelector('svg'), ...o.querySelectorAll('.wing, .head, .lid, .pupil')].every((e) => getComputedStyle(e).animationName === 'none') && document.getElementById('app').classList.contains('calm'); });
+  check(still, 'owl: calm mode / reduced motion keeps the owl perched and still');
+  const o2 = await c2.page.evaluate(owlCheck);
+  check(o2.inView && o2.hit.length === 0, 'owl: perched in place straight away in calm mode');
+  await c2.context.close();
+}
+// ---------- frosted glass cards: fallback exists, text keeps AA contrast over the real sky ----------
+{
+  const css = await (await fetch(base + 'css/app.css')).text();
+  check(/@supports\s+not\s*\(\(backdrop-filter/.test(css) && /-webkit-backdrop-filter:\s*blur/.test(css), 'glass: -webkit- prefix and an @supports not (backdrop-filter) solid fallback exist');
+  check(!/@keyframes[^}]*\{[^@]*backdrop-filter/.test(css), 'glass: no animated filters');
+  for (const [theme, vp, hash, sel] of [['day', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['night', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['phone day', { width: 390, height: 844 }, '#read', '#pCards .p-card, .p-now'], ['phone night', { width: 390, height: 844 }, '#read', '#pCards .p-card']]) {
+    const context = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
+    await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+    await context.addInitScript((t) => { localStorage.setItem('ll.theme', t.replace('phone ', '')); localStorage.setItem('ll.calm', '1'); localStorage.setItem('ll.settings.v1', JSON.stringify({ content: { verses: true } })); }, theme);
+    const page = await context.newPage();
+    await page.goto(base + hash); await page.waitForSelector('#app[data-ready]'); await page.waitForTimeout(800);
+    const cards = await page.$$(sel);
+    check(cards.length >= 3 && await page.$eval(sel.split(',')[0], (c) => /blur/.test(getComputedStyle(c).backdropFilter || getComputedStyle(c).webkitBackdropFilter)), `glass ${theme}: cards are frosted (backdrop blur)`);
+    let worst = { r: 99, name: '' };
+    for (const card of cards) {
+      const box = await card.boundingBox(); if (!box || box.y + 60 > vp.height || box.height < 60) continue;
+      // Text elements (not buttons) and their own colours; then hide the content and sample what is behind each one.
+      const info = await card.evaluate((c) => {
+        const cr = c.getBoundingClientRect();
+        const texts = [...c.querySelectorAll('.p-kicker, .big, p, b, .verse, .ref, span, small')].filter((e) => !e.closest('.p-btn, button') && e.textContent.trim() && e.getClientRects().length)
+          .map((e) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); let op = 1; for (let x = e; x && x !== c.parentElement; x = x.parentElement) op *= +getComputedStyle(x).opacity; return { x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height, color: cs.color, op }; });
+        c.querySelectorAll('*').forEach((e) => { e.dataset.vis = e.style.visibility; e.style.visibility = 'hidden'; });
+        return { texts, name: c.className };
+      });
+      const clip = { x: box.x, y: box.y, width: box.width, height: Math.min(box.height, vp.height - box.y) };
+      const png = (await page.screenshot({ clip })).toString('base64');
+      await card.evaluate((c) => c.querySelectorAll('*').forEach((e) => { e.style.visibility = e.dataset.vis || ''; }));
+      const r = await page.evaluate(async ({ png, texts }) => {
+        const img = new Image(); img.src = 'data:image/png;base64,' + png; await img.decode();
+        const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const g = cv.getContext('2d'); g.drawImage(img, 0, 0);
+        const lum = (c) => { const v = c.map((n) => { n /= 255; return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+        let min = 99;
+        for (const t of texts) {
+          const w = Math.max(1, Math.floor(t.w)), h = Math.max(1, Math.floor(t.h)); if (t.y + h > cv.height) continue;
+          const d = g.getImageData(Math.floor(t.x), Math.floor(t.y), w, h).data;
+          const tc = t.color.match(/\d+(\.\d+)?/g).map(Number); const a = (tc[3] ?? 1) * t.op;
+          for (let i = 0; i < d.length; i += 4 * 2) { const bg = [d[i], d[i + 1], d[i + 2]]; const tx = tc.slice(0, 3).map((v, k) => v * a + bg[k] * (1 - a)); const A = lum(tx), B = lum(bg); min = Math.min(min, (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05)); }
+        }
+        return min;
+      }, { png, texts: info.texts });
+      if (r < worst.r) worst = { r, name: info.name };
+      check(r >= 4.5, `glass ${theme}: "${info.name}" text vs the busiest pixel behind it ${r.toFixed(2)}:1 (AA 4.5)`);
+    }
+    console.log(`     glass ${theme}: worst card ${worst.name} ${worst.r.toFixed(2)}:1`);
+    await context.close();
+  }
+}
+// ---------- verses switched off by default (site setting 'content') ----------
+for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+  const context = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
+  await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  const page = await context.newPage(); const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto(base + '#today'); await page.waitForSelector('#app[data-ready]');
+  const r = await page.evaluate(() => {
+    const vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
+    const slides = [...document.querySelectorAll('#pFeed .p-slide')].filter(vis);
+    const feed = document.getElementById('pFeed').getBoundingClientRect();
+    const first = slides.filter((s) => Math.abs(s.getBoundingClientRect().top - slides[0].getBoundingClientRect().top) < 2);
+    const rowRight = Math.max(...first.map((s) => s.getBoundingClientRect().right));
+    return {
+      verseText: [...document.querySelectorAll('#pFeed .verse, #pFeed .ref')].filter(vis).length,
+      buttons: document.querySelectorAll('[data-save-verse], [data-open-verse], #pFeed [data-go="verses"]').length - document.querySelectorAll('.v-verses [data-save-verse], .v-verses [data-open-verse]').length,
+      navVerses: vis(document.querySelector(innerWidth >= 900 ? '.p-tab[data-tab="verses"]' : '.p-ring[data-go="verses"]')),
+      hello: vis(document.querySelector('.p-hello')), welcome: vis(document.querySelector('.p-welcome')),
+      firstTopGap: slides[0].getBoundingClientRect().top - feed.top, rowGap: feed.right - rowRight,
+      devotionQuote: (window.LL_CONTENT.devotions || []).some((d) => /“|"/.test(JSON.stringify(d))),
+    };
+  });
+  const tag = vp.width >= 900 ? 'desktop' : 'phone';
+  check(r.verseText === 0 && r.buttons === 0, `verses off ${tag}: no verse cards, More verses or Save image on Today`);
+  check(r.navVerses, `verses off ${tag}: the Verses menu entry stays (coming soon)`);
+  check(tag === 'desktop' ? (r.welcome && !r.hello && r.firstTopGap < 2 && r.rowGap < 2) : r.hello, `verses off ${tag}: Today still opens with a welcome and the cards close up (gap ${Math.round(r.firstTopGap)}/${Math.round(r.rowGap)}px)`);
+  check(r.devotionQuote, `verses off ${tag}: Bible quotes inside devotions are kept`);
+  // Owner switches them back on: everything returns, nothing was deleted.
+  await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ content: { verses: true } })));
+  await page.reload(); await page.waitForSelector('#app[data-ready]');
+  check(await page.evaluate(() => !document.getElementById('app').classList.contains('no-verses') && [...document.querySelectorAll('#pFeed .verse')].some((e) => e.getClientRects().length) && !!document.querySelector('#pFeed [data-save-verse]')), `verses on ${tag}: switching the setting on brings the verse cards back`);
+  check(errors.length === 0, `verses ${tag}: no script errors ${errors.join(' | ')}`);
+  await context.close();
 }
 // Layout and motion regressions at the smallest phone and desktop breakpoints.
 for (const viewport of [{ width: 320, height: 568 }, { width: 900, height: 650 }, { width: 1024, height: 768 }]) {
