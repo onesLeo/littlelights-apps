@@ -135,7 +135,7 @@
           if (p.show_on_today) today.push({ type: 'devotion', i: devs.length - 1 });
         } else if (p.type === 'reel') {
           var look = reelLook.filter(function (l) { return l[1] === f.look; })[0] || reelLook[reels.length % 3];
-          reels.push({ title: p.title, len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '' });
+          reels.push({ title: p.title, len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '' });
           if (f.builtin) copyOf[f.builtin] = reels.length - 1;
           if (p.show_on_today) today.push({ type: 'reel', i: reels.length - 1 });
         } else if (p.type === 'verse') {
@@ -600,22 +600,41 @@
   function ytEmbed(id) { return 'https://www.youtube-nocookie.com/embed/' + id + '?rel=0&modestbranding=1&playsinline=1'; }
   window.LL_ytEmbed = ytEmbed; window.LL_ytId = ytId;
   var reelsEl = $('#pReels');
+  function rIcon(d) { return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + d + '"/></svg>'; }
+  var segs = '<div class="p-rsegs" aria-hidden="true">' + C.reels.map(function () { return '<i><b></b></i>'; }).join('') + '</div>';
   reelsEl.innerHTML = C.reels.map(function (r, i) {
     var yid = ytId(r.youtube);
     var scene = r.src
       ? '<video src="' + esc(r.src) + '" playsinline muted loop controls preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
       : yid ? '<div class="p-yt-slot" data-yt="' + yid + '" style="position:absolute;inset:0;background:#000"></div>'
       : reelScene(r.kind);
-    return '<article class="p-reel" data-i="' + i + '" style="background:' + r.bg + '">' +
-      '<div class="scene">' + scene + '</div>' +
-      '<div class="bar"><i></i></div>' +
-      '<button class="tapzone" type="button" aria-label="Pause or play"></button><div class="paused"></div>' +
-      '<div class="side"><button type="button" class="save"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Save</button>' +
-      '<button type="button" class="share"><svg viewBox="0 0 24 24"><path d="M4 12v7h16v-7M12 3v12M7 8l5-5 5 5"/></svg>Share</button></div>' +
-      '<div class="cap"><span class="p-kicker">Reel' + (r.len ? ' · ' + esc(r.len) : '') + '</span><b>' + esc(r.title) + '</b><p>' + esc(r.caption) + '</p>' +
-      (r.youtube && !yid ? '<a class="p-yt" href="' + esc(r.youtube) + '" target="_blank" rel="noopener">Watch on YouTube</a>' : '') + '<button type="button" class="more">…more</button></div>' +
+    // Read / Listen only appear when the reel post links a devotion (fields.devotion = slug) or audio (fields.audio = title).
+    var acts = '<button type="button" class="save p-ract" aria-label="Save">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
+      '<button type="button" class="share p-ract" aria-label="Share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button>' +
+      (r.read ? '<button type="button" class="p-ract" data-read-slug="' + esc(r.read) + '" aria-label="Read the devotion">' + rIcon('M3 5h7a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H3zM21 5h-7a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h7z') + '<span>Read</span></button>' : '') +
+      (r.listen ? '<button type="button" class="p-ract" data-listen-title="' + esc(r.listen) + '" aria-label="Listen">' + rIcon('M4 14v-2a8 8 0 0 1 16 0v2M4 14h3v6H4zM17 14h3v6h-3z') + '<span>Listen</span></button>' : '');
+    return '<article class="p-reel" data-i="' + i + '" style="--rc:' + esc(r.bg) + ';background:' + esc(r.bg) + '" aria-label="' + esc(r.title) + '">' +
+      '<div class="scene"><div class="p-rkb">' + scene + '</div></div><div class="p-rfade" aria-hidden="true"></div>' +
+      '<div class="p-rtop">' + segs + '<span class="p-rchip">Reel' + (r.len ? ' · ' + esc(r.len) : '') + '</span></div>' +
+      '<button class="tapzone" type="button" aria-label="Pause or play"></button><div class="paused" aria-hidden="true"><span class="ic-pause"></span><span class="ic-play"></span></div>' +
+      '<div class="side">' + acts + '</div>' +
+      '<div class="cap"><b class="p-rtitle">' + esc(r.title) + '</b>' + (r.caption ? '<p>' + esc(r.caption) + '</p><button type="button" class="more" aria-haspopup="dialog">more</button>' : '') +
+      (r.youtube && !yid ? '<a class="p-yt" href="' + esc(r.youtube) + '" target="_blank" rel="noopener">Watch on YouTube</a>' : '') + '</div>' +
       '</article>';
   }).join('');
+  $$('.p-reel').forEach(function (el, i) { $$('.p-rsegs i', el).forEach(function (s, k) { s.className = k < i ? 'done' : k === i ? 'cur' : ''; }); });
+  var rSheet = document.createElement('div');
+  rSheet.className = 'p-rsheet glass glass--dark'; rSheet.id = 'pReelSheet'; rSheet.hidden = true;
+  rSheet.setAttribute('role', 'dialog'); rSheet.setAttribute('aria-modal', 'true'); rSheet.setAttribute('aria-labelledby', 'pReelSheetT');
+  rSheet.innerHTML = '<div class="p-rsheet-in"><span class="handle" aria-hidden="true"></span><h3 id="pReelSheetT"></h3><p></p><button type="button" class="p-rsheet-x" aria-label="Close caption">' + rIcon('M6 6l12 12M18 6L6 18') + '</button></div>';
+  $('#pWatchPlayer').appendChild(rSheet);
+  var rSheetFrom = null;
+  function openReelSheet(i, from) {
+    rSheetFrom = from; rSheet.querySelector('h3').textContent = C.reels[i].title; rSheet.querySelector('p').textContent = C.reels[i].caption;
+    rSheet.hidden = false; rSheet.querySelector('.p-rsheet-x').focus();
+  }
+  function closeReelSheet() { if (rSheet.hidden) return false; rSheet.hidden = true; if (rSheetFrom) rSheetFrom.focus(); return true; }
+  rSheet.addEventListener('click', function (e) { if (e.target === rSheet || e.target.closest('.p-rsheet-x')) closeReelSheet(); });
   var visibleReel = 0;
   var savedReels = {};
   try { savedReels = JSON.parse(store('savedReels') || '{}') || {}; } catch (err) { savedReels = {}; }
@@ -624,6 +643,7 @@
     $$('.p-reel').forEach(function (el, i) {
       var playing = current === 'watch' && watchOpen && i === visibleReel && !el.classList.contains('userpaused');
       el.classList.toggle('playing', playing);
+      if (i === visibleReel) reelsEl.style.setProperty('--rc', C.reels[i].bg);
       var slot = el.querySelector('.p-yt-slot');
       if (slot) { if (watchOpen && i === visibleReel) { if (!slot.firstChild) slot.innerHTML = '<iframe src="' + ytEmbed(slot.dataset.yt) + '" title="' + esc(C.reels[i].title) + '" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" style="width:100%;height:100%;border:0"></iframe>'; } else slot.innerHTML = ''; }
       var v = el.querySelector('video');
@@ -638,12 +658,10 @@
     var reel = e.target.closest('.p-reel');
     if (!reel) return;
     var i = +reel.dataset.i;
-    if (e.target.closest('.tapzone')) { reel.classList.toggle('userpaused'); updateReels(); }
-    else if (e.target.closest('.more')) {
-      var c = reel.querySelector('.cap');
-      var o = c.classList.toggle('open');
-      e.target.textContent = o ? 'less' : '…more';
-    } else if (e.target.closest('.save')) {
+    if (e.target.closest('.tapzone')) { reel.classList.toggle('userpaused'); reel.classList.remove('flash'); void reel.offsetWidth; reel.classList.add('flash'); updateReels(); }
+    else if (e.target.closest('.more')) openReelSheet(i, e.target.closest('.more'));
+    else if (e.target.closest('[data-read-slug]')) { closeWatch(); location.hash = 'read/' + e.target.closest('[data-read-slug]').dataset.readSlug; }
+    else if (e.target.closest('[data-listen-title]')) { var t = e.target.closest('[data-listen-title]').dataset.listenTitle; closeWatch(); var k = C.episodes.findIndex(function (x) { return x.title === t; }); go('listen'); if (k >= 0) playEp(k); } else if (e.target.closest('.save')) {
       var s = e.target.closest('.save');
       s.classList.toggle('saved');
       savedReels[i] = s.classList.contains('saved');
@@ -680,13 +698,13 @@
   wGal.addEventListener('click', function (e) { var b = e.target.closest('[data-watch]'); if (b) openReel(+b.dataset.watch); });
   function closeWatch() {
     if (!watchOpen) return;
-    watchOpen = false; wPlayer.hidden = true; wPlayer.classList.remove('on'); updateReels();
+    rSheet.hidden = true; watchOpen = false; wPlayer.hidden = true; wPlayer.classList.remove('on'); updateReels();
     if (watchReturn && document.contains(watchReturn)) watchReturn.focus();
   }
   window.LL_closeWatch = closeWatch;
   $('#pWatchClose').addEventListener('click', closeWatch);
   wPlayer.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { e.stopPropagation(); closeWatch(); }
+    if (e.key === 'Escape') { e.stopPropagation(); if (!closeReelSheet()) closeWatch(); }
     if (e.key === 'Tab') { var f = $$('#pWatchPlayer button, #pWatchPlayer a[href], #pWatchPlayer iframe, #pWatchPlayer video').filter(function (x) { return x.offsetParent; });
       if (!f.length) return; var a = f[0], z = f[f.length - 1];
       if (e.shiftKey && document.activeElement === a) { z.focus(); e.preventDefault(); } else if (!e.shiftKey && document.activeElement === z) { a.focus(); e.preventDefault(); } }

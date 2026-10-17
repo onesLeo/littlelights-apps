@@ -484,6 +484,74 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
     await context.close();
   }
 }
+// ---------- reel redesign: story progress, floating glass actions, caption sheet, AA on every reel's art ----------
+{
+  const css = await (await fetch(base + 'css/app.css')).text();
+  const kf = (n) => (css.match(new RegExp('@keyframes ' + n + '\\s*\\{([^@]*?)\\}\\s*\\}')) || [, ''])[1];
+  check(['kenburns', 'rflash', 'grow', 'up'].every((n) => kf(n) && !/(^|[;{\s])(?!transform|opacity)[a-z-]+\s*:/.test(kf(n).replace(/(from|to|\d+%)\s*\{/g, ''))), 'reel: only transform and opacity animate');
+  for (const [theme, vp] of [['day', { width: 390, height: 844 }], ['night', { width: 390, height: 844 }], ['day', { width: 1440, height: 900 }], ['night', { width: 1440, height: 900 }]]) {
+    const tag = `${theme} ${vp.width}px`;
+    const context = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
+    await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+    await context.addInitScript((t) => { localStorage.setItem('ll.theme', t); }, theme);
+    const page = await context.newPage();
+    await page.goto(base + '#watch'); await page.waitForSelector('#app[data-ready]');
+    await page.click('.p-whero'); await page.waitForTimeout(300);
+    const n = await page.$$eval('.p-reel', (r) => r.length);
+    if (theme === 'day') {
+      check(await page.$$eval('.p-reel', (rs) => rs.every((r, i) => r.querySelectorAll('.p-rsegs i').length === rs.length && r.querySelectorAll('.p-rsegs i')[i].classList.contains('cur'))), `reel ${tag}: one progress segment per reel, the current one filling`);
+      check(await page.$eval('.p-reel .p-rchip', (e) => /^Reel · \d+:\d\d$/.test(e.textContent)), `reel ${tag}: "Reel · 0:48" chip`);
+      check(await page.$eval('.p-reel .p-rtitle', (e) => getComputedStyle(e).fontWeight === '800' && /Bricolage/.test(getComputedStyle(e).fontFamily)), `reel ${tag}: bold display title (self-hosted Bricolage 800)`);
+      check(await page.$$eval('.p-reel .side', (s) => s.every((x) => [...x.querySelectorAll('.p-ract span')].map((e) => e.textContent).join() === 'Save,Share')), `reel ${tag}: only Save and Share when no devotion or audio is linked`);
+      check(await page.$eval('.p-reel .p-ract svg', (s) => { const r = s.getBoundingClientRect(); return r.width >= 44 && getComputedStyle(s).borderRadius === '50%'; }), `reel ${tag}: round action buttons at least 44px`);
+      check(!/\blikes?\b|\bcomments?\b/i.test(await page.$eval('#pReels', (e) => e.textContent)), `reel ${tag}: no like counts or comments`);
+      check(await page.$eval('.p-reel .p-rkb', (e) => getComputedStyle(e).animationName === 'kenburns'), `reel ${tag}: slow Ken Burns on the art while playing`);
+      await page.click('.p-reel.playing .tapzone'); await page.waitForTimeout(350);
+      await page.waitForFunction(() => { const r = document.querySelector('.p-reel.userpaused'); return r && getComputedStyle(r.querySelector('.paused')).opacity === '1'; }, null, { timeout: 3000 }).catch(() => {});
+      check(await page.$eval('.p-reel.userpaused', (r) => getComputedStyle(r.querySelector('.p-rsegs i.cur b')).animationPlayState === 'paused' && getComputedStyle(r.querySelector('.paused')).opacity === '1'), `reel ${tag}: tap pauses, shows the play indicator and stops the progress bar`);
+      await page.click('.p-reel.userpaused .tapzone'); await page.waitForTimeout(100);
+      await page.click('.p-reel .more'); await page.waitForTimeout(200);
+      check(await page.evaluate(() => !document.querySelector('#pReelSheet').hidden && document.activeElement.classList.contains('p-rsheet-x') && document.querySelector('#pReelSheet p').textContent.length > 40), `reel ${tag}: "more" opens the caption sheet and focuses its close button`);
+      await page.keyboard.press('Escape'); await page.waitForTimeout(100);
+      check(await page.evaluate(() => document.querySelector('#pReelSheet').hidden && !document.querySelector('#pWatchPlayer').hidden && document.activeElement.classList.contains('more')), `reel ${tag}: Escape closes the sheet first and returns focus to "more"`);
+    }
+    let worst = { r: 99, w: '' };
+    for (let i = 0; i < n; i++) {
+      await page.evaluate((i) => { const f = document.querySelector('#pReels'); f.scrollTop = i * f.clientHeight; }, i); await page.waitForTimeout(250);
+      const reel = (await page.$$('.p-reel'))[i];
+      const box = await reel.boundingBox();
+      const texts = await reel.evaluate((c) => { const cr = c.getBoundingClientRect();
+        const t = [...c.querySelectorAll('.p-rtitle, .cap p, .more, .p-rchip, .p-ract span')].map((e) => { const r = e.getBoundingClientRect(); return { sel: e.className || e.tagName, x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height, color: getComputedStyle(e).color }; });
+        c.querySelectorAll('.p-rtitle, .cap p, .more, .p-rchip, .p-ract span').forEach((e) => { e.dataset.css = e.style.cssText; e.style.setProperty('color', 'transparent', 'important'); e.style.setProperty('text-shadow', 'none', 'important'); e.style.setProperty('text-decoration-color', 'transparent', 'important'); });
+        c.querySelectorAll('.p-rkb, .p-rkb *').forEach((e) => e.style.setProperty('animation-play-state', 'paused', 'important'));
+        return t; });
+      const png = (await page.screenshot({ clip: { x: box.x, y: box.y, width: box.width, height: Math.min(box.height, vp.height - box.y) } })).toString('base64');
+      await reel.evaluate((c) => c.querySelectorAll('[data-css]').forEach((e) => { e.style.cssText = e.dataset.css; delete e.dataset.css; }));
+      const r = await page.evaluate(async ({ png, texts }) => {
+        const img = new Image(); img.src = 'data:image/png;base64,' + png; await img.decode();
+        const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const g = cv.getContext('2d'); g.drawImage(img, 0, 0);
+        const lum = (c) => { const v = c.map((n) => { n /= 255; return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+        let min = 99, w = '';
+        for (const t of texts) { const ww = Math.max(1, Math.floor(t.w)), h = Math.max(1, Math.floor(t.h)); if (t.y + h > cv.height || t.w < 1) continue;
+          const d = g.getImageData(Math.floor(t.x), Math.floor(t.y), ww, h).data; const tc = t.color.match(/\d+(\.\d+)?/g).map(Number).slice(0, 3);
+          for (let k = 0; k < d.length; k += 8) { const A = lum(tc), B = lum([d[k], d[k + 1], d[k + 2]]); const q = (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05); if (q < min) { min = q; w = t.sel; } } }
+        return { min, w };
+      }, { png, texts });
+      if (r.min < worst.r) worst = { r: r.min, w: `reel ${i} ${r.w}` };
+      check(r.min >= 4.5, `reel ${tag}: reel ${i} text vs the busiest art pixel behind it ${r.min.toFixed(2)}:1 (AA 4.5) ${r.w}`);
+    }
+    console.log(`     reel ${tag}: worst ${worst.w} ${worst.r.toFixed(2)}:1`);
+    await context.close();
+  }
+  // calm mode: no Ken Burns, no indicator motion
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block', reducedMotion: 'reduce' });
+  await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  const page = await context.newPage(); await page.goto(base + '#watch'); await page.waitForSelector('#app[data-ready]'); await page.click('.p-whero'); await page.waitForTimeout(200);
+  check(await page.$eval('.p-reel.playing .p-rkb', (e) => getComputedStyle(e).animationName === 'none'), 'reel: reduced motion turns the Ken Burns move off');
+  await page.evaluate(() => document.querySelector('#app').classList.add('calm'));
+  check(await page.$eval('.p-reel.playing .p-rkb', (e) => getComputedStyle(e).animationName === 'none'), 'reel: calm mode turns the Ken Burns move off');
+  await context.close();
+}
 // ---------- verses switched off by default (site setting 'content') ----------
 for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
   const context = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
