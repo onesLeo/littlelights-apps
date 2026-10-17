@@ -324,6 +324,7 @@
       a.classList.toggle('on', on);
       if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
+    if (tab !== 'watch' && watchOpen) closeWatch();
     updateReels();
   }
   function navState(tab) { return tab === 'today' || !NAV ? 'on' : NAV.menus[tab] || 'on'; }
@@ -529,8 +530,20 @@
       if (!perch) return;
       if (wide.matches) { if (perch.parentNode !== today) today.insertBefore(perch, layer.nextSibling); }
       else if (perch.parentNode !== perchHome) perchHome.insertBefore(perch, perchNext && perchNext.parentNode === perchHome ? perchNext : null);
-      perchFit();
+      perchFit(); perchTuck();
     }
+    // The nav is glass now, so anything scrolling under it shows through. Tuck the owl away (fade) as
+    // soon as any part of it would slide under the header/nav, and bring it back when it is clear.
+    function perchTuck() {
+      if (!perch) return;
+      if (!wide.matches) { perch.classList.remove('tucked'); return; }
+      var owl = $('#pOwl'), bar = $('.p-tabs'); if (!owl || !bar) return;
+      var navBottom = Math.max(bar.getBoundingClientRect().bottom, ($('.p-brand') || bar).getBoundingClientRect().bottom);
+      perch.classList.toggle('tucked', owl.getBoundingClientRect().top < navBottom + 2);
+    }
+    if (today) today.addEventListener('scroll', perchTuck, { passive: true });
+    window.addEventListener('resize', function () { requestAnimationFrame(perchTuck); });
+    window.LL_perchTuck = perchTuck;
     window.LL_perchFit = perchFit;
     place(); placePerch();
     window.addEventListener('resize', perchFit);
@@ -582,10 +595,16 @@
     }
     return '<svg viewBox="0 0 300 600" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%"><rect width="300" height="600" fill="#1f3a6e"/><circle cx="150" cy="150" r="40" fill="#fff3c4" opacity=".9"/><g class="swim"><path d="M60 330 q80 -60 170 0 q-90 60 -170 0z" fill="#62a6ea"/><path d="M225 330 l35 -25 v50z" fill="#62a6ea"/><circle cx="95" cy="322" r="5" fill="#1f3a6e"/></g><path d="M0 420 Q40 400 80 420 T160 420 T240 420 T320 420 V600 H0Z" fill="#16305c"/><path d="M0 460 Q40 440 80 460 T160 460 T240 460 T320 460 V600 H0Z" fill="#102447"/></svg>';
   }
+  // YouTube is only ever embedded from youtube-nocookie with rel=0, and only once the player is opened.
+  function ytId(u) { var m = String(u || '').match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/)([\w-]{11})/); return m ? m[1] : ''; }
+  function ytEmbed(id) { return 'https://www.youtube-nocookie.com/embed/' + id + '?rel=0&modestbranding=1&playsinline=1'; }
+  window.LL_ytEmbed = ytEmbed; window.LL_ytId = ytId;
   var reelsEl = $('#pReels');
   reelsEl.innerHTML = C.reels.map(function (r, i) {
+    var yid = ytId(r.youtube);
     var scene = r.src
-      ? '<video src="' + esc(r.src) + '" playsinline muted loop preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
+      ? '<video src="' + esc(r.src) + '" playsinline muted loop controls preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
+      : yid ? '<div class="p-yt-slot" data-yt="' + yid + '" style="position:absolute;inset:0;background:#000"></div>'
       : reelScene(r.kind);
     return '<article class="p-reel" data-i="' + i + '" style="background:' + r.bg + '">' +
       '<div class="scene">' + scene + '</div>' +
@@ -594,7 +613,7 @@
       '<div class="side"><button type="button" class="save"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Save</button>' +
       '<button type="button" class="share"><svg viewBox="0 0 24 24"><path d="M4 12v7h16v-7M12 3v12M7 8l5-5 5 5"/></svg>Share</button></div>' +
       '<div class="cap"><span class="p-kicker">Reel' + (r.len ? ' · ' + esc(r.len) : '') + '</span><b>' + esc(r.title) + '</b><p>' + esc(r.caption) + '</p>' +
-      (r.youtube ? '<a class="p-yt" href="' + esc(r.youtube) + '" target="_blank" rel="noopener">Watch on YouTube</a>' : '') + '<button type="button" class="more">…more</button></div>' +
+      (r.youtube && !yid ? '<a class="p-yt" href="' + esc(r.youtube) + '" target="_blank" rel="noopener">Watch on YouTube</a>' : '') + '<button type="button" class="more">…more</button></div>' +
       '</article>';
   }).join('');
   var visibleReel = 0;
@@ -603,8 +622,10 @@
   $$('.p-reel').forEach(function (el, i) { if (savedReels[i]) el.querySelector('.save').classList.add('saved'); });
   function updateReels() {
     $$('.p-reel').forEach(function (el, i) {
-      var playing = current === 'watch' && i === visibleReel && !el.classList.contains('userpaused');
+      var playing = current === 'watch' && watchOpen && i === visibleReel && !el.classList.contains('userpaused');
       el.classList.toggle('playing', playing);
+      var slot = el.querySelector('.p-yt-slot');
+      if (slot) { if (watchOpen && i === visibleReel) { if (!slot.firstChild) slot.innerHTML = '<iframe src="' + ytEmbed(slot.dataset.yt) + '" title="' + esc(C.reels[i].title) + '" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" style="width:100%;height:100%;border:0"></iframe>'; } else slot.innerHTML = ''; }
       var v = el.querySelector('video');
       if (v) { if (playing) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } else v.pause(); }
     });
@@ -632,12 +653,52 @@
       share(C.reels[i].title, C.reels[i].caption, location.origin + location.pathname + '#watch');
     }
   });
+  // ---------- Watch gallery: featured hero + thumbnail grid; the feed opens in a glass player ----------
+  var watchOpen = false, watchReturn = null, wPlayer = $('#pWatchPlayer'), wGal = $('#pWatchGal');
+  function thumb(r) {
+    var yid = ytId(r.youtube);
+    if (r.src) return '<video src="' + esc(r.src) + '#t=0.5" muted playsinline preload="metadata" tabindex="-1" aria-hidden="true"></video>';
+    if (yid) return '<img src="https://i.ytimg.com/vi/' + yid + '/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">';
+    return '<div class="p-wscene" aria-hidden="true">' + reelScene(r.kind) + '</div>';
+  }
+  function playIcon() { return '<span class="p-wplay" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>'; }
+  function renderWatch() {
+    wGal.removeAttribute('aria-busy');
+    if (!C.reels.length) { wGal.innerHTML = '<div class="p-wempty glass glass--dark"><b>No videos yet</b><p>New Bible story videos are on their way. Check back soon.</p></div>'; return; }
+    var h = C.reels[0];
+    wGal.innerHTML = '<h2 class="p-wtitle">Watch</h2>' +
+      '<button type="button" class="p-whero glass glass--dark" data-watch="0" style="--bg:' + esc(h.bg) + '" aria-label="Play ' + esc(h.title) + (h.len ? ', ' + esc(h.len) : '') + '">' +
+      '<span class="p-wthumb">' + thumb(h) + '</span><span class="p-wshade"></span>' + playIcon() +
+      '<span class="p-winfo"><span class="p-kicker">Featured' + (h.len ? ' · ' + esc(h.len) : '') + '</span><b>' + esc(h.title) + '</b>' + (h.caption ? '<small>' + esc(h.caption) + '</small>' : '') + '</span></button>' +
+      (C.reels.length > 1 ? '<h3 class="p-wsub">More videos</h3><div class="p-wgrid">' + C.reels.slice(1).map(function (r, k) {
+        return '<button type="button" class="p-wcard" data-watch="' + (k + 1) + '" style="--bg:' + esc(r.bg) + '" aria-label="Play ' + esc(r.title) + (r.len ? ', ' + esc(r.len) : '') + '">' +
+          '<span class="p-wthumb">' + thumb(r) + playIcon() + (r.len ? '<span class="p-wdur">' + esc(r.len) + '</span>' : '') + '</span>' +
+          '<b>' + esc(r.title) + '</b></button>';
+      }).join('') + '</div>' : '');
+  }
+  renderWatch();
+  wGal.addEventListener('click', function (e) { var b = e.target.closest('[data-watch]'); if (b) openReel(+b.dataset.watch); });
+  function closeWatch() {
+    if (!watchOpen) return;
+    watchOpen = false; wPlayer.hidden = true; wPlayer.classList.remove('on'); updateReels();
+    if (watchReturn && document.contains(watchReturn)) watchReturn.focus();
+  }
+  window.LL_closeWatch = closeWatch;
+  $('#pWatchClose').addEventListener('click', closeWatch);
+  wPlayer.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { e.stopPropagation(); closeWatch(); }
+    if (e.key === 'Tab') { var f = $$('#pWatchPlayer button, #pWatchPlayer a[href], #pWatchPlayer iframe, #pWatchPlayer video').filter(function (x) { return x.offsetParent; });
+      if (!f.length) return; var a = f[0], z = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === a) { z.focus(); e.preventDefault(); } else if (!e.shiftKey && document.activeElement === z) { a.focus(); e.preventDefault(); } }
+  });
   function openReel(i) {
+    watchReturn = document.activeElement;
     go('watch');
-    setTimeout(function () { reelsEl.scrollTop = i * reelsEl.clientHeight; visibleReel = i; updateReels(); }, 0);
+    watchOpen = true; wPlayer.hidden = false; wPlayer.classList.add('on');
+    setTimeout(function () { reelsEl.scrollTop = i * reelsEl.clientHeight; visibleReel = i; updateReels(); $('#pWatchClose').focus(); }, 0);
   }
   document.addEventListener('keydown', function (e) {
-    if (current !== 'watch' || e.target.closest('input, textarea')) return;
+    if (current !== 'watch' || !watchOpen || e.target.closest('input, textarea')) return;
     if (e.key === 'ArrowDown') { reelsEl.scrollBy({ top: reelsEl.clientHeight, behavior: 'smooth' }); e.preventDefault(); }
     if (e.key === 'ArrowUp') { reelsEl.scrollBy({ top: -reelsEl.clientHeight, behavior: 'smooth' }); e.preventDefault(); }
   });
@@ -962,7 +1023,7 @@
   var newsEl = $('#pGameNews');
   if (newsEl && C.news && C.news.length) {
     newsEl.innerHTML = '<div class="p-sec" style="color:inherit;padding-inline:4px">News</div>' + C.news.map(function (n) {
-      return '<article class="p-newscard"><small>' + esc(new Date(n.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })) + '</small><b>' + esc(n.title) + '</b>' +
+      return '<article class="p-newscard glass glass--light"><small>' + esc(new Date(n.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })) + '</small><b>' + esc(n.title) + '</b>' +
         (n.text ? '<p>' + esc(n.text) + '</p>' : '') + (n.button ? '<button class="p-btn" type="button" data-preview>' + esc(n.button) + '</button>' : '') + '</article>';
     }).join('');
   }

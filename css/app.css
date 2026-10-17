@@ -184,11 +184,12 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .p-art { width: 52px; height: 52px; border-radius: 12px; display: grid; place-items: center; }
 .p-art i { width: 14px; height: 14px; border-radius: 50%; background: #fff6d1; box-shadow: 0 0 12px 3px rgba(255,240,190,.7); }
 .p-row b { font-size: 14px; display: block; line-height: 1.25; }
-.p-row small { color: #a39cc0; font-size: 12px; }
+.p-row small { color: #bdb5d8; font-size: 12px; }
 .p-pp { width: 36px; height: 36px; border-radius: 50%; background: var(--t-listen); display: grid; place-items: center; }
 .p-pp svg, .p-mini svg, .p-full svg { width: 16px; height: 16px; fill: currentColor; }
 .p-row .p-pp { color: #1a0f33; }
-.p-row.now b { color: #d6c3f5; }
+.p-row.now b { color: #ece2ff; }
+.p-row.now small { color: #cfc6ea; }
 .p-sec { padding: 6px 18px 8px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #a39cc0; font-weight: 700; }
 
 /* mini player */
@@ -439,6 +440,8 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .p-perch .p-branch, .p-perch .p-owl { opacity: 0; transition: opacity .6s ease; }
 .p-app.night .p-perch .p-branch, .p-app.night .p-perch .p-owl { opacity: 1; }
 .p-perch.no-room { display: none; }
+.p-app.night .p-perch.tucked { visibility: hidden; transition: visibility 0s .2s; }
+.p-perch.tucked .p-branch, .p-perch.tucked .p-owl { opacity: 0 !important; transition: opacity .2s ease; }
 .p-branch { position: absolute; left: 0; top: .663em; width: 2.7em; height: .4em; overflow: visible; }
 .p-branch .bark { fill: #4a3529; } .p-branch .hi { fill: none; stroke: #7a5a43; stroke-width: 1.6; stroke-linecap: round; opacity: .7; }
 .p-branch .twig { fill: none; stroke: #4a3529; stroke-width: 3; stroke-linecap: round; } .p-branch .leaf { fill: #3f6a4f; }
@@ -792,7 +795,8 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .p-sheet-head { position: relative; display: flex; align-items: flex-start; gap: 12px; padding: 22px 20px 14px; border-bottom: 1px solid rgba(58,20,38,.1); flex: none; }
 .p-sheet-head .handle { position: absolute; top: 8px; left: 50%; translate: -50% 0; width: 40px; height: 5px; border-radius: 999px; background: #d9a9bd; }
 .p-sheet-titles { flex: 1; min-width: 0; }
-.p-sheet-titles .meta { font: 700 11px var(--display); letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
+.p-sheet-titles .meta { font: 700 11px var(--display); letter-spacing: .12em; text-transform: uppercase; color: #6b3550; }
+.p-app.night .p-sheet-titles .meta { color: #e8c9d6; }
 .p-sheet-titles h2 { margin: 4px 0 0; font: 800 23px/1.15 var(--display); letter-spacing: -.01em; }
 .p-x { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; padding: 0; cursor: pointer; background: rgba(58,20,38,.07); border: 1.5px solid rgba(58,20,38,.22); color: #3a1426; transition: background .15s ease; }
 .p-x svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
@@ -806,6 +810,8 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .p-sheet .p-txt p { margin: 0; }
 .p-sheet .p-txt blockquote { padding: 14px 16px; border-left: 4px solid #ee8fb2; border-radius: 0 14px 14px 0; background: rgba(238,143,178,.14); font-size: 18px; }
 .p-sheet .p-txt blockquote .meta { display: block; margin-top: 6px; font-style: normal; }
+.p-sheet .p-txt .meta { opacity: 1; color: #6b3550; }
+.p-app.night .p-sheet .p-txt .meta { color: #e8c9d6; }
 .p-sheet .p-txt .pray { padding: 16px 18px; border-radius: 16px; background: #fde7ef; border: 1px solid rgba(176,51,106,.18); }
 .p-sheet .p-txt .pray::before { content: "Prayer"; display: block; margin-bottom: 4px; font: 700 11px var(--display); font-style: normal; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
 .p-sheet-foot { position: sticky; bottom: 0; flex: none; display: flex; justify-content: flex-end; padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); background: inherit; border-top: 1px solid rgba(58,20,38,.1); }
@@ -831,18 +837,31 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 @media (prefers-reduced-motion: reduce) { .p-sheet { animation: none; } }
 .p-app.calm .p-sheet { animation: none; }
 
-/* ---------- Frosted glass cards (v2: genuinely see-through) ----------
-   Low tint (15-30%) + blur(22px) saturate(160%). Contrast comes from the blur, a soft scrim
-   behind the text block (a radial wash on the text side, not the whole card) and a subtle
-   text-shadow. In day mode every glass card uses dark ink (light ink can't pass AA on a
-   see-through card over a pale sky); at night, light ink. Tests sample the pixels behind
-   each text element and require AA (4.5:1).
-   Phones: the full-screen Today posts ARE the background (sky, sun, moon, owl live inside the
-   first one), so there is nothing behind them to see through and a full-viewport backdrop blur
-   on a scroll-snapping feed would cost a full-screen blur every frame: they stay solid. The
-   smaller Read and Listen cards get glass with a 12px blur over static colour blobs. */
-:root { --glass-blur: 22px; --glass-sat: 160%; }
-@media (max-width: 899px) { :root { --glass-blur: 12px; --glass-sat: 150%; } }
+/* ---------- Glass system ----------
+   Tokens + a .glass base class with variants:
+     .glass            light frosted surface (tint/alpha from --glass-tint / --glass-a)
+     .glass--dark      dark tint (bars, player, lists on dark pages)
+     .glass--light     warm light tint (sheet, dialogs, toasts, Play cards)
+     .glass--strong    higher alpha + smaller blur, for small dense UI
+     .glass--bar       persistent bars: smaller blur, no radius/shadow, hairline edge only
+   Content cards (Today posts on computers, side cards, Read cards, Listen hero) share the same
+   tokens; their own tint + text-side scrim is set per card below.
+   Rules: no glass inside glass; phones use a smaller blur; nothing animates a filter.
+   Contrast comes from blur + scrim + text-shadow, checked by pixel-sampling tests (AA). */
+:root {
+  --glass-blur: 22px; --glass-sat: 160%; --glass-bar-blur: 16px;
+  --glass-tint: 255,255,255; --glass-a: .22; --glass-scrim: linear-gradient(transparent, transparent);
+  --glass-border: rgba(255,255,255,.25);
+  --glass-sheen: linear-gradient(125deg, rgba(255,255,255,.32), rgba(255,255,255,.07) 26%, transparent 44%, transparent 74%, rgba(255,255,255,.09));
+  --glass-shadow: 0 14px 36px rgba(20,24,60,.16);
+  --glass-text-shadow: 0 1px 2px rgba(255,255,255,.45);
+}
+.p-app.night {
+  --glass-border: rgba(255,255,255,.22);
+  --glass-sheen: linear-gradient(125deg, rgba(255,255,255,.16), rgba(255,255,255,.04) 26%, transparent 44%, transparent 74%, rgba(255,255,255,.05));
+  --glass-shadow: 0 16px 40px rgba(0,0,0,.4);
+}
+@media (max-width: 899px) { :root { --glass-blur: 12px; --glass-sat: 150%; --glass-bar-blur: 10px; } }
 /* Static colour blobs behind the cards: one layer, plain gradients, nothing animated. */
 @media (min-width: 900px) {
   .p-sky::after { content: ""; position: absolute; inset: 0; pointer-events: none;
@@ -859,25 +878,62 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
   .v-listen { background: radial-gradient(70% 30% at 85% 10%, rgba(160,127,214,.45), transparent 70%), radial-gradient(60% 30% at 10% 40%, rgba(238,143,178,.25), transparent 70%), #17122e; background-attachment: local; }
 }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .p-card, .p-now, .v-today .p-slide, .p-sidecard { --g: 255,255,255; --ga: .22; --scrim: rgba(255,255,255,.34); }
-  :is(.p-card, .p-now) {
+  /* Base: the class, plus the content cards that share it. */
+  .glass, .p-card, .p-now {
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-    border: 1px solid rgba(255,255,255,.25); box-shadow: 0 10px 30px rgba(20,16,50,.14); position: relative; isolation: isolate;
-    text-shadow: 0 1px 2px rgba(255,255,255,.45); }
+    border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); text-shadow: var(--glass-text-shadow); isolation: isolate; }
+  .p-card, .p-now { position: relative; }
+  .glass { background: var(--glass-scrim), rgba(var(--glass-tint), var(--glass-a)) !important; }
+  .glass::before, .p-card::before, .p-now::before { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none; background: var(--glass-sheen); }
+  .glass--dark { --glass-tint: 18,14,38; --glass-a: .55; --glass-text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  .glass--light { --glass-tint: 255,250,242; --glass-a: .62; --glass-text-shadow: 0 1px 2px rgba(255,255,255,.55); }
+  .p-app.night :is(.p-sheet, .p-newscard).glass--light { --glass-tint: 34,22,40; --glass-a: .7; --glass-text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  .glass--strong { --glass-a: .8; --glass-blur: 14px; }
+  .p-app.night .glass--strong.glass--light { --glass-a: .84; }
+  .glass--bar { -webkit-backdrop-filter: blur(var(--glass-bar-blur)) saturate(var(--glass-sat)); backdrop-filter: blur(var(--glass-bar-blur)) saturate(var(--glass-sat));
+    border: 0; box-shadow: none; border-radius: 0; }
+  .glass--bar::before { content: none; }
+
+  /* Bars */
+  .p-tabs.glass { --glass-a: .6; border-top: 1px solid var(--glass-border); }
+  .p-head.glass { --glass-tint: 23,18,46; --glass-a: .62; }
+  .v-read .p-head.glass { --glass-tint: 251,246,238; --glass-a: .72; --glass-text-shadow: 0 1px 2px rgba(255,255,255,.6); }
+  .v-verses .p-head.glass { --glass-tint: 253,248,234; --glass-a: .72; --glass-text-shadow: 0 1px 2px rgba(255,255,255,.6); }
+  .v-play .p-head.glass { --glass-tint: 251,243,221; --glass-a: .72; --glass-text-shadow: 0 1px 2px rgba(255,255,255,.6); }
+  .p-app.night .v-read .p-head.glass { --glass-tint: 26,20,34; --glass-a: .66; --glass-text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  .p-app.night .v-verses .p-head.glass { --glass-tint: 22,18,42; --glass-a: .66; --glass-text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  .p-app.night .v-play .p-head.glass { --glass-tint: 18,29,23; --glass-a: .66; --glass-text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  /* Player, sheet, dialogs, toasts */
+  .p-mini.glass { --glass-tint: 45,35,82; --glass-a: .72; }
+  .p-full.glass { --glass-tint: 34,24,66; --glass-a: .62; --glass-scrim: linear-gradient(180deg, rgba(59,44,107,.35), rgba(23,18,46,.55) 70%); border: 0; box-shadow: none; }
+  .p-full.glass::before { content: none; }
+  .p-sheet.glass { --glass-tint: 255,247,250; --glass-a: .8; }
+  .p-app.night .p-sheet.glass { --glass-tint: 42,24,34; --glass-a: .82; }
+  .p-sheet .p-sheet-foot { background: transparent; }
+  .p-soon-card.glass { position: relative; }
+  .p-soon { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .p-toast.glass { --glass-a: .86; }
+  /* Listen list as ONE glass panel (rows are not blurred individually). */
+  .p-list.glass { position: relative; margin: 0 14px 20px; padding: 6px; border-radius: 20px; --glass-tint: 30,22,60; --glass-a: .42; }
+  /* Play page */
+  .p-newscard.glass { position: relative; }
+  .p-trust div { position: relative; isolation: isolate; -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    background: rgba(243,230,196,.55); border: 1px solid var(--glass-border); }
+  .p-app.night .p-trust div { background: rgba(30,46,36,.62); }
+
+  /* Content cards: own tint + text-side scrim. */
   .p-card { background: radial-gradient(110% 90% at 30% 65%, rgba(255,255,255,.5), transparent 80%), color-mix(in srgb, var(--c, #2a2448) 30%, transparent); }
   .p-card span, .p-card .foot { opacity: 1; }
   .p-now { background: radial-gradient(90% 80% at 25% 60%, rgba(255,255,255,.30), transparent 75%), rgba(160,127,214,.30); }
   .p-app.night .p-card { filter: none; background: radial-gradient(110% 90% at 30% 65%, rgba(16,10,28,.6), transparent 80%), color-mix(in srgb, var(--c, #2a2448) 18%, rgba(20,14,34,.22)); color: #f7eef4 !important; text-shadow: 0 1px 3px rgba(0,0,0,.55); }
   .p-now { color: #1a0f33; }
-  :is(.p-card, .p-now)::before { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none;
-    background: linear-gradient(125deg, rgba(255,255,255,.34), rgba(255,255,255,.08) 28%, transparent 46%, transparent 72%, rgba(255,255,255,.10)); }
+  .p-app.night .p-now { color: #f3ecff; text-shadow: 0 1px 3px rgba(0,0,0,.6); background: radial-gradient(100% 90% at 25% 60%, rgba(16,10,34,.55), transparent 80%), rgba(111,82,168,.30); }
   @media (min-width: 900px) {
     .v-today .p-slide, .p-sidecard {
       -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-      border: 1px solid rgba(255,255,255,.25); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 14px 36px rgba(20,24,60,.16);
+      border: 1px solid var(--glass-border); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), var(--glass-shadow);
       position: relative; isolation: isolate; text-shadow: 0 1px 2px rgba(255,255,255,.5); }
-    .v-today .p-slide::before, .p-sidecard::before { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none;
-      background: linear-gradient(125deg, rgba(255,255,255,.32), rgba(255,255,255,.07) 26%, transparent 44%, transparent 74%, rgba(255,255,255,.09)); }
+    .v-today .p-slide::before, .p-sidecard::before { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none; background: var(--glass-sheen); }
     /* Day: 20-28% tint + a pale scrim on the text side; dark ink everywhere. */
     .v-today .s1 { background: radial-gradient(70% 90% at 22% 55%, rgba(255,250,230,.38), transparent 72%), rgba(247,194,63,.24); }
     .v-today .s2 { background: radial-gradient(80% 90% at 25% 50%, rgba(255,240,246,.40), transparent 75%), rgba(238,143,178,.24); }
@@ -890,7 +946,6 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
     /* Night: 22-30% tint + a dark scrim on the text side; light ink. */
     .p-app.night .v-today .p-slide, .p-app.night .p-sidecard { border-color: rgba(255,255,255,.22); text-shadow: 0 1px 3px rgba(0,0,0,.6);
       box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 16px 40px rgba(0,0,0,.4); }
-    .p-app.night .v-today .p-slide::before, .p-app.night .p-sidecard::before { background: linear-gradient(125deg, rgba(255,255,255,.16), rgba(255,255,255,.04) 26%, transparent 44%, transparent 74%, rgba(255,255,255,.05)); }
     .p-app.night .v-today .s1 { background: radial-gradient(70% 90% at 22% 55%, rgba(6,9,30,.45), transparent 72%), rgba(37,48,106,.26); }
     .p-app.night .v-today .s2 { background: radial-gradient(80% 90% at 25% 50%, rgba(20,8,16,.45), transparent 75%), rgba(58,26,43,.28); }
     .p-app.night .v-today .s3 { background: radial-gradient(80% 90% at 25% 50%, rgba(20,8,6,.45), transparent 75%), rgba(59,23,16,.28); }
@@ -904,7 +959,7 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 /* Solid fallback: no backdrop-filter support keeps the original opaque colours (declared above,
    outside @supports) with a light edge and soft shadow. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .p-card, .p-now, .v-today .p-slide, .p-sidecard { box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), 0 10px 28px rgba(20,16,50,.18); }
+  .p-card, .p-now, .v-today .p-slide, .p-sidecard, .glass { box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), 0 10px 28px rgba(20,16,50,.18); }
 }
 /* ---------- Verses switched off (site setting 'content'.verses = false, the default) ----------
    Phone: the first full-screen post keeps its sky, moon and owl and becomes a welcome card.
@@ -917,3 +972,64 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 @media (min-width: 900px) {
   .no-verses .v-today .p-slide.s1:not(.s-studio) { display: none; }
 }
+
+/* Views scroll under the glass bars (header on computers, tab bar on phones). */
+@media (max-width: 899px) {
+  .p-view:not(.v-today) { bottom: 0; padding-bottom: calc(var(--navh) + var(--minih) + 12px); }
+}
+@media (min-width: 900px) {
+  .p-view:not(.v-today) { top: 0; padding-top: var(--navh); }
+  .p-view:not(.v-today) .p-head { top: 0; }
+}
+
+/* ---------- Watch: featured hero + thumbnail grid; the vertical feed opens in a glass player ---------- */
+.v-watch { overflow-y: auto; overflow-x: hidden; background: radial-gradient(60% 40% at 15% 10%, rgba(228,106,76,.35), transparent 70%), radial-gradient(50% 40% at 90% 60%, rgba(61,127,196,.35), transparent 70%), linear-gradient(180deg, #21183f, #120d26); color: #f6f1ff; }
+.p-wgal { max-width: 1100px; margin: 0 auto; padding: 20px 16px calc(var(--navh, 64px) + var(--minih, 0px) + 24px); display: grid; gap: 14px; }
+.p-wtitle { font: 800 26px var(--display); margin: 4px 2px 0; }
+.p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-transform: uppercase; color: #d9d0f2; margin: 10px 2px 0; }
+.p-whero { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 24px; overflow: hidden; padding: 0; border: 1px solid rgba(255,255,255,.22); background: var(--bg, #2a2050); color: #fff; text-align: left; cursor: pointer; font: inherit; }
+.p-wthumb { position: absolute; inset: 0; display: block; overflow: hidden; background: var(--bg, #2a2050); }
+.p-wthumb > video, .p-wthumb > img, .p-wscene, .p-wscene > * { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.p-wscene * { animation: none !important; }
+.p-wshade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,6,24,.08) 0%, rgba(10,6,24,.5) 48%, rgba(10,6,24,.9) 78%, rgba(10,6,24,.94) 100%); }
+.p-wplay { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.92); color: #1a1330; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+.p-whero .p-wplay { width: 76px; height: 76px; top: 42%; }
+.p-wplay svg { width: 44%; height: 44%; fill: currentColor; margin-left: 8%; }
+.p-winfo { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 20px; display: grid; gap: 4px; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+.p-winfo b { font: 800 clamp(19px, 2.6vw, 30px)/1.15 var(--display); }
+.p-winfo small { font-size: 13px; line-height: 1.4; color: #f1ecff; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 60ch; }
+.p-whero .p-kicker { color: #fff4ee; }
+.p-wgrid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.p-wcard { display: grid; gap: 8px; padding: 0; border: 0; background: none; color: #f6f1ff; text-align: left; font: inherit; cursor: pointer; }
+.p-wcard .p-wthumb { position: relative; aspect-ratio: 16 / 9; border-radius: 16px; box-shadow: 0 6px 18px rgba(0,0,0,.3); transition: transform .25s ease, box-shadow .25s ease; }
+.p-wcard b { font: 700 15px/1.3 var(--display); padding: 0 2px; }
+.p-wdur { position: absolute; right: 8px; bottom: 8px; padding: 2px 7px; border-radius: 7px; background: rgba(10,6,24,.82); color: #fff; font: 700 12px var(--display); }
+.p-whero:focus-visible, .p-wcard:focus-visible { outline: 3px solid #ffd27a; outline-offset: 3px; }
+@media (hover: hover) and (min-width: 900px) {
+  .p-wcard:hover .p-wthumb { transform: translateY(-4px) scale(1.03); box-shadow: 0 14px 30px rgba(0,0,0,.4); }
+  .p-whero .p-wthumb > * { transition: transform .5s ease; } .p-whero:hover .p-wthumb > * { transform: scale(1.03); }
+}
+.p-app.calm .p-wcard .p-wthumb, .p-app.calm .p-whero .p-wthumb > *, .p-app.calm .p-skel { transition: none !important; transform: none !important; animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .p-wcard .p-wthumb, .p-whero .p-wthumb > *, .p-skel { transition: none !important; transform: none !important; animation: none !important; } }
+.p-skel { background: linear-gradient(90deg, rgba(255,255,255,.06), rgba(255,255,255,.14), rgba(255,255,255,.06)) 0 0 / 200% 100%; animation: skel 1.4s ease-in-out infinite; border-radius: 20px; }
+.p-wcard.p-skel { aspect-ratio: 16 / 9; }
+@keyframes skel { to { background-position: -200% 0; } }
+.p-wempty { padding: 40px 24px; border-radius: 24px; text-align: center; display: grid; gap: 6px; }
+.p-wempty b { font: 800 20px var(--display); } .p-wempty p { color: #e7e0fb; margin: 0; }
+@media (max-width: 899px) {
+  .p-wgal { padding-top: 14px; }
+  .p-wgrid { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 72%; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; margin: 0 -16px; padding-left: 16px; padding-right: 16px; scrollbar-width: none; }
+  .p-wcard { scroll-snap-align: start; }
+  .p-whero { border-radius: 20px; }
+  .p-winfo { padding: 12px 14px; } .p-winfo small { display: none; } .p-whero .p-wplay { width: 60px; height: 60px; top: 38%; }
+}
+/* Player: full-screen glass overlay over the gallery; the feed sits inside it. */
+.p-wplayer { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 0; }
+.p-wplayer[hidden] { display: none; }
+.p-wplayer.glass { --glass-tint: 12,8,28; --glass-a: .78; border-radius: 0 !important; border: 0 !important; }
+.p-wplayer .p-feed { width: min(430px, 100%); height: 100%; margin: 0; border-radius: 0; }
+@media (min-width: 900px) { .p-wplayer .p-feed { height: calc(100% - 48px); border-radius: 28px; box-shadow: 0 20px 60px rgba(0,0,0,.5); } }
+.p-wclose { position: absolute; top: max(12px, env(safe-area-inset-top)); right: 12px; z-index: 6; width: 48px; height: 48px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.5); background: rgba(10,6,24,.7); color: #fff; display: grid; place-items: center; cursor: pointer; }
+.p-wclose svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+.p-wclose:focus-visible { outline: 3px solid #ffd27a; outline-offset: 2px; }
+@media (max-width: 899px) { .p-wclose { top: 22px; right: auto; left: 12px; } }

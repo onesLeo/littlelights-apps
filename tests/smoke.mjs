@@ -234,12 +234,27 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(await page.$$eval('.wm-sway, .wm-flame, .wm-fo, .wm-fc, .wm-halo, .wm-ember', (f) => f.length > 20 && f.every((x) => getComputedStyle(x).animationName === 'none')), 'phone: calm mode keeps the wordmark flame still');
 
   await page.click('.p-tab[data-tab="watch"]');
+  check(await page.$$eval('.p-whero[data-watch="0"], .p-wcard[data-watch]', (e) => e.length) === 3, 'Watch: a featured hero and a thumbnail card for each other reel');
+  check(await page.$$eval('.p-wcard .p-wdur, .p-wcard .p-wplay', (e) => e.length) === 4, 'Watch: cards show a duration badge and a play icon');
+  check(await page.$eval('#pWatchPlayer', (p) => p.hidden) && (await page.$$('#pWatchPlayer iframe, .p-reel.playing')).length === 0, 'Watch: nothing plays until a video is chosen');
+  check(await page.$eval('.p-wcard .p-wthumb', (t) => getComputedStyle(t).transitionDuration.split(',').every((d) => parseFloat(d) === 0)) && await page.$eval('.p-wscene svg, .p-wscene *', (s) => getComputedStyle(s).animationName === 'none'), 'Watch: calm mode has no hover zoom or animation');
+  await page.click('.p-wcard[data-watch="1"]'); await page.waitForTimeout(200);
+  check(await page.evaluate(() => !document.querySelector('#pWatchPlayer').hidden && document.activeElement.id === 'pWatchClose' && document.querySelector('#pWatchClose').getAttribute('aria-label') === 'Close video'), 'Watch: a card opens the player and focuses the labelled close button');
+  check(await page.$eval('#pWatchClose', (b) => { const r = b.getBoundingClientRect(); return r.width >= 44 && r.height >= 44 && getComputedStyle(b).borderRadius === '50%'; }), 'Watch: close button is round and at least 44px');
+  check(await page.evaluate(() => [...document.querySelectorAll('.p-reel')].findIndex((r) => r.classList.contains('playing'))) === 1, 'Watch: the chosen reel plays in the player');
+  check(await page.$$eval('.p-reel video', (v) => v.every((x) => x.muted)), 'Watch: no video starts with sound');
+  await page.keyboard.press('Escape'); await page.waitForTimeout(150);
+  check(await page.evaluate(() => document.querySelector('#pWatchPlayer').hidden && document.activeElement.dataset.watch === '1' && !document.querySelector('.p-reel.playing')), 'Watch: Escape closes the player, stops it and returns focus to the card');
+  check(await page.evaluate(() => { const u = window.LL_ytEmbed(window.LL_ytId('https://www.youtube.com/watch?v=dQw4w9WgXcQ')); return u.startsWith('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ') && /rel=0/.test(u) && !/autoplay/.test(u); }), 'Watch: YouTube embeds use youtube-nocookie, rel=0 and no autoplay');
+  check(!/<iframe/.test(await page.$eval('#pReels', (e) => e.innerHTML)), 'Watch: no embed is loaded while the player is closed');
+  await page.click('.p-whero');
   await page.click('.p-reel .save');
   check(await page.$eval('.p-reel .save', (b) => b.classList.contains('saved')), 'phone: Watch Save marks a reel on this device');
   check((await page.evaluate(() => localStorage.getItem('ll.savedReels') || '')).includes('true'), 'phone: Watch Save is remembered in local storage');
   await page.reload();
   await page.waitForSelector('#app[data-ready]');
   check(await page.$eval('.p-reel .save', (b) => b.classList.contains('saved')), 'phone: Watch Save stays marked after reload');
+  await page.evaluate(() => window.LL_closeWatch && window.LL_closeWatch());
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   check(!overflow, 'phone: no sideways scrolling');
@@ -375,6 +390,15 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
     await page.evaluate(() => { document.querySelector('.v-today').scrollTop = 300; }); await page.waitForTimeout(100);
     const s = await page.evaluate(() => { const r = document.querySelector('#pOwl').getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height * 0.6); return r.bottom < 70 || (!!e && document.querySelector('#pOwl').contains(e)); });
     check(s, `owl ${vp.width}px: scrolling never slides a card over the owl`);
+    let under = [];
+    for (const y of [0, 20, 40, 60, 80, 100, 120, 160, 200, 300]) {
+      await page.evaluate((y) => { document.querySelector('.v-today').scrollTop = y; }, y); await page.waitForTimeout(260);
+      const u = await page.evaluate(() => { const owl = document.querySelector('#pOwl'); const r = owl.getBoundingClientRect(); const vis = getComputedStyle(owl).opacity !== '0' && getComputedStyle(owl).visibility !== 'hidden';
+        const bars = [...document.querySelectorAll('.p-tabs, .p-brand, header, .p-head')].filter((e) => !e.classList.contains('p-welcome') && e.offsetWidth && e.getClientRects().length);
+        return vis && bars.some((e) => { const b = e.getBoundingClientRect(); return r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top; }); });
+      if (u) under.push(y);
+    }
+    check(under.length === 0, `owl ${vp.width}px: never visible under the header/nav at any scroll position ${under.join(',')}`);
   }
   check(errors.length === 0, `owl ${vp.width}px: no script errors ${errors.join(' | ')}`);
   await context.close();
@@ -406,28 +430,40 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
   const css = await (await fetch(base + 'css/app.css')).text();
   check(/@supports\s+not\s*\(\(backdrop-filter/.test(css) && /-webkit-backdrop-filter:\s*blur/.test(css), 'glass: -webkit- prefix and an @supports not (backdrop-filter) solid fallback exist');
   check(!/@keyframes[^}]*\{[^@]*backdrop-filter/.test(css), 'glass: no animated filters');
-  for (const [theme, vp, hash, sel] of [['day', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['night', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['phone day', { width: 390, height: 844 }, '#read', '#pCards .p-card, .p-now'], ['phone night', { width: 390, height: 844 }, '#read', '#pCards .p-card']]) {
+  for (const [theme, vp, hash, sel, setup] of [['day', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['night', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['phone day', { width: 390, height: 844 }, '#read', '#pCards .p-card, .p-now'], ['phone night', { width: 390, height: 844 }, '#read', '#pCards .p-card'],
+    ...['day', 'night'].flatMap((t) => [
+      [`desktop ${t} nav`, { width: 1440, height: 900 }, '#listen', '.p-tabs', async (pg) => { await pg.evaluate(() => { const v = document.querySelector('.v-listen'); if (v) v.scrollTop = 200; }); }],
+      [`phone ${t} listen bars`, { width: 390, height: 844 }, '#listen', '.v-listen .p-head, .p-tabs, .p-list .p-row, .p-mini', async (pg) => { await pg.click('.p-row'); await pg.waitForTimeout(300); await pg.evaluate(() => { const v = document.querySelector('.v-listen'); if (v) v.scrollTop = 120; }); }],
+      [`phone ${t} player`, { width: 390, height: 844 }, '#listen', '.p-full.on', async (pg) => { await pg.click('.p-row'); await pg.waitForTimeout(300); await pg.click('#pMiniOpen'); await pg.waitForTimeout(700); }],
+      [`desktop ${t} watch`, { width: 1440, height: 900 }, '#watch', '.p-whero, .p-wcard', async () => {}],
+      [`phone ${t} watch`, { width: 390, height: 844 }, '#watch', '.p-whero, .p-wcard', async () => {}],
+      [`phone ${t} sheet`, { width: 390, height: 844 }, '#today', '.p-sheet', async (pg) => { await pg.locator('[data-sheet]:visible').first().click(); await pg.waitForTimeout(700); }],
+    ])]) {
+    const surface = !!setup;
     const context = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
     await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
-    await context.addInitScript((t) => { localStorage.setItem('ll.theme', t.replace('phone ', '')); localStorage.setItem('ll.calm', '1'); localStorage.setItem('ll.settings.v1', JSON.stringify({ content: { verses: true } })); }, theme);
+    await context.addInitScript((t) => { localStorage.setItem('ll.theme', /night/.test(t) ? 'night' : 'day'); localStorage.setItem('ll.calm', '1'); localStorage.setItem('ll.settings.v1', JSON.stringify({ content: { verses: true } })); }, theme);
     const page = await context.newPage();
     await page.goto(base + hash); await page.waitForSelector('#app[data-ready]'); await page.waitForTimeout(800);
+    if (setup) { await setup(page); await page.evaluate(() => document.querySelectorAll('.p-toast').forEach((t) => t.remove())); await page.waitForTimeout(200); }
     const cards = await page.$$(sel);
-    check(cards.length >= 3 && await page.$eval(sel.split(',')[0], (c) => /blur/.test(getComputedStyle(c).backdropFilter || getComputedStyle(c).webkitBackdropFilter)), `glass ${theme}: cards are frosted (backdrop blur)`);
+    check(cards.length >= (surface ? 1 : 3) && await page.$eval(sel.split(',')[0], (c) => /blur/.test(getComputedStyle(c).backdropFilter || getComputedStyle(c).webkitBackdropFilter)), `glass ${theme}: cards are frosted (backdrop blur)`);
     let worst = { r: 99, name: '' };
     for (const card of cards) {
-      const box = await card.boundingBox(); if (!box || box.y + 60 > vp.height || box.height < 60) continue;
+      const box = await card.boundingBox(); if (!box || (!surface && (box.y + 60 > vp.height || box.height < 60)) || box.height < 20 || (surface && (box.x < 0 || box.x + box.width > vp.width + 1))) continue;
       // Text elements (not buttons) and their own colours; then hide the content and sample what is behind each one.
-      const info = await card.evaluate((c) => {
+      const info = await card.evaluate((c, surface) => {
         const cr = c.getBoundingClientRect();
-        const texts = [...c.querySelectorAll('.p-kicker, .big, p, b, .verse, .ref, span, small')].filter((e) => !e.closest('.p-btn, button') && e.textContent.trim() && e.getClientRects().length)
-          .map((e) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); let op = 1; for (let x = e; x && x !== c.parentElement; x = x.parentElement) op *= +getComputedStyle(x).opacity; return { x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height, color: cs.color, op }; });
-        c.querySelectorAll('*').forEach((e) => { e.dataset.vis = e.style.visibility; e.style.visibility = 'hidden'; });
+        const texts = [...c.querySelectorAll(surface ? 'h1, h2, h3, h4, p, b, span, small, .p-kicker, label' : '.p-kicker, .big, p, b, .verse, .ref, span, small')].filter((e) => (surface ? !e.closest('.p-btn, .p-mini button, .p-full button') && !e.children.length : !e.closest('.p-btn, button')) && e.textContent.trim() && e.getClientRects().length)
+          .map((e) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); let op = 1; for (let x = e; x && x !== c.parentElement; x = x.parentElement) op *= +getComputedStyle(x).opacity; return { sel: e.tagName + '.' + e.className, x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height, color: cs.color, op }; });
+        (surface ? c.querySelectorAll('*') : c.querySelectorAll('*')).forEach((e) => { e.dataset.vis = e.style.visibility;
+          if (!c.matches('.p-whero, .p-wcard') || ((e.matches('svg, .p-wplay') || e.closest('.p-wplay')) && !e.closest('.p-wscene'))) { e.style.visibility = 'hidden'; return; }
+          e.dataset.col = e.style.cssText; e.style.setProperty('color', 'transparent', 'important'); e.style.setProperty('-webkit-text-fill-color', 'transparent', 'important'); e.style.setProperty('text-shadow', 'none', 'important'); e.style.setProperty('transition', 'none', 'important'); });
         return { texts, name: c.className };
-      });
+      }, surface);
       const clip = { x: box.x, y: box.y, width: box.width, height: Math.min(box.height, vp.height - box.y) };
       const png = (await page.screenshot({ clip })).toString('base64');
-      await card.evaluate((c) => c.querySelectorAll('*').forEach((e) => { e.style.visibility = e.dataset.vis || ''; }));
+      await card.evaluate((c) => c.querySelectorAll('*').forEach((e) => { e.style.visibility = e.dataset.vis || ''; if (e.dataset.col != null) { e.style.cssText = e.dataset.col; delete e.dataset.col; } }));
       const r = await page.evaluate(async ({ png, texts }) => {
         const img = new Image(); img.src = 'data:image/png;base64,' + png; await img.decode();
         const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const g = cv.getContext('2d'); g.drawImage(img, 0, 0);
@@ -437,11 +473,11 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
           const w = Math.max(1, Math.floor(t.w)), h = Math.max(1, Math.floor(t.h)); if (t.y + h > cv.height) continue;
           const d = g.getImageData(Math.floor(t.x), Math.floor(t.y), w, h).data;
           const tc = t.color.match(/\d+(\.\d+)?/g).map(Number); const a = (tc[3] ?? 1) * t.op;
-          for (let i = 0; i < d.length; i += 4 * 2) { const bg = [d[i], d[i + 1], d[i + 2]]; const tx = tc.slice(0, 3).map((v, k) => v * a + bg[k] * (1 - a)); const A = lum(tx), B = lum(bg); min = Math.min(min, (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05)); }
+          for (let i = 0; i < d.length; i += 4 * 2) { const bg = [d[i], d[i + 1], d[i + 2]]; const tx = tc.slice(0, 3).map((v, k) => v * a + bg[k] * (1 - a)); const A = lum(tx), B = lum(bg); const q = (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05); if (q < min) self.__w = t.sel + ' ' + t.color; min = Math.min(min, (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05)); }
         }
-        return min;
+        return min && (self.__last = self.__w, min);
       }, { png, texts: info.texts });
-      if (r < worst.r) worst = { r, name: info.name };
+      if (r < worst.r) worst = { r, name: info.name + ' / ' + await page.evaluate(() => self.__last) };
       check(r >= 4.5, `glass ${theme}: "${info.name}" text vs the busiest pixel behind it ${r.toFixed(2)}:1 (AA 4.5)`);
     }
     console.log(`     glass ${theme}: worst card ${worst.name} ${worst.r.toFixed(2)}:1`);
