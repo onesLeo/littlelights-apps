@@ -2,6 +2,8 @@
 // Later this moves to one Markdown file per post (see docs/roadmap.md).
 // Bible text: World English Bible (WEB), public domain.
 window.LL_CONTENT = {
+  // Built-in items have no post date; they sort as this fixed date (older than any Studio post).
+  builtinDate: '2026-01-01',
   devotions: [
     {
       slug: 'brave',
