@@ -144,6 +144,16 @@ async function openApp(viewport, sw = true, versesOn = true) {
   await page.click('.p-tab[data-tab="listen"]');
   await page.waitForTimeout(150);
   await page.click('#pEps .p-row');
+  await page.click('#pMiniOpen');
+  await page.waitForTimeout(200);
+  const tx = await page.$$eval('#pFull .transcript p', (ps) => ps.map((p) => p.textContent));
+  check(tx.length >= 3 && tx[0].startsWith('Today’s verse') || tx.length >= 3 && tx[0].startsWith("Today's verse"), `player: Read along shows the transcript in paragraphs (${tx.length})`);
+  check(tx.some((p) => p.startsWith('Let us pray')) && tx.join(' ').endsWith('Amen.'), 'player: the prayer starts its own paragraph and nothing is lost');
+  const close = await page.$eval('#pFull [data-close]', (b) => ({ l: b.getAttribute('aria-label'), w: b.getBoundingClientRect().width, h: b.getBoundingClientRect().height }));
+  check(close.l === 'Close player' && close.w >= 44 && close.h >= 44, 'player: close button is labelled and at least 44px');
+  check(await page.$eval('#pFull .transcript', (t) => getComputedStyle(t).overflowY === 'auto'), 'player: transcript scrolls');
+  await page.keyboard.press('Escape');
+  check(!(await page.$eval('#pFull', (f) => f.classList.contains('on'))), 'player: Escape closes it');
   check(await page.$eval('#app', (a) => a.classList.contains('has-mini')), 'phone: mini player appears');
   await page.click('.p-tab[data-tab="verses"]');
   check(await page.$eval('#app', (a) => a.classList.contains('has-mini')), 'phone: mini player stays when changing tabs');

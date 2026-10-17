@@ -101,7 +101,7 @@
         var f = p.fields || {};
         audioAt[p.id] = eps.length;
         eps.push({ title: p.title, meta: f.kind || 'Audio', dur: f.seconds || toSeconds(f.minutes), color: f.color || '#a07fd6', src: p._src || '', _id: p.id,
-          verse: f.verse || '', ref: f.ref || '' });
+          verse: f.verse || '', ref: f.ref || '', transcript: f.transcript || '' });
         if (f.builtin) copyOf[f.builtin] = eps.length - 1;
       });
       posts.forEach(function (p) {
@@ -639,18 +639,40 @@
     setPlaying(true);
     toast('Playing: ' + C.episodes[i].title);
   }
+  // Transcript as paragraphs: blank lines if the text has them, otherwise a few sentences each,
+  // with a new paragraph where a prayer starts.
+  function transcriptHtml(text) {
+    text = String(text || '').trim();
+    if (!text) return '';
+    var blocks = text.split(/\n\s*\n/);
+    if (blocks.length === 1) {
+      blocks = [];
+      var cur = [];
+      (text.match(/[^.!?]+[.!?]+["”’)]*|[^.!?]+$/g) || [text]).forEach(function (s) {
+        s = s.trim();
+        if (!s) return;
+        if (cur.length && (cur.length >= 3 || /^(Let us pray|Dear (Jesus|Lord|God|Father))/i.test(s))) { blocks.push(cur.join(' ')); cur = []; }
+        cur.push(s);
+      });
+      if (cur.length) blocks.push(cur.join(' '));
+    }
+    return blocks.map(function (b) { return '<p>' + esc(b.trim()).replace(/\n/g, '<br>') + '</p>'; }).join('');
+  }
   function openFull() {
     if (player.ep < 0) return;
-    var e = C.episodes[player.ep], full = $('#pFull');
+    var e = C.episodes[player.ep], full = $('#pFull'), tx = transcriptHtml(e.transcript);
     full.innerHTML =
-      '<button class="down" type="button" data-close>⌄ Close</button>' +
+      '<div class="p-full-top"><span class="handle" aria-hidden="true"></span>' +
+      '<button class="down" type="button" data-close aria-label="Close player"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>' +
       '<div class="bigart" style="background:radial-gradient(circle at 50% 40%,' + e.color + ',#2d2352 90%)"><i></i></div>' +
       '<div><b>' + esc(e.title) + '</b><br><small>' + esc(e.meta) + ' · Salt and Light</small></div>' +
       '<input type="range" id="pRange" min="0" max="' + Math.round(duration()) + '" step="1" value="' + player.t + '" aria-label="Position">' +
       '<div class="times"><span id="pTimeNow">' + fmt(player.t) + '</span><span>' + fmt(duration()) + '</span></div>' +
       '<div class="ctls"><button type="button" data-skip="-15">−15s</button><button class="main" type="button" id="pFullPP" aria-label="Play or pause"></button><button type="button" data-skip="15">+15s</button></div>' +
-      (e.devotion != null ? '<button class="p-btn ghost readalong" type="button" data-read="' + e.devotion + '" style="color:#fff">Read along</button>' : '') +
-      (e.src ? '' : '<div class="note">Recording coming soon. This player shows progress without sound.</div>');
+      (e.devotion != null ? '<button class="p-btn ghost readalong" type="button" data-read="' + e.devotion + '" style="color:#fff">Open the devotion</button>' : '') +
+      (e.src ? '' : '<div class="note">Recording coming soon. This player shows progress without sound.</div>') +
+      (tx ? '<section class="transcript" aria-labelledby="pTxHead" tabindex="0"><h4 id="pTxHead">Read along</h4>' + tx + '</section>' : '');
+    full.classList.toggle('has-text', !!tx);
     full.classList.add('on');
     renderPlayer();
   }

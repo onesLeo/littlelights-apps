@@ -16,7 +16,7 @@
   var FIELDS = {
     verse: ['verse', 'ref', 'translation', 'topics'],
     devotion: ['teaser', 'body', 'ref', 'family', 'prayer', 'audioId'],
-    audio: ['kind', 'minutes', 'seconds', 'file'],
+    audio: ['kind', 'minutes', 'seconds', 'file', 'transcript'],
     reel: ['caption', 'youtube', 'minutes', 'seconds', 'file'],
     game: ['text', 'button']
   };
@@ -306,7 +306,8 @@
       f = field('title', 'Title', p.title, { ph: 'Bedtime prayer: stay close tonight' }) +
         '<div class="two"><label class="field"><span>Kind</span><select class="select" data-f="kind" id="f_kind">' + ['Devotion', 'Prayer', 'Bible story for kids'].map(function (x) { return '<option' + ((p.kind || 'Devotion') === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></label>' +
         field('minutes', 'Length', p.minutes, { ph: 'Filled in from the file' }) + '</div>' +
-        uploadField('Recording', 'audio/*', 'MP3 or M4A, up to 50 MB. The length is read from the file.');
+        uploadField('Recording', 'audio/*', 'MP3 or M4A, up to 50 MB. The length is read from the file.') +
+        field('transcript', 'Transcript (Read along)', p.transcript, { textarea: true, tall: true, ph: 'What the recording says. Shown under the player so listeners can read along. Leave an empty line between paragraphs.' });
     } else if (p.type === 'reel') {
       f = field('title', 'Title', p.title, { ph: 'Noah kept building' }) +
         field('caption', 'Caption', p.caption, { textarea: true, ph: 'What the reel is about, with the Bible reference' }) +

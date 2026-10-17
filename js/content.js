@@ -55,7 +55,8 @@ window.LL_CONTENT = {
     // Built-in copy of the Psalm 56:3 devotion. Its Studio post carries fields.builtin
     // 'audio:when-i-am-afraid-psalm-56-3', so once published it replaces this entry (no duplicate).
     { title: 'When I Am Afraid — Psalm 56:3', meta: 'Devotion', dur: 115, color: '#a07fd6', src: 'media/devotion-psalm-56-3.mp3',
-      verse: 'When I am afraid, I will put my trust in you.', ref: 'Psalm 56:3' }
+      verse: 'When I am afraid, I will put my trust in you.', ref: 'Psalm 56:3',
+      transcript: "Today's verse, Psalm 56:3. When I am afraid, I will put my trust in you. Sometimes in life we face our own Goliath. It might be a problem so big that we wonder if we could ever bring it down. We feel afraid, and our strength seems to slip away. But today's verse reminds us of something David learned. Even in the middle of his fear, he kept moving forward, because he knew that God was with him and would protect him. Being afraid doesn't mean we've lost. It's the moment we choose to trust God. Let us pray. Dear Jesus, you know the challenges I'm facing today, in my marriage, my work, my income, my parenting or my relationships. Even when I'm afraid, I choose to put all my trust in you. Please help me face and overcome these challenges with the strength that comes from you. I believe that with you I will come through victorious and blessed. In Jesus' name I pray. Amen." }
   ],
 
   // `src` is empty until real videos exist; the reel then shows an animated placeholder.

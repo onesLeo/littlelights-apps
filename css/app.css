@@ -164,7 +164,20 @@ img, svg { max-width: 100%; }
 .p-txt .meta { font: 700 11px var(--display); letter-spacing: .12em; text-transform: uppercase; opacity: .6; }
 .p-full.on { display: flex; }
 .p-full { background: linear-gradient(180deg, #3b2c6b, #17122e 70%); color: #fff; animation: up .38s cubic-bezier(.2,.8,.2,1); flex-direction: column; padding: 16px 24px 30px; gap: 16px; }
-.p-full .down { align-self: center; background: none; border: 0; color: #cfc6ea; font-size: 12px; font-weight: 700; cursor: pointer; padding: 6px 12px; }
+.p-full-top { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: none; }
+.p-full-top .handle { width: 44px; height: 5px; border-radius: 999px; background: rgba(214,195,245,.55); }
+.p-full .down { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: rgba(214,195,245,.16); border: 1.5px solid rgba(214,195,245,.45); color: #f3ecff; cursor: pointer; padding: 0; transition: background .15s ease; }
+.p-full .down svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.p-full .down:hover { background: rgba(214,195,245,.28); }
+.p-full .down:focus-visible { outline: 3px solid #f5c542; outline-offset: 3px; }
+/* Read along: the transcript under the controls (white on dark purple, well above WCAG AA). */
+.p-full { overflow: hidden; }
+.p-full.has-text .bigart { max-width: 132px; border-radius: 20px; flex: none; }
+.p-full.has-text .bigart i { width: 36px; height: 36px; box-shadow: 0 0 30px 10px rgba(255,236,170,.55); }
+.p-full .transcript { flex: 1 1 auto; min-height: 120px; overflow-y: auto; -webkit-overflow-scrolling: touch; background: rgba(255,255,255,.06); border: 1px solid rgba(214,195,245,.18); border-radius: 18px; padding: 14px 16px 6px; }
+.p-full .transcript h4 { margin: 0 0 8px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #d6c3f5; }
+.p-full .transcript p { margin: 0 0 12px; font-size: 17px; line-height: 1.6; color: #fbf8ff; }
+.p-full .transcript:focus-visible { outline: 3px solid #f5c542; outline-offset: 2px; }
 .p-full .bigart { aspect-ratio: 1; width: 100%; max-width: 270px; align-self: center; border-radius: 26px; display: grid; place-items: center; position: relative; overflow: hidden; }
 .p-full .bigart i { width: 60px; height: 60px; border-radius: 50%; background: #fff6d1; box-shadow: 0 0 50px 18px rgba(255,236,170,.6); }
 .p-full.playing .bigart i { animation: breathe 3.5s ease-in-out infinite; }
