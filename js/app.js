@@ -423,6 +423,17 @@
   wake();
 
   // ---------- colour ripple where you press ----------
+  // Wordmark flare: a tap on touch screens flares the candle for 1.5s. Never blocks the tap, so the logo link still works.
+  document.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'mouse') return;
+    document.documentElement.classList.add('wm-touch');
+    var w = e.target.closest && e.target.closest('.wm, .p-brand, .p-logo, .brand');
+    w = w && (w.classList.contains('wm') ? w : w.querySelector('.wm'));
+    if (!w) return;
+    w.classList.add('flaring');
+    clearTimeout(w._flare);
+    w._flare = setTimeout(function () { w.classList.remove('flaring'); }, 1500);
+  }, { passive: true });
   app.addEventListener('pointerdown', function (e) {
     wake();
     if (app.classList.contains('calm')) return;

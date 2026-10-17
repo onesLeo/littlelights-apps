@@ -282,6 +282,65 @@ async function openApp(viewport, sw = true, versesOn = true) {
   await context.close();
 }
 
+// ---------- wordmark flare ----------
+const flareState = (sel) => (s) => {
+  const w = document.querySelector(s); const f = w.querySelector('.wm-flare'); const m = new DOMMatrix(getComputedStyle(f).transform);
+  const fr = w.querySelector('.wm-flare').getBoundingClientRect(); const hr = w.querySelector('.wm-hw').getBoundingClientRect();
+  const box = w.getBoundingClientRect();
+  let clipped = [];
+  for (let el = w.parentElement; el && el !== document.body; el = el.parentElement) {
+    const cs = getComputedStyle(el); const r = el.getBoundingClientRect();
+    if (/hidden|clip|auto|scroll/.test(cs.overflow + cs.overflowX + cs.overflowY) && (fr.top < r.top || fr.left < r.left || fr.right > r.right || hr.top < r.top - 1)) clipped.push(el.className || el.tagName);
+    if (cs.clipPath && cs.clipPath !== 'none') { const n = (cs.clipPath.match(/-?\d+(\.\d+)?px/g) || ['0px']).map(parseFloat); if (fr.top < r.top + n[0] || hr.top < r.top + n[0]) clipped.push('clip-path ' + el.className); }
+  }
+  return { sy: m.d, sx: m.a, halo2: +getComputedStyle(w.querySelector('.wm-halo2')).opacity, burst: getComputedStyle(w.querySelector('.wm-e2')).animationName,
+    jit: getComputedStyle(w.querySelector('.wm-jit')).animationPlayState, box: [box.x, box.y, box.width, box.height].map(Math.round).join(), flaring: w.classList.contains('flaring'), clipped };
+};
+{
+  const { context, page, errors } = await openApp({ width: 1366, height: 820 });
+  await page.evaluate(() => { window.__cls = 0; new PerformanceObserver((l) => l.getEntries().forEach((e) => { window.__cls += e.value; })).observe({ type: 'layout-shift', buffered: false }); });
+  const S = '.p-brand .wm';
+  const rest = await page.evaluate(flareState(), S);
+  check(Math.abs(rest.sy - 1) < 0.01 && rest.halo2 === 0 && rest.burst === 'none', 'flare: candle rests at normal size');
+  await page.hover('.p-brand .wm-l'); await page.waitForTimeout(450);
+  const up = await page.evaluate(flareState(), S);
+  check(up.sy >= 1.8 && up.sy <= 2 && up.halo2 === 1 && up.burst === 'wm-burst' && up.jit === 'running', `flare: hovering Light grows the flame ${up.sy.toFixed(2)}x, brightens the halo and lifts embers`);
+  check(up.box === rest.box, 'flare: wordmark box is unchanged (no layout shift)');
+  check(up.clipped.length === 0, `flare: desktop header does not clip the flame ${up.clipped.join(',')}`);
+  await page.mouse.move(700, 600); await page.waitForTimeout(500);
+  const down = await page.evaluate(flareState(), S);
+  check(Math.abs(down.sy - 1) < 0.01 && down.halo2 === 0 && down.burst === 'none', 'flare: flame eases back when the pointer leaves');
+  for (let i = 0; i < 15 && !(await page.evaluate(() => document.activeElement.classList.contains('p-brand'))); i++) await page.keyboard.press('Tab');
+  await page.waitForTimeout(450);
+  check((await page.evaluate(flareState(), S)).sy >= 1.8, 'flare: keyboard focus on the logo flares the candle');
+  check((await page.evaluate(() => window.__cls)) === 0, 'flare: no cumulative layout shift');
+  check(errors.length === 0, `flare: no script errors ${errors.join(' | ')}`);
+  await context.close();
+}
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
+  await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  await ctx.addInitScript(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
+  const page = await ctx.newPage();
+  for (const tab of ['listen', 'read', 'verses', 'play']) {
+    await page.goto(base + '#' + tab); await page.waitForSelector('#app[data-ready]'); await page.waitForTimeout(300);
+    const S = `.v-${tab} .p-logo .wm`;
+    const rest = await page.evaluate(flareState(), S);
+    await page.tap(`.v-${tab} .p-logo .wm-l`); await page.waitForTimeout(450);
+    const up = await page.evaluate(flareState(), S);
+    check(up.flaring && up.sy >= 1.8 && up.box === rest.box && up.clipped.length === 0, `flare: tap on the ${tab} header flares the candle without clipping or shifting ${up.clipped.join(',')}`);
+    await page.waitForTimeout(1500);
+    const back = await page.evaluate(flareState(), S);
+    check(!back.flaring && Math.abs(back.sy - 1) < 0.01, `flare: ${tab} candle eases back after about 1.5s`);
+  }
+  await ctx.close();
+  const ctx2 = await browser.newContext({ viewport: { width: 1366, height: 820 }, hasTouch: true, serviceWorkers: 'block' });
+  await ctx2.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  const p2 = await ctx2.newPage(); await p2.goto(base + '#listen'); await p2.waitForSelector('#app[data-ready]');
+  await p2.tap('.p-brand .wm-l'); await p2.waitForTimeout(400);
+  check((await p2.evaluate(() => location.hash)) === '#today' && (await p2.$eval('.p-brand .wm', (w) => w.classList.contains('flaring'))), 'flare: tapping the logo link still navigates to Today');
+  await ctx2.close();
+}
 // Layout and motion regressions at the smallest phone and desktop breakpoints.
 for (const viewport of [{ width: 320, height: 568 }, { width: 900, height: 650 }, { width: 1024, height: 768 }]) {
   const { context, page } = await openApp(viewport);
@@ -289,6 +348,9 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 900, height: 650 }
   await page.waitForTimeout(100);
   check(await page.$eval('#app', (a) => a.classList.contains('calm')), `${viewport.width}px: system reduced motion enables Calm mode`);
   check(await page.$$eval('.wm-sway, .wm-flame, .wm-fo, .wm-fc, .wm-halo, .wm-ember', (f) => f.length > 20 && f.every((x) => getComputedStyle(x).animationName === 'none')), `${viewport.width}px: reduced motion keeps the wordmark flame still`);
+  const calmFlare = await page.evaluate(() => { document.querySelectorAll('.wm').forEach((w) => w.classList.add('flaring')); return [...document.querySelectorAll('.wm')].map((w) => [getComputedStyle(w.querySelector('.wm-flare')).transform, getComputedStyle(w.querySelector('.wm-hw')).transform, getComputedStyle(w.querySelector('.wm-halo2')).opacity, getComputedStyle(w.querySelector('.wm-e2')).animationName, getComputedStyle(w.querySelector('.wm-jit')).animationName]); });
+  check(calmFlare.every(([f, h, o, e, j]) => f === 'none' && h === 'none' && o === '0.5' && e === 'none' && j === 'none'), `${viewport.width}px: flare under reduced motion is only a static brightening`);
+  await page.evaluate(() => document.querySelectorAll('.wm').forEach((w) => w.classList.remove('flaring')));
   await page.evaluate(() => document.querySelector('[data-mode]').click());
   await page.evaluate(() => document.querySelector('#pOwl').click());
   check(await page.$eval('#pOwl', (o) => !o.classList.contains('hoot')), `${viewport.width}px: owl responds without hopping in Calm mode`);
