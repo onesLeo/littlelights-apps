@@ -439,7 +439,7 @@ const seriesStub = (await (await fetch(base + 'js/content.js')).text())
   const css = await (await fetch(base + 'css/app.css')).text();
   check(/@supports\s+not\s*\(\(backdrop-filter/.test(css) && /-webkit-backdrop-filter:\s*blur/.test(css), 'glass: -webkit- prefix and an @supports not (backdrop-filter) solid fallback exist');
   check(!/@keyframes[^}]*\{[^@]*backdrop-filter/.test(css), 'glass: no animated filters');
-  for (const [theme, vp, hash, sel, setup, fixture] of [['day', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['night', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['phone day', { width: 390, height: 844 }, '#read', '#pCards .p-card, .p-now'], ['phone night', { width: 390, height: 844 }, '#read', '#pCards .p-card'],
+  for (const [theme, vp, hash, sel, setup, fixture] of [['day', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['night', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['phone day', { width: 390, height: 844 }, '#read', '#pCards .p-card, .p-now'], ['phone night', { width: 390, height: 844 }, '#read', '#pCards .p-card'], ...[1024, 1280, 1440].flatMap((w) => [['desk ' + w + ' read day', { width: w, height: 900 }, '#read', '#pCards .p-card'], ['desk ' + w + ' read night', { width: w, height: 900 }, '#read', '#pCards .p-card']]),
     ...['day', 'night'].flatMap((t) => [
       [`desktop ${t} nav`, { width: 1440, height: 900 }, '#listen', '.p-tabs', async (pg) => { await pg.evaluate(() => { const v = document.querySelector('.v-listen'); if (v) v.scrollTop = 200; }); }],
       [`phone ${t} listen bars`, { width: 390, height: 844 }, '#listen', '.v-listen .p-head, .p-tabs, .p-list .p-row, .p-mini', async (pg) => { await pg.click('.p-row'); await pg.waitForTimeout(300); await pg.evaluate(() => { const v = document.querySelector('.v-listen'); if (v) v.scrollTop = 120; }); }],
@@ -768,6 +768,22 @@ for (const [theme, exp] of [['night', { bg: 'rgb(15, 21, 48)', ink: 'rgb(246, 23
   check(/blur\(20px\)/.test(r.bf) && /saturate/.test(r.bf), `read ${theme}: frosted blur + saturate (${r.bf})`);
   check(parseFloat(r.bw) >= 1 && /border: 1.5px solid rgba\(242,196,107,.7\)/.test(await (await fetch(base + 'css/app.css')).text()) && (theme === 'night' ? /242, 196, 107, 0.7/ : /184, 134, 43/).test(r.bc), `read ${theme}: visible gold border (${r.bw} ${r.bc})`);
   check(r.anim === 'none', `read ${theme}: calm, no card animation`);
+  await ctx.close();
+}
+
+// ---------- Read page layout: header seamless + aligned, tight featured card, visible hairline, AA over desktop glow ----------
+for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
+  const ctx = await browser.newContext({ viewport: { width: w, height: w < 500 ? 844 : 900 } });
+  await ctx.addInitScript((t) => { localStorage.setItem('ll.theme', t); }, theme);
+  const pg = await ctx.newPage(); await pg.goto(base + '#read'); await pg.waitForSelector('#pCards .p-card'); await pg.waitForTimeout(600);
+  const r = await pg.evaluate(() => { const R = (e) => e.getBoundingClientRect(); const h = document.querySelector('.v-read .p-head'); const c = document.querySelector('#pCards .p-card.feat'); const f = document.querySelector('.v-read .p-filter');
+    const t = h.querySelector('h3') || h; const tr = document.createRange(); tr.selectNodeContents(t);
+    return { title: Math.round(tr.getBoundingClientRect().left), card: Math.round(R(c).left), filt: f ? Math.round(R(f).left) : null, headBg: getComputedStyle(h).backgroundColor, gap: R(c.querySelector('.p-kicker')).top - R(c).top,
+      hair: [...document.querySelectorAll('#pCards .p-card')].every((x) => { const a = getComputedStyle(x, '::after'); return parseFloat(a.height) >= 1.5 && parseFloat(a.height) <= 2 && /gradient/.test(a.backgroundImage); }) }; });
+  check(Math.abs(r.title - r.card) <= 2 && (r.filt === null || Math.abs(r.filt - r.card) <= 2), `read ${w} ${theme}: title/filter aligned with cards (${r.title}/${r.filt}/${r.card})`);
+  if (w >= 900) check(r.headBg === 'rgba(0, 0, 0, 0)', `read ${w} ${theme}: header is seamless (transparent)`);
+  check(r.gap <= 24, `read ${w} ${theme}: featured card has no empty band (${Math.round(r.gap)}px above kicker)`);
+  check(r.hair, `read ${w} ${theme}: thin gold hairline on every card`);
   await ctx.close();
 }
 
