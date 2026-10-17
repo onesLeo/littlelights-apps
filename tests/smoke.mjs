@@ -100,7 +100,43 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(!(await page.$('.p-slide.s2 [data-ep], .p-slide [data-sheet="0"] + [data-ep]')), 'copy: Today devotion card has no Listen button');
   check(await page.evaluate(() => window.LL_CONTENT.verses.some((v) => v.ref === 'Proverbs 17:17' && v.text === 'A friend loves at all times; and a brother is born for adversity.')), 'copy: Proverbs 17:17 is the full WEB verse');
 
-  check(await page.title() === 'Salt and Light' && (await page.textContent('.p-brand span')) === 'Salt and Light', 'brand: site is called Salt and Light');
+  check(await page.title() === 'Salt and Light' && (await page.getAttribute('.p-brand .wm', 'aria-label')) === 'Salt and Light', 'brand: site is called Salt and Light');
+  // Calligraphy wordmark: accessible name, candle i, alignment and contrast.
+  const wm = await page.evaluate(async () => {
+    await document.fonts.load('22px Parisienne');
+    const all = [...document.querySelectorAll('.wm')];
+    const ids = all.map((w) => w.querySelector('linearGradient').id);
+    const lum = (c) => { const v = c.match(/\d+(\.\d+)?/g).slice(0, 3).map((n) => { n /= 255; return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+    const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+    const vis = document.querySelector('.p-logo .wm:not(.wm-onlight)').cloneNode(true); vis.style.fontSize = '22px'; document.getElementById('app').appendChild(vis);
+    const l = vis.querySelector('.wm-l'); const svg = l.querySelector('svg');
+    const probe = document.createElement('span'); probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+    l.appendChild(probe);
+    const base = probe.getBoundingClientRect().bottom; probe.remove();
+    const fs = parseFloat(getComputedStyle(vis).fontSize);
+    const stem = svg.querySelector('rect').getBoundingClientRect();
+    return {
+      n: all.length, labels: all.every((w) => w.getAttribute('role') === 'img' && w.getAttribute('aria-label') === 'Salt and Light'),
+      hidden: all.every((w) => w.querySelector('svg').getAttribute('aria-hidden') === 'true' && [...w.children].every((c) => c.getAttribute('aria-hidden') === 'true')),
+      unique: new Set(ids).size === ids.length, font: getComputedStyle(vis).fontFamily.includes('Parisienne') && document.fonts.check('22px Parisienne'),
+      baseline: Math.abs(stem.bottom - base) / fs, xh: Math.abs((stem.bottom - stem.top) - 0.36 * fs) / fs,
+      creamOnNavy: ratio(getComputedStyle(vis.querySelector('.wm-s')).color, 'rgb(15,13,32)'),
+      plumOnLight: ratio(getComputedStyle(document.querySelector('.wm-onlight .wm-s')).color, 'rgb(251,246,238)'),
+      plumOnNavy: ratio('rgb(59,31,74)', 'rgb(15,13,32)'),
+      layers: ['.wm-sway', '.wm-flame', '.wm-fo', '.wm-fc', '.wm-halo', '.wm-ember'].map((q) => { const s = getComputedStyle(svg.querySelector(q)); return [s.animationName, s.animationDuration, s.transformOrigin]; }),
+      phases: new Set(all.map((w) => w.style.getPropertyValue('--wm-d'))).size,
+      flameBase: (() => { const r = svg.querySelector('.wm-flame').getBoundingClientRect(); return r.bottom; })(), stemTop: stem.top,
+      _: vis.remove(),
+    };
+  });
+  check(wm.n >= 5 && wm.labels && wm.hidden, 'wordmark: every header logo is labelled "Salt and Light" with the candle hidden from screen readers');
+  check(wm.unique, 'wordmark: each candle has its own gradient id');
+  check(wm.font, 'wordmark: self-hosted Parisienne is loaded');
+  check(wm.baseline < 0.03 && wm.xh < 0.03, `wordmark: candle sits on the baseline and reaches the x-height (${wm.baseline.toFixed(3)}em, ${wm.xh.toFixed(3)}em)`);
+  check(wm.plumOnNavy < 3 && wm.creamOnNavy >= 7 && wm.plumOnLight >= 7, `wordmark: cream on the navy header, plum only on light backgrounds (${wm.creamOnNavy.toFixed(1)}:1, ${wm.plumOnLight.toFixed(1)}:1)`);
+  check(wm.layers.every(([n]) => n.startsWith('wm-')) && new Set(wm.layers.map(([, d]) => d)).size === 6, `wordmark: six flame layers animate on different (prime) durations ${wm.layers.map(([, d]) => d).join(' ')}`);
+  check(wm.phases >= 5, 'wordmark: each wordmark flickers out of phase');
+  check(wm.flameBase <= wm.stemTop + 1, 'wordmark: flame stays above the wick, anchored at its base');
   check(html.includes('<meta name="application-name" content="Salt and Light">') && html.includes('<meta name="apple-mobile-web-app-title" content="Salt and Light">'), 'brand: app name meta tags');
   check((html.match(/Little Light: Bible Journeys/g) || []).length >= 3, 'brand: the game keeps its name');
   // Everything on for the rest of the journey.
@@ -198,6 +234,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
 
   await page.click('.p-rings [data-calm]');
   check(await page.$eval('#app', (a) => a.classList.contains('calm')), 'phone: calm mode turns on');
+  check(await page.$$eval('.wm-sway, .wm-flame, .wm-fo, .wm-fc, .wm-halo, .wm-ember', (f) => f.length > 20 && f.every((x) => getComputedStyle(x).animationName === 'none')), 'phone: calm mode keeps the wordmark flame still');
 
   await page.click('.p-tab[data-tab="watch"]');
   await page.click('.p-reel .save');
@@ -245,12 +282,75 @@ async function openApp(viewport, sw = true, versesOn = true) {
   await context.close();
 }
 
+// ---------- wordmark flare ----------
+const flareState = (sel) => (s) => {
+  const w = document.querySelector(s); const f = w.querySelector('.wm-flare'); const m = new DOMMatrix(getComputedStyle(f).transform);
+  const fr = w.querySelector('.wm-flare').getBoundingClientRect(); const hr = w.querySelector('.wm-hw').getBoundingClientRect();
+  const box = w.getBoundingClientRect();
+  let clipped = [];
+  for (let el = w.parentElement; el && el !== document.body; el = el.parentElement) {
+    const cs = getComputedStyle(el); const r = el.getBoundingClientRect();
+    if (/hidden|clip|auto|scroll/.test(cs.overflow + cs.overflowX + cs.overflowY) && (fr.top < r.top || fr.left < r.left || fr.right > r.right || hr.top < r.top - 1)) clipped.push(el.className || el.tagName);
+    if (cs.clipPath && cs.clipPath !== 'none') { const n = (cs.clipPath.match(/-?\d+(\.\d+)?px/g) || ['0px']).map(parseFloat); if (fr.top < r.top + n[0] || hr.top < r.top + n[0]) clipped.push('clip-path ' + el.className); }
+  }
+  return { sy: m.d, sx: m.a, halo2: +getComputedStyle(w.querySelector('.wm-halo2')).opacity, burst: getComputedStyle(w.querySelector('.wm-e2')).animationName,
+    jit: getComputedStyle(w.querySelector('.wm-jit')).animationPlayState, box: [box.x, box.y, box.width, box.height].map(Math.round).join(), flaring: w.classList.contains('flaring'), clipped };
+};
+{
+  const { context, page, errors } = await openApp({ width: 1366, height: 820 });
+  await page.evaluate(() => { window.__cls = 0; new PerformanceObserver((l) => l.getEntries().forEach((e) => { window.__cls += e.value; })).observe({ type: 'layout-shift', buffered: false }); });
+  const S = '.p-brand .wm';
+  const rest = await page.evaluate(flareState(), S);
+  check(Math.abs(rest.sy - 1) < 0.01 && rest.halo2 === 0 && rest.burst === 'none', 'flare: candle rests at normal size');
+  await page.hover('.p-brand .wm-l'); await page.waitForTimeout(450);
+  const up = await page.evaluate(flareState(), S);
+  check(up.sy >= 1.8 && up.sy <= 2 && up.halo2 === 1 && up.burst === 'wm-burst' && up.jit === 'running', `flare: hovering Light grows the flame ${up.sy.toFixed(2)}x, brightens the halo and lifts embers`);
+  check(up.box === rest.box, 'flare: wordmark box is unchanged (no layout shift)');
+  check(up.clipped.length === 0, `flare: desktop header does not clip the flame ${up.clipped.join(',')}`);
+  await page.mouse.move(700, 600); await page.waitForTimeout(500);
+  const down = await page.evaluate(flareState(), S);
+  check(Math.abs(down.sy - 1) < 0.01 && down.halo2 === 0 && down.burst === 'none', 'flare: flame eases back when the pointer leaves');
+  for (let i = 0; i < 15 && !(await page.evaluate(() => document.activeElement.classList.contains('p-brand'))); i++) await page.keyboard.press('Tab');
+  await page.waitForTimeout(450);
+  check((await page.evaluate(flareState(), S)).sy >= 1.8, 'flare: keyboard focus on the logo flares the candle');
+  check((await page.evaluate(() => window.__cls)) === 0, 'flare: no cumulative layout shift');
+  check(errors.length === 0, `flare: no script errors ${errors.join(' | ')}`);
+  await context.close();
+}
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
+  await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  await ctx.addInitScript(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
+  const page = await ctx.newPage();
+  for (const tab of ['listen', 'read', 'verses', 'play']) {
+    await page.goto(base + '#' + tab); await page.waitForSelector('#app[data-ready]'); await page.waitForTimeout(300);
+    const S = `.v-${tab} .p-logo .wm`;
+    const rest = await page.evaluate(flareState(), S);
+    await page.tap(`.v-${tab} .p-logo .wm-l`); await page.waitForTimeout(450);
+    const up = await page.evaluate(flareState(), S);
+    check(up.flaring && up.sy >= 1.8 && up.box === rest.box && up.clipped.length === 0, `flare: tap on the ${tab} header flares the candle without clipping or shifting ${up.clipped.join(',')}`);
+    await page.waitForTimeout(1500);
+    const back = await page.evaluate(flareState(), S);
+    check(!back.flaring && Math.abs(back.sy - 1) < 0.01, `flare: ${tab} candle eases back after about 1.5s`);
+  }
+  await ctx.close();
+  const ctx2 = await browser.newContext({ viewport: { width: 1366, height: 820 }, hasTouch: true, serviceWorkers: 'block' });
+  await ctx2.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  const p2 = await ctx2.newPage(); await p2.goto(base + '#listen'); await p2.waitForSelector('#app[data-ready]');
+  await p2.tap('.p-brand .wm-l'); await p2.waitForTimeout(400);
+  check((await p2.evaluate(() => location.hash)) === '#today' && (await p2.$eval('.p-brand .wm', (w) => w.classList.contains('flaring'))), 'flare: tapping the logo link still navigates to Today');
+  await ctx2.close();
+}
 // Layout and motion regressions at the smallest phone and desktop breakpoints.
 for (const viewport of [{ width: 320, height: 568 }, { width: 900, height: 650 }, { width: 1024, height: 768 }]) {
   const { context, page } = await openApp(viewport);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.waitForTimeout(100);
   check(await page.$eval('#app', (a) => a.classList.contains('calm')), `${viewport.width}px: system reduced motion enables Calm mode`);
+  check(await page.$$eval('.wm-sway, .wm-flame, .wm-fo, .wm-fc, .wm-halo, .wm-ember', (f) => f.length > 20 && f.every((x) => getComputedStyle(x).animationName === 'none')), `${viewport.width}px: reduced motion keeps the wordmark flame still`);
+  const calmFlare = await page.evaluate(() => { document.querySelectorAll('.wm').forEach((w) => w.classList.add('flaring')); return [...document.querySelectorAll('.wm')].map((w) => [getComputedStyle(w.querySelector('.wm-flare')).transform, getComputedStyle(w.querySelector('.wm-hw')).transform, getComputedStyle(w.querySelector('.wm-halo2')).opacity, getComputedStyle(w.querySelector('.wm-e2')).animationName, getComputedStyle(w.querySelector('.wm-jit')).animationName]); });
+  check(calmFlare.every(([f, h, o, e, j]) => f === 'none' && h === 'none' && o === '0.5' && e === 'none' && j === 'none'), `${viewport.width}px: flare under reduced motion is only a static brightening`);
+  await page.evaluate(() => document.querySelectorAll('.wm').forEach((w) => w.classList.remove('flaring')));
   await page.evaluate(() => document.querySelector('[data-mode]').click());
   await page.evaluate(() => document.querySelector('#pOwl').click());
   check(await page.$eval('#pOwl', (o) => !o.classList.contains('hoot')), `${viewport.width}px: owl responds without hopping in Calm mode`);

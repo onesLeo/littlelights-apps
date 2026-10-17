@@ -1,7 +1,21 @@
+// Calligraphy wordmark (same markup as the site header). The candle is the i.
+function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and Light" style="--wm-d:-PHs"><span class="wm-s" aria-hidden="true">Salt and </span><span class="wm-l" aria-hidden="true">L<svg class="wm-i" viewBox="0 0 18 49" aria-hidden="true" focusable="false"><defs><linearGradient id="GID" x1="0" y1="0" x2="0" y2="1"><stop class="wm-a" offset="0"/><stop class="wm-b" offset="1"/></linearGradient><radialGradient id="GIDf" cx=".5" cy=".65" r=".6"><stop class="wm-c" offset="0"/><stop class="wm-a" offset=".55"/><stop class="wm-b" offset="1"/></radialGradient><radialGradient id="GIDh"><stop class="wm-a" offset="0" stop-opacity=".55"/><stop class="wm-a" offset=".45" stop-opacity=".18"/><stop class="wm-a" offset="1" stop-opacity="0"/></radialGradient></defs><g transform="translate(0 49) skewX(-10) translate(0 -49)"><rect x="6.2" y="13" width="5.6" height="36" rx="2.8" fill="url(#GID)"/><path class="wm-wick" d="M9.0 12.5v-2.2"/><g class="wm-hw"><circle class="wm-halo" cx="9" cy="8" r="13" fill="url(#GIDh)"/><circle class="wm-halo2" cx="9" cy="8" r="13" fill="url(#GIDh)"/></g><g class="wm-flare"><g class="wm-jit"><g class="wm-sway"><g class="wm-flame"><g class="wm-fo"><path d="M9 0C13.6 5.5 14 9.8 9 12.6C4 9.8 4.4 5.5 9 0Z" fill="url(#GIDf)"/></g><g class="wm-fc"><path d="M9 4.4C11.2 7.4 11.5 10.2 9 12C6.5 10.2 6.8 7.4 9 4.4Z" fill="#FFF8E1"/></g></g></g></g></g><circle class="wm-ember" cx="9" cy="0" r="0.9"/><circle class="wm-ember wm-e2" cx="8" cy="1" r="0.8"/><circle class="wm-ember wm-e3" cx="10" cy="1" r="0.7"/></g></svg>ght</span></span>'.replace(/GID/g, id).replace('PH', (id.length * 0.73 + id.charCodeAt(id.length - 1) % 7 * 0.41).toFixed(2)); }
 // Little Light Studio: sign in, write, schedule and publish posts.
 // Talks to the data layer in js/store.js (local mode or Supabase).
 (function () {
   'use strict';
+
+  // Wordmark flare: a tap on touch screens flares the candle for 1.5s. Never blocks the tap, so the logo link still works.
+  document.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'mouse') return;
+    document.documentElement.classList.add('wm-touch');
+    var w = e.target.closest && e.target.closest('.wm, .p-brand, .p-logo, .brand');
+    w = w && (w.classList.contains('wm') ? w : w.querySelector('.wm'));
+    if (!w) return;
+    w.classList.add('flaring');
+    clearTimeout(w._flare);
+    w._flare = setTimeout(function () { w.classList.remove('flaring'); }, 1500);
+  }, { passive: true });
   var S = window.LLStore;
   var root = document.getElementById('root');
 
@@ -209,7 +223,7 @@
   function signin() {
     var err = state.authError;
     return '<main class="auth"><form class="auth-card" id="signinForm" novalidate>' +
-      '<div class="brand"><span class="dot"></span>Salt and Light Studio</div>' +
+      '<div class="brand">' + wordmark('wms1') + '<small class="wm-tag">Studio</small></div>' +
       '<div><h1>Sign in to post</h1><p style="margin-top:6px">For the Salt and Light team. Visitors never need an account.</p></div>' +
       modeBar() +
       '<label class="field"><span>Email</span><input class="input' + (err ? ' err' : '') + '" id="email" type="email" autocomplete="email" placeholder="you@example.com" value="' + esc(state.email) + '">' +
@@ -227,7 +241,7 @@
   function shell(inner) {
     var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['site', 'Menus', ICON.site], ['builtins', 'Built-in content', ICON.media], ['team', 'Team', ICON.team]];
     return '<div class="shell"><aside class="side">' +
-      '<div class="brand"><span class="dot"></span><span>Salt and Light Studio</span></div>' +
+      '<div class="brand">' + wordmark('wms2') + '<small class="wm-tag">Studio</small></div>' +
       '<nav aria-label="Studio">' + nav.map(function (n) {
         var on = state.view === n[0] || (n[0] === 'new' && state.view === 'edit' && state.editing && !state.editing.id);
         return '<button class="nav' + (on ? ' on' : '') + '" type="button" data-view="' + n[0] + '"' + (on ? ' aria-current="page"' : '') + '>' + n[2] + n[1] +
