@@ -31,7 +31,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     verse: ['verse', 'ref', 'translation', 'topics'],
     devotion: ['teaser', 'body', 'ref', 'family', 'prayer', 'audioId'],
     audio: ['kind', 'minutes', 'seconds', 'file', 'transcript'],
-    reel: ['caption', 'youtube', 'minutes', 'seconds', 'file'],
+    reel: ['caption', 'youtube', 'minutes', 'seconds', 'file', 'series', 'episode', 'series_description'],
     game: ['text', 'button']
   };
   var TOPICS = ['When I’m afraid', 'Trust', 'Friendship', 'Mercy', 'God sees me', 'Light'];
@@ -98,7 +98,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   var LABEL = { title: 'Title', status: 'Status', publish_at: 'Publish time', show_on_today: 'Show on Today', media_url: 'File',
     verse: 'Verse text', ref: 'Reference', translation: 'Translation', topics: 'Topics', teaser: 'Summary', body: 'Reading',
     family: 'For families', prayer: 'Prayer', audioId: 'Audio version', kind: 'Kind', minutes: 'Length', caption: 'Caption',
-    youtube: 'YouTube link', text: 'Text', button: 'Button label' };
+    youtube: 'YouTube link', text: 'Text', button: 'Button label', series: 'Series', episode: 'Episode', series_description: 'Series description' };
   // One flat list of what a reader would notice, from a stored post.
   function flat(p) {
     var out = { status: p.status, publish_at: p.publish_at, show_on_today: p.show_on_today, media_url: p.media_url };
@@ -183,6 +183,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       if (typeof v === 'string') v = v.trim();
       if (v !== undefined && v !== '' && !(Array.isArray(v) && !v.length)) p.fields[k] = v;
     });
+    if (p.fields.episode != null) { var n = parseInt(p.fields.episode, 10); if (n > 0) p.fields.episode = n; else delete p.fields.episode; }
     if (status === 'scheduled') p.publish_at = new Date(e.when).toISOString();
     else if (status === 'published') p.publish_at = e.status === 'published' && e.publish_at ? e.publish_at : new Date().toISOString();
     else p.publish_at = null;
@@ -281,6 +282,11 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       }).join('') + '</div>';
   }
 
+  function seriesNames() {
+    var seen = {};
+    (state.posts || []).forEach(function (p) { var s = p.type === 'reel' && p.fields && String(p.fields.series || '').trim(); if (s) seen[s] = 1; });
+    return Object.keys(seen).sort();
+  }
   function field(id, label, value, opts) {
     opts = opts || {};
     var err = state.errors[id];
@@ -328,7 +334,12 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       f = field('title', 'Title', p.title, { ph: 'Noah kept building' }) +
         field('caption', 'Caption', p.caption, { textarea: true, ph: 'What the reel is about, with the Bible reference' }) +
         uploadField('Video', 'video/*', 'Vertical 9:16 MP4, up to 60 seconds and 50 MB. Or paste a YouTube Shorts link below.') +
-        '<div class="two">' + field('youtube', 'YouTube link (optional)', p.youtube, { ph: 'https://youtube.com/shorts/…', type: 'url' }) + field('minutes', 'Length', p.minutes, { ph: '0:52' }) + '</div>';
+        '<div class="two">' + field('youtube', 'YouTube link (optional)', p.youtube, { ph: 'https://youtube.com/shorts/…', type: 'url' }) + field('minutes', 'Length', p.minutes, { ph: '0:52' }) + '</div>' +
+        // Series: reels with the same series name are grouped on the Watch page, ordered by episode number.
+        '<div class="two">' + field('series', 'Series (optional)', p.series, { ph: 'Leave empty for a standalone reel', list: 'seriesList', help: 'Reels with the same series name are shown together.' }) +
+        field('episode', 'Episode #', p.episode, { type: 'number', ph: '1' }) + '</div>' +
+        '<datalist id="seriesList">' + seriesNames().map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist>' +
+        field('series_description', 'Series description (optional)', p.series_description, { textarea: true, ph: 'Shown on the series page. Leave empty to use the first episode’s caption.' });
     } else {
       f = field('title', 'Headline', p.title, { ph: 'Noah’s Ark is ready to play' }) +
         field('text', 'Text', p.text, { textarea: true, ph: 'What’s new in the game' }) +

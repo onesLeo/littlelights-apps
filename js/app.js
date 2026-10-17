@@ -106,7 +106,6 @@
       return Promise.all(posts.map(function (p) {
         var f = p.fields || {}, jobs = [];
         if (p.media_url) jobs.push(S.resolveMedia(p.media_url).then(function (u) { p._src = u; }));
-        if (Array.isArray(f.parts)) f.parts.forEach(function (pt) { if (pt && pt.media_url) jobs.push(S.resolveMedia(pt.media_url).then(function (u) { pt._src = u; })); });
         return Promise.all(jobs);
       })).then(function () { return posts; });
     }).then(function (posts) {
@@ -138,7 +137,7 @@
           if (p.show_on_today) today.push({ type: 'devotion', i: devs.length - 1 });
         } else if (p.type === 'reel') {
           var look = reelLook.filter(function (l) { return l[1] === f.look; })[0] || reelLook[reels.length % 3];
-          reels.push({ title: p.title, len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '', date: p.publish_at || p.created_at || '', parts: Array.isArray(f.parts) && f.parts.length ? f.parts : null });
+          reels.push({ title: p.title, len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '', date: p.publish_at || p.created_at || '', series: f.series || '', episode: +f.episode || 0, seriesDesc: f.series_description || '' });
           if (f.builtin) copyOf[f.builtin] = reels.length - 1;
           if (p.show_on_today) today.push({ type: 'reel', i: reels.length - 1 });
         } else if (p.type === 'verse') {
@@ -394,6 +393,7 @@
       if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     if (tab !== 'watch' && watchOpen) closeWatch();
+    if (tab !== 'watch' && seriesOpen) closeSeries();
     updateReels();
   }
   function navState(tab) { return tab === 'today' || !NAV ? 'on' : NAV.menus[tab] || 'on'; }
@@ -672,12 +672,32 @@
   window.LL_ytEmbed = ytEmbed; window.LL_ytId = ytId;
   var reelsEl = $('#pReels');
   function rIcon(d) { return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + d + '"/></svg>'; }
-  // A story is a reel with one or more parts (consecutive clips). `parts` is optional; a reel without it is one part.
-  var LOOKS = { robe: '#e46a4c', rain: '#3d7fc4', sea: '#1f3a6e' };
-  function partsOf(r) {
-    var ps = Array.isArray(r.parts) && r.parts.length ? r.parts : [r];
-    return ps.map(function (p) { var kind = p.kind || p.look || r.kind; return { src: p._src || p.src || '', youtube: p.youtube || '', len: p.len || p.minutes || (ps.length === 1 ? r.len : '') || '', kind: kind, bg: p.bg || LOOKS[p.look] || r.bg }; });
+  // Each reel (episode) plays alone with one progress bar. The old `parts` field is no longer read.
+  function partsOf(r) { return [{ src: r.src || '', youtube: r.youtube || '', len: r.len || '', kind: r.kind, bg: r.bg }]; }
+  // Series: reels sharing `series` (fields.series) are grouped and ordered by `episode` (fields.episode).
+  // A unit is one series or one standalone reel. Cover art = first episode's art; description =
+  // fields.series_description from any episode, otherwise the first episode's caption.
+  function units() {
+    var by = {}, list = [];
+    C.reels.forEach(function (r, i) {
+      var s = String(r.series || '').trim();
+      if (!s) { list.push({ series: '', eps: [i] }); return; }
+      if (!by[s]) { by[s] = { series: s, eps: [] }; list.push(by[s]); }
+      by[s].eps.push(i);
+    });
+    list.forEach(function (u) {
+      u.eps.sort(function (a, b) { return (C.reels[a].episode || 999) - (C.reels[b].episode || 999) || a - b; });
+      u.date = u.eps.reduce(function (m, k) { var d = C.reels[k].date || ''; return dateOf(d) > dateOf(m) ? d : m; }, '');
+      var first = C.reels[u.eps[0]];
+      u.cover = first; u.desc = u.series ? (u.eps.map(function (k) { return C.reels[k].seriesDesc || C.reels[k].series_description; }).filter(Boolean)[0] || first.caption || '') : first.caption || '';
+      u.title = u.series || first.title; u.key = u.series ? 'series:' + u.series : 'reel:' + u.eps[0];
+    });
+    return list;
   }
+  function unitOf(i) { return units().filter(function (u) { return u.eps.indexOf(i) >= 0; })[0]; }
+  function unitWatched(u) { return u.eps.every(function (k) { return isWatched(k); }); }
+  function firstUnwatched(u) { return u.eps.filter(function (k) { return !isWatched(k); })[0]; }
+  function epLabel(i) { var r = C.reels[i]; return r.series && r.episode ? 'Ep ' + r.episode + ' · ' : ''; }
   function storyKey(r) { return 'reel:' + String(r.title || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   var curStory = -1, parts = [];
   function renderReelStory(i) {
@@ -700,7 +720,7 @@
         '<div class="tapzone p-rzones"><button type="button" class="z-prev" aria-label="Previous part"><span aria-hidden="true">‹</span></button><button type="button" class="z-mid" aria-label="Pause or play"></button><button type="button" class="z-next" aria-label="Next part"><span aria-hidden="true">›</span></button></div>' +
         '<div class="p-rend" hidden></div><div class="paused" aria-hidden="true"><span class="ic-pause"></span><span class="ic-play"></span></div>' +
         '<div class="side">' + acts + '</div>' +
-        '<div class="cap"><b class="p-rtitle">' + esc(r.title) + '</b>' + (r.caption ? '<p>' + esc(r.caption) + '</p><button type="button" class="more" aria-haspopup="dialog">more</button>' : '') +
+        '<div class="cap">' + (r.series ? '<span class="p-rseries">' + esc(r.series) + (r.episode ? ' · Episode ' + r.episode : '') + '</span>' : '') + '<b class="p-rtitle">' + esc(r.title) + '</b>' + (r.caption ? '<p>' + esc(r.caption) + '</p><button type="button" class="more" aria-haspopup="dialog">more</button>' : '') +
         (pt.youtube && !yid ? '<a class="p-yt" href="' + esc(pt.youtube) + '" target="_blank" rel="noopener">Watch on YouTube</a>' : '') + '</div>' +
         '</article>';
     }).join('');
@@ -791,11 +811,24 @@
   function restartReel() { var el = reelEl(visibleReel), v = el.querySelector('video'); if (v) try { v.currentTime = 0; } catch (x) {} ytSend(el, 'seekTo', [0, true]); clock.t = 0; ended = false; el.querySelector('.p-rend').hidden = true; paint(); updateReels(); }
   function nextReel(auto) {
     if (pos < seq.length - 1) { showReel(pos + 1); return; }
-    if (auto) { ended = true; clock.t = clock.dur; paint(); markWatched(curStory); var el = reelEl(visibleReel), end = el.querySelector('.p-rend');
-      var nexts = watchOrder().filter(function (j) { return j !== curStory && !isWatched(j); }).slice(0, 2);
-      end.innerHTML = '<b>That’s all for now</b><button type="button" class="p-ragain">↻ Watch again</button>' + (nexts.length ? '<div class="p-rnexts" role="group" aria-label="Next story">' + nexts.map(function (j) { var r = C.reels[j];
-        return '<button type="button" class="p-rnext" data-story="' + j + '" style="--bg:' + esc(r.bg) + '"><span class="p-wthumb">' + thumb(r) + '</span><span class="p-rnext-t"><small>Next story</small><b>' + esc(r.title) + '</b></span></button>'; }).join('') + '</div>' : '');
-      end.hidden = false; updateReels(); renderWatch(); end.querySelector('.p-ragain').focus(); }
+    endStory(!!auto);
+  }
+  // End screen: Next episode if there is one; otherwise Back to series (for a series) and up to two other
+  // unwatched series or reels. Nothing starts by itself.
+  function endStory(finished) {
+    if (ended) return;
+    ended = true; clock.t = clock.dur; paint(); if (finished) markWatched(curStory);
+    var el = reelEl(visibleReel), end = el.querySelector('.p-rend'), u = unitOf(curStory), at = u.eps.indexOf(curStory), nx = u.series ? u.eps[at + 1] : undefined;
+    var html = '<b>' + (nx != null ? 'Up next' : 'That’s all for now') + '</b>';
+    if (nx != null) { var n = C.reels[nx]; html += '<button type="button" class="p-rnext p-rnextep" data-story="' + nx + '" style="--bg:' + esc(n.bg) + '"><span class="p-wthumb">' + thumb(n) + '</span><span class="p-rnext-t"><small>Next episode</small><b>' + esc(epLabel(nx) + n.title) + '</b></span></button>'; }
+    html += '<div class="p-rendbtns"><button type="button" class="p-ragain">↻ Watch again</button>' + (u.series ? '<button type="button" class="p-rback" data-series="' + esc(u.series) + '">Back to series</button>' : '') + '</div>';
+    if (nx == null) {
+      var others = unitOrder().filter(function (o) { return o.key !== u.key && !unitWatched(o); }).slice(0, 2);
+      if (others.length) html += '<div class="p-rnexts" role="group" aria-label="More to watch">' + others.map(function (o) {
+        return '<button type="button" class="p-rnext" ' + (o.series ? 'data-series="' + esc(o.series) + '"' : 'data-story="' + o.eps[0] + '"') + ' style="--bg:' + esc(o.cover.bg) + '"><span class="p-wthumb">' + thumb(o.cover) + '</span><span class="p-rnext-t"><small>' + (o.series ? 'Series · ' + o.eps.length + ' episodes' : 'Watch next') + '</small><b>' + esc(o.title) + '</b></span></button>'; }).join('') + '</div>';
+    }
+    end.innerHTML = html; end.hidden = false; updateReels(); renderWatch();
+    (end.querySelector('.p-rnextep') || end.querySelector('.p-ragain')).focus();
   }
   function prevReel() { if (clock.t > 3 || pos === 0) restartReel(); else showReel(pos - 1); }
   function togglePause(el) { el.classList.toggle('userpaused'); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); updateReels(); }
@@ -827,7 +860,9 @@
       return;
     }
     e.stopPropagation();
-    if (e.target.closest('.p-rnext')) { openStory(+e.target.closest('.p-rnext').dataset.story); }
+    var ser = e.target.closest('[data-series]');
+    if (ser) { closeWatch(); openSeries(ser.dataset.series); }
+    else if (e.target.closest('.p-rnext')) { openStory(+e.target.closest('.p-rnext').dataset.story); }
     else if (e.target.closest('.p-ragain')) { showReel(0, true); var z = reelEl(visibleReel).querySelector('.z-mid'); if (z) z.focus(); }
     else if (e.target.closest('.more')) { openReelSheet(i, e.target.closest('.more')); updateReels(); }
     else if (e.target.closest('[data-read-slug]')) { closeWatch(); location.hash = 'read/' + e.target.closest('[data-read-slug]').dataset.readSlug; }
@@ -851,32 +886,79 @@
   }
   function playIcon() { return '<span class="p-wplay" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>'; }
   // Order: the chosen sort (Latest/Oldest by post date), then unwatched stories before watched ones.
-  function watchOrder() {
-    var idx = sortIdx(C.reels.map(function (_, k) { return k; }), function (k) { return C.reels[k].date; }, fstate('watch').sort);
-    return idx.filter(function (k) { return !isWatched(k); }).concat(idx.filter(function (k) { return isWatched(k); }));
+  // Order: the chosen sort (series sorted by their newest episode), then unwatched before watched.
+  function unitOrder() {
+    var us = units(), idx = sortIdx(us.map(function (_, k) { return k; }), function (k) { return us[k].date; }, fstate('watch').sort);
+    var o = idx.map(function (k) { return us[k]; });
+    return o.filter(function (u) { return !unitWatched(u); }).concat(o.filter(unitWatched));
   }
+  function watchOrder() { return [].concat.apply([], unitOrder().map(function (u) { return u.eps; })); }
+  function tickHtml(on) { return on ? '<span class="p-wwatched"><span aria-hidden="true">✓</span> Watched</span>' : ''; }
+  function unitAttrs(u) { return u.series ? 'data-series="' + esc(u.series) + '"' : 'data-watch="' + u.eps[0] + '"'; }
+  function unitLabel(u) { var r = u.cover; return u.series ? 'Open series ' + u.title + ', ' + u.eps.length + ' episodes' + (unitWatched(u) ? ', watched' : '') : 'Play ' + r.title + (r.len ? ', ' + r.len : '') + (unitWatched(u) ? ', watched' : ''); }
   function renderWatch() {
     wGal.removeAttribute('aria-busy');
     if (!C.reels.length) { wGal.innerHTML = '<div class="p-wempty glass glass--dark"><b>No videos yet</b><p>New Bible story videos are on their way. Check back soon.</p></div>'; return; }
-    var order = watchOrder(), hi = order[0], h = C.reels[hi], anyW = order.some(isWatched);
-    var tick = function (k) { return isWatched(k) ? '<span class="p-wwatched"><span aria-hidden="true">✓</span> Watched</span>' : ''; };
-    var focusWas = document.activeElement && wGal.contains(document.activeElement) ? document.activeElement.dataset.watch : null;
+    var order = unitOrder(), h = order[0], hr = h.cover, anyW = C.reels.some(function (_, k) { return isWatched(k); });
+    var focusWas = document.activeElement && wGal.contains(document.activeElement) ? (document.activeElement.dataset.watch || document.activeElement.dataset.series) : null;
+    var badge = function (u) { return u.series ? '<span class="p-weps">' + u.eps.length + ' episode' + (u.eps.length === 1 ? '' : 's') + '</span>' : (u.cover.len ? '<span class="p-wdur">' + esc(u.cover.len) + '</span>' : ''); };
     wGal.innerHTML = '<div class="p-wtop"><h2 class="p-wtitle">Watch</h2>' + (anyW ? '<button type="button" class="p-wclear" data-clear-watched>Clear watched</button>' : '') + '</div>' +
-      filterBar('watch', C.reels.length, []) +
-      '<button type="button" class="p-whero glass glass--dark' + (isWatched(hi) ? ' watched' : '') + '" data-watch="' + hi + '" style="--bg:' + esc(h.bg) + '" aria-label="Play ' + esc(h.title) + (h.len ? ', ' + esc(h.len) : '') + (isWatched(hi) ? ', watched' : '') + '">' +
-      '<span class="p-wthumb">' + thumb(h) + '</span><span class="p-wshade"></span>' + playIcon() +
-      '<span class="p-winfo"><span class="p-kicker">' + (isWatched(hi) ? 'Watched' : 'Featured') + (h.len ? ' · ' + esc(h.len) : '') + '</span><b>' + esc(h.title) + '</b>' + (h.caption ? '<small>' + esc(h.caption) + '</small>' : '') + '</span>' + tick(hi) + '</button>' +
-      (order.length > 1 ? '<h3 class="p-wsub">More videos</h3><div class="p-wgrid">' + order.slice(1).map(function (k) {
-        var r = C.reels[k];
-        return '<button type="button" class="p-wcard' + (isWatched(k) ? ' watched' : '') + '" data-watch="' + k + '" style="--bg:' + esc(r.bg) + '" aria-label="Play ' + esc(r.title) + (r.len ? ', ' + esc(r.len) : '') + (isWatched(k) ? ', watched' : '') + '">' +
-          '<span class="p-wthumb">' + thumb(r) + playIcon() + (r.len ? '<span class="p-wdur">' + esc(r.len) + '</span>' : '') + tick(k) + '</span>' +
-          '<b>' + esc(r.title) + '</b></button>';
+      filterBar('watch', order.length, []) +
+      '<button type="button" class="p-whero glass glass--dark' + (unitWatched(h) ? ' watched' : '') + (h.series ? ' is-series' : '') + '" ' + unitAttrs(h) + ' style="--bg:' + esc(hr.bg) + '" aria-label="' + esc(unitLabel(h)) + '">' +
+      '<span class="p-wthumb">' + thumb(hr) + '</span><span class="p-wshade"></span>' + playIcon() +
+      '<span class="p-winfo"><span class="p-kicker">' + (h.series ? 'Series · ' + h.eps.length + ' episode' + (h.eps.length === 1 ? '' : 's') : (unitWatched(h) ? 'Watched' : 'Featured') + (hr.len ? ' · ' + esc(hr.len) : '')) + '</span><b>' + esc(h.title) + '</b>' + (h.desc ? '<small>' + esc(h.desc) + '</small>' : '') + '</span>' + tickHtml(unitWatched(h)) + '</button>' +
+      (order.length > 1 ? '<h3 class="p-wsub">More videos</h3><div class="p-wgrid">' + order.slice(1).map(function (u) {
+        var r = u.cover;
+        return '<button type="button" class="p-wcard' + (unitWatched(u) ? ' watched' : '') + (u.series ? ' is-series' : '') + '" ' + unitAttrs(u) + ' style="--bg:' + esc(r.bg) + '" aria-label="' + esc(unitLabel(u)) + '">' +
+          '<span class="p-wthumb">' + thumb(r) + (u.series ? '' : playIcon()) + badge(u) + tickHtml(unitWatched(u)) + '</span>' +
+          '<b>' + esc(u.title) + '</b>' + (u.series ? '<small class="p-wkind">Series</small>' : '') + '</button>';
       }).join('') + '</div>' : '');
-    if (focusWas != null) { var f = wGal.querySelector('[data-watch="' + focusWas + '"]'); if (f) f.focus(); }
+    if (focusWas != null) { var f = wGal.querySelector('[data-watch="' + focusWas + '"], [data-series="' + focusWas.replace(/"/g, '\\"') + '"]'); if (f) f.focus(); }
+    if (seriesOpen) renderSeries(seriesOpen);
   }
+  // ---------- series detail: glass sheet with cover, description and episode list ----------
+  var seriesEl = document.createElement('div'), seriesOpen = '', seriesReturn = null;
+  seriesEl.className = 'p-series'; seriesEl.id = 'pSeries'; seriesEl.hidden = true;
+  seriesEl.setAttribute('role', 'dialog'); seriesEl.setAttribute('aria-modal', 'true'); seriesEl.setAttribute('aria-labelledby', 'pSeriesT');
+  $('.v-watch').appendChild(seriesEl);
+  function renderSeries(name) {
+    var u = units().filter(function (x) { return x.series === name; })[0]; if (!u) { closeSeries(); return; }
+    var nx = firstUnwatched(u), start = nx != null ? nx : u.eps[0], started = u.eps.some(function (k) { return isWatched(k); });
+    var focusWas = seriesEl.contains(document.activeElement) ? document.activeElement.dataset.story || document.activeElement.className : null;
+    seriesEl.innerHTML = '<div class="p-series-in glass glass--dark">' +
+      '<button type="button" class="p-series-x" aria-label="Close series">' + rIcon('M6 6l12 12M18 6L6 18') + '</button>' +
+      '<div class="p-series-cover" style="--bg:' + esc(u.cover.bg) + '"><span class="p-wthumb">' + thumb(u.cover) + '</span><span class="p-wshade"></span></div>' +
+      '<div class="p-series-body"><span class="p-kicker">Series · ' + u.eps.length + ' episode' + (u.eps.length === 1 ? '' : 's') + (unitWatched(u) ? ' · Watched' : '') + '</span>' +
+      '<h2 id="pSeriesT">' + esc(u.series) + '</h2>' + (u.desc ? '<p>' + esc(u.desc) + '</p>' : '') +
+      '<button type="button" class="p-series-play" data-story="' + start + '">▶ ' + (started && nx != null ? 'Continue' : 'Play') + ' · ' + esc(epLabel(start).replace(/ · $/, '') || C.reels[start].title) + '</button>' +
+      '<ol class="p-eps">' + u.eps.map(function (k) { var r = C.reels[k], w = isWatched(k);
+        return '<li><button type="button" class="p-ep' + (w ? ' watched' : '') + '" data-story="' + k + '" aria-label="' + esc(epLabel(k) + r.title + (r.len ? ', ' + r.len : '') + (w ? ', watched' : '')) + '">' +
+          '<span class="p-wthumb">' + thumb(r) + '</span><span class="p-ep-t"><b>' + esc(epLabel(k) + r.title) + '</b><small>' + esc(r.len || '') + '</small></span>' +
+          (w ? '<span class="p-ep-tick" aria-hidden="true">✓</span>' : '') + '</button></li>'; }).join('') + '</ol></div></div>';
+    if (focusWas) { var f = seriesEl.querySelector('[data-story="' + focusWas + '"]') || seriesEl.querySelector('.' + String(focusWas).split(' ')[0]); if (f) f.focus(); }
+  }
+  function openSeries(name) {
+    if (!seriesOpen) seriesReturn = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+    seriesOpen = name; renderSeries(name); seriesEl.hidden = false; seriesEl.querySelector('.p-series-x').focus();
+  }
+  function closeSeries() {
+    if (!seriesOpen) return false; var name = seriesOpen; seriesOpen = ''; seriesEl.hidden = true;
+    var back = seriesReturn && wGal.contains(seriesReturn) ? seriesReturn : $$('[data-series]', wGal).filter(function (b) { return b.dataset.series === name; })[0]; if (back) back.focus(); return true;
+  }
+  window.LL_series = { open: openSeries, close: closeSeries, units: function () { return units().map(function (u) { return { series: u.series, eps: u.eps.slice(), date: u.date, watched: unitWatched(u) }; }); } };
+  seriesEl.addEventListener('click', function (e) {
+    if (e.target === seriesEl || e.target.closest('.p-series-x')) { closeSeries(); return; }
+    var b = e.target.closest('[data-story]'); if (b) openReel(+b.dataset.story);
+  });
+  seriesEl.addEventListener('keydown', function (e) {
+    if (watchOpen) return;
+    if (e.key === 'Escape') { e.stopPropagation(); closeSeries(); }
+    if (e.key === 'Tab') { var f = $$('button', seriesEl); var a = f[0], z = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === a) { z.focus(); e.preventDefault(); } else if (!e.shiftKey && document.activeElement === z) { a.focus(); e.preventDefault(); } }
+  });
   FILTER_APPLY.watch = renderWatch;
   renderWatch();
-  wGal.addEventListener('click', function (e) { var b = e.target.closest('[data-watch]'); if (b) openReel(+b.dataset.watch); var cl = e.target.closest('[data-clear-watched]'); if (cl) { window.LL_watched.clear(); var h = wGal.querySelector('.p-whero'); if (h) h.focus(); } });
+  wGal.addEventListener('click', function (e) { var b = e.target.closest('[data-watch]'); if (b) openReel(+b.dataset.watch); var sr = e.target.closest('[data-series]'); if (sr) openSeries(sr.dataset.series); var cl = e.target.closest('[data-clear-watched]'); if (cl) { window.LL_watched.clear(); var h = wGal.querySelector('.p-whero'); if (h) h.focus(); } });
   function closeWatch() {
     if (!watchOpen) return;
     rSheet.hidden = true; watchOpen = false; wPlayer.hidden = true; wPlayer.classList.remove('on'); updateReels();

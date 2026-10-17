@@ -86,20 +86,15 @@ The devotions, audio, reels and verses that used to live only in `js/content.js`
 - **Insights** (views, finished, saves, shares): designed in the Studio mockup; next step.
 - A custom domain email for sign-in links (Supabase’s built-in email service has a low hourly limit; connect your own SMTP under *Authentication → Emails* before launch).
 
-## Story parts (reels with several clips)
+## Series and episodes
 
-A reel can be a story made of consecutive parts. The Studio has no parts editor yet; add them in the post's
-`fields` JSON as `parts`, an array where each part has the same media shape as a reel:
+Reels can be grouped into a series (like a show). In the Studio's reel editor fill in **Series** (pick an
+existing name from the list or type a new one) and **Episode #**. Optionally add a **Series description**.
 
-```json
-{ "parts": [
-  { "media_url": "videos/robe-1.mp4", "minutes": "0:20" },
-  { "youtube": "https://youtu.be/XXXXXXXXXXX", "minutes": "0:15" },
-  { "look": "rain", "minutes": "0:12" }
-] }
-```
-
-- `media_url` (uploaded video), `youtube` (played via youtube-nocookie), or neither (the animated `look`: robe, rain or sea).
-- `minutes` is the length shown on the chip and used for the progress bar when the real length is not available.
-- A reel without `parts` is a single part. The progress bars show the parts of that story only.
-- Built-ins in `js/content.js` take the same `parts` array (use `src`, `youtube`, `kind`, `len`).
+- Stored as `fields.series` (text), `fields.episode` (number) and `fields.series_description` (text).
+- Reels with the same series name form one series on the Watch page, ordered by episode number.
+- Cover art: the first episode's art. Description: the first `series_description` found on any of the
+  series' episodes, otherwise the first episode's caption.
+- Reels without a series show as standalone cards. Built-ins in `js/content.js` take the same `series`
+  and `episode` keys.
+- Each episode plays on its own with one progress bar. The older `parts` field is no longer read.
