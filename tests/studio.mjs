@@ -74,6 +74,23 @@ await page.click('#postForm button[type=submit]');
 await page.waitForSelector('.list .row');
 check(await rowStatus('Ephesians 6:10-18') === 'Published', 'verse: published');
 
+// ---------- reel: series and episode number ----------
+await page.click('.side [data-view="new"]');
+await page.click('[data-new="reel"]');
+check(await page.$eval('#f_series', (i) => i.getAttribute('list') === 'seriesList') && await page.$eval('#f_episode', (i) => i.type === 'number'), 'reel: Series input with a list of existing names and an Episode # number');
+await page.fill('#f_title', 'Test episode one');
+await page.fill('#f_youtube', 'https://youtube.com/shorts/abcdefghijk');
+await page.fill('#f_series', 'Test series');
+await page.fill('#f_episode', '2');
+await page.click('#postForm button[type=submit]');
+await page.waitForSelector('.list .row');
+const saved = await page.evaluate(async () => (await window.LLStore.publishedPosts()).filter((p) => p.title === 'Test episode one')[0]);
+check(saved && saved.fields.series === 'Test series' && saved.fields.episode === 2, `reel: series and episode number are saved (${JSON.stringify(saved && { s: saved.fields.series, e: saved.fields.episode })})`);
+await page.click('.side [data-view="new"]');
+await page.click('[data-new="reel"]');
+check(await page.$$eval('#seriesList option', (o) => o.map((x) => x.value).includes('Test series')), 'reel: existing series names are suggested');
+await page.click('.side [data-view="posts"]').catch(() => {});
+
 // ---------- devotion: draft, then publish after fixing ----------
 await page.click('.side [data-view="new"]');
 await page.click('[data-new="devotion"]');
