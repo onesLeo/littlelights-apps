@@ -881,3 +881,15 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .p-card, .p-now, .v-today .p-slide, .p-sidecard { box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), 0 10px 28px rgba(20,16,50,.18); }
 }
+
+/* ---------- Verses switched off (site setting 'content'.verses = false, the default) ----------
+   Phone: the first full-screen post keeps its sky, moon and owl and becomes a welcome card.
+   Computer: the welcome heading already sits above the feed, so the verse card is removed and
+   the remaining cards close up. */
+.p-hello { display: none; }
+.no-verses .p-hello { display: grid; gap: 10px; }
+.no-verses .p-hello .big { font: 800 34px/1.1 var(--display); letter-spacing: -.02em; }
+.no-verses .p-hello p { font-size: 16px; line-height: 1.45; max-width: 30ch; }
+@media (min-width: 900px) {
+  .no-verses .v-today .p-slide.s1:not(.s-studio) { display: none; }
+}

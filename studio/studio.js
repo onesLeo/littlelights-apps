@@ -194,7 +194,9 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     // A missing site_settings table (SQL not applied yet) must not stop the Studio from loading.
     var hid = S.getSetting('builtins_hidden').then(function (v) { state.hiddenError = ''; return v; }, function (err) { state.hiddenError = err.message; return null; });
     var nav = S.getSetting('nav').then(function (v) { state.navError = ''; return v; }, function (err) { state.navError = err.message; return null; });
-    return Promise.all([S.listPosts(), S.listTeam(), nav, hid]).then(function (r) {
+    var content = S.getSetting('content').then(function (v) { return v; }, function () { return null; });
+    return Promise.all([S.listPosts(), S.listTeam(), nav, hid, content]).then(function (r) {
+      state.content = S.normalizeContent(r[4]) || S.contentDefault();
       state.hidden = S.normalizeHidden(r[3]) || [];
       state.posts = r[0] || []; state.team = r[1] || [];
       state.nav = S.normalizeNav(r[2]) || S.navDefault();
@@ -398,7 +400,13 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       }).join('') +
       '<label class="field"><span>Coming-soon message</span><textarea class="input" id="nav_message" rows="3" maxlength="300"' + (owner ? '' : ' disabled') + '>' + esc(n.message) + '</textarea>' +
       '<small>Shown under “Verses is coming soon” (or the menu’s name). Keep it short and friendly.</small></label>' +
-      (owner ? '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>Save menus</button>' : '') + '</form>';
+      (owner ? '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>Save menus</button>' : '') + '</form>' +
+      '<h3 class="sub">Content</h3>' +
+      '<form class="form" id="contentForm" novalidate>' +
+      '<label class="check"><input type="checkbox" id="content_verses"' + ((state.content || {}).verses ? ' checked' : '') + (owner ? '' : ' disabled') + '> ' +
+      '<span>Show verse cards on Today (Verse, Verse of the week, published verse posts, “More verses” and “Save image”)</span></label>' +
+      '<small>Off by default. Nothing is deleted: switching it back on brings them back. Bible quotes inside devotions always show. The Verses menu follows its own setting above.</small>' +
+      (owner ? '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>Save content</button>' : '') + '</form>';
   }
   // Items written into the app (js/content.js). A Studio post with the same `builtin` key replaces one
   // once published; here they can be hidden altogether.
@@ -569,6 +577,14 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       S.saveSetting('nav', value, state.email).then(function (saved) {
         state.busy = false; state.navError = ''; state.nav = S.normalizeNav(saved) || value;
         toast('Menus saved. Visitors see the change next time the app loads.'); render();
+      }).catch(fail);
+    } else if (id === 'contentForm') {
+      if (!isOwner()) return;
+      var cv = { verses: document.getElementById('content_verses').checked };
+      state.busy = true; render();
+      S.saveSetting('content', cv, state.email).then(function (saved) {
+        state.busy = false; state.content = S.normalizeContent(saved) || cv;
+        toast(cv.verses ? 'Verse cards are on. Visitors see them next time the app loads.' : 'Verse cards are hidden. Visitors see the change next time the app loads.'); render();
       }).catch(fail);
     } else if (id === 'inviteForm') {
       var em = document.getElementById('inviteEmail').value.trim().toLowerCase(), role = document.getElementById('inviteRole').value;

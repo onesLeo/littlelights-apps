@@ -24,7 +24,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   // Tests run in local mode so they never touch the real database.
   await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
   // Verses is "coming soon" by default; the computer checks below need it on.
-  if (versesOn) await context.addInitScript(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
+  if (versesOn) await context.addInitScript(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } }, content: { verses: true } })));
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -67,10 +67,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(await soonOpen(), 'nav: the Today shortcut shows the message too');
   await page.keyboard.press('Escape');
   check(!(await soonOpen()), 'nav: Escape closes the message');
-  await page.click('.p-slide [data-go="verses"]');
-  await page.waitForTimeout(150);
-  check(await soonOpen() && (await onView()) === 'today', 'nav: the More verses button shows the message');
-  await page.click('[data-soon-close]');
+  check(!(await page.$('#pFeed [data-go="verses"], #pFeed [data-save-verse]')), 'nav: with verses off by default there is no More verses or Save image button');
   await page.goto(base + '#verses');
   await page.waitForSelector('#app[data-ready]');
   check(await soonOpen() && (await onView()) === 'today', 'nav: opening #verses directly shows the message');
@@ -140,7 +137,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(html.includes('<meta name="application-name" content="Salt and Light">') && html.includes('<meta name="apple-mobile-web-app-title" content="Salt and Light">'), 'brand: app name meta tags');
   check((html.match(/Little Light: Bible Journeys/g) || []).length >= 3, 'brand: the game keeps its name');
   // Everything on for the rest of the journey.
-  await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
+  await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } }, content: { verses: true } })));
   await page.goto(base + '#today');
   await page.reload();
   await page.waitForSelector('#app[data-ready]');
@@ -320,7 +317,7 @@ const flareState = (sel) => (s) => {
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
   await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
-  await ctx.addInitScript(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
+  await ctx.addInitScript(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } }, content: { verses: true } })));
   const page = await ctx.newPage();
   for (const tab of ['listen', 'read', 'verses', 'play']) {
     await page.goto(base + '#' + tab); await page.waitForSelector('#app[data-ready]'); await page.waitForTimeout(300);
@@ -439,6 +436,39 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
     console.log(`     glass ${theme}: worst card ${worst.name} ${worst.r.toFixed(2)}:1`);
     await context.close();
   }
+}
+// ---------- verses switched off by default (site setting 'content') ----------
+for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+  const context = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
+  await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  const page = await context.newPage(); const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto(base + '#today'); await page.waitForSelector('#app[data-ready]');
+  const r = await page.evaluate(() => {
+    const vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
+    const slides = [...document.querySelectorAll('#pFeed .p-slide')].filter(vis);
+    const feed = document.getElementById('pFeed').getBoundingClientRect();
+    const first = slides.filter((s) => Math.abs(s.getBoundingClientRect().top - slides[0].getBoundingClientRect().top) < 2);
+    const rowRight = Math.max(...first.map((s) => s.getBoundingClientRect().right));
+    return {
+      verseText: [...document.querySelectorAll('#pFeed .verse, #pFeed .ref')].filter(vis).length,
+      buttons: document.querySelectorAll('[data-save-verse], [data-open-verse], #pFeed [data-go="verses"]').length - document.querySelectorAll('.v-verses [data-save-verse], .v-verses [data-open-verse]').length,
+      navVerses: vis(document.querySelector(innerWidth >= 900 ? '.p-tab[data-tab="verses"]' : '.p-ring[data-go="verses"]')),
+      hello: vis(document.querySelector('.p-hello')), welcome: vis(document.querySelector('.p-welcome')),
+      firstTopGap: slides[0].getBoundingClientRect().top - feed.top, rowGap: feed.right - rowRight,
+      devotionQuote: (window.LL_CONTENT.devotions || []).some((d) => /“|"/.test(JSON.stringify(d))),
+    };
+  });
+  const tag = vp.width >= 900 ? 'desktop' : 'phone';
+  check(r.verseText === 0 && r.buttons === 0, `verses off ${tag}: no verse cards, More verses or Save image on Today`);
+  check(r.navVerses, `verses off ${tag}: the Verses menu entry stays (coming soon)`);
+  check(tag === 'desktop' ? (r.welcome && !r.hello && r.firstTopGap < 2 && r.rowGap < 2) : r.hello, `verses off ${tag}: Today still opens with a welcome and the cards close up (gap ${Math.round(r.firstTopGap)}/${Math.round(r.rowGap)}px)`);
+  check(r.devotionQuote, `verses off ${tag}: Bible quotes inside devotions are kept`);
+  // Owner switches them back on: everything returns, nothing was deleted.
+  await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ content: { verses: true } })));
+  await page.reload(); await page.waitForSelector('#app[data-ready]');
+  check(await page.evaluate(() => !document.getElementById('app').classList.contains('no-verses') && [...document.querySelectorAll('#pFeed .verse')].some((e) => e.getClientRects().length) && !!document.querySelector('#pFeed [data-save-verse]')), `verses on ${tag}: switching the setting on brings the verse cards back`);
+  check(errors.length === 0, `verses ${tag}: no script errors ${errors.join(' | ')}`);
+  await context.close();
 }
 // Layout and motion regressions at the smallest phone and desktop breakpoints.
 for (const viewport of [{ width: 320, height: 568 }, { width: 900, height: 650 }, { width: 1024, height: 768 }]) {
