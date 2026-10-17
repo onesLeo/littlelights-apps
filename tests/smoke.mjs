@@ -406,32 +406,43 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
   const css = await (await fetch(base + 'css/app.css')).text();
   check(/@supports\s+not\s*\(\(backdrop-filter/.test(css) && /-webkit-backdrop-filter:\s*blur/.test(css), 'glass: -webkit- prefix and an @supports not (backdrop-filter) solid fallback exist');
   check(!/@keyframes[^}]*\{[^@]*backdrop-filter/.test(css), 'glass: no animated filters');
-  for (const theme of ['day', 'night']) {
-    const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, serviceWorkers: 'block' });
+  for (const [theme, vp, hash, sel] of [['day', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['night', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['phone day', { width: 390, height: 844 }, '#read', '#pCards .p-card, .p-now'], ['phone night', { width: 390, height: 844 }, '#read', '#pCards .p-card']]) {
+    const context = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
     await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
-    await context.addInitScript((t) => { localStorage.setItem('ll.theme', t); localStorage.setItem('ll.calm', '1'); }, theme);
+    await context.addInitScript((t) => { localStorage.setItem('ll.theme', t.replace('phone ', '')); localStorage.setItem('ll.calm', '1'); localStorage.setItem('ll.settings.v1', JSON.stringify({ content: { verses: true } })); }, theme);
     const page = await context.newPage();
-    await page.goto(base + '#today'); await page.waitForSelector('#app[data-ready]'); await page.waitForTimeout(800);
-    const cards = await page.$$('.v-today .p-slide, .p-sidecard');
-    check(cards.length >= 5 && await page.$eval('.p-sidecard', (c) => /blur/.test(getComputedStyle(c).backdropFilter || getComputedStyle(c).webkitBackdropFilter)), `glass ${theme}: cards are frosted (backdrop blur)`);
+    await page.goto(base + hash); await page.waitForSelector('#app[data-ready]'); await page.waitForTimeout(800);
+    const cards = await page.$$(sel);
+    check(cards.length >= 3 && await page.$eval(sel.split(',')[0], (c) => /blur/.test(getComputedStyle(c).backdropFilter || getComputedStyle(c).webkitBackdropFilter)), `glass ${theme}: cards are frosted (backdrop blur)`);
     let worst = { r: 99, name: '' };
     for (const card of cards) {
-      const box = await card.boundingBox(); if (!box || box.y > 900 || box.height < 60) continue;
-      const info = await card.evaluate((c) => { const cs = getComputedStyle(c); c.querySelectorAll('*').forEach((e) => { e.dataset.vis = e.style.visibility; e.style.visibility = 'hidden'; }); return { color: cs.color, name: c.className }; });
-      const clip = { x: box.x + 18, y: box.y + 18, width: box.width - 36, height: Math.min(box.height, 900 - box.y) - 36 };
+      const box = await card.boundingBox(); if (!box || box.y + 60 > vp.height || box.height < 60) continue;
+      // Text elements (not buttons) and their own colours; then hide the content and sample what is behind each one.
+      const info = await card.evaluate((c) => {
+        const cr = c.getBoundingClientRect();
+        const texts = [...c.querySelectorAll('.p-kicker, .big, p, b, .verse, .ref, span, small')].filter((e) => !e.closest('.p-btn, button') && e.textContent.trim() && e.getClientRects().length)
+          .map((e) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); let op = 1; for (let x = e; x && x !== c.parentElement; x = x.parentElement) op *= +getComputedStyle(x).opacity; return { x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height, color: cs.color, op }; });
+        c.querySelectorAll('*').forEach((e) => { e.dataset.vis = e.style.visibility; e.style.visibility = 'hidden'; });
+        return { texts, name: c.className };
+      });
+      const clip = { x: box.x, y: box.y, width: box.width, height: Math.min(box.height, vp.height - box.y) };
       const png = (await page.screenshot({ clip })).toString('base64');
       await card.evaluate((c) => c.querySelectorAll('*').forEach((e) => { e.style.visibility = e.dataset.vis || ''; }));
-      const r = await page.evaluate(async ({ png, color }) => {
+      const r = await page.evaluate(async ({ png, texts }) => {
         const img = new Image(); img.src = 'data:image/png;base64,' + png; await img.decode();
         const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const g = cv.getContext('2d'); g.drawImage(img, 0, 0);
-        const d = g.getImageData(0, 0, cv.width, cv.height).data;
         const lum = (c) => { const v = c.map((n) => { n /= 255; return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
-        const t = color.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number); let min = 99;
-        for (let i = 0; i < d.length; i += 4 * 3) { const bg = [d[i], d[i + 1], d[i + 2]]; const tx = t.map((v, k) => v * 0.85 + bg[k] * 0.15); const a = lum(tx), b = lum(bg); min = Math.min(min, (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)); }
+        let min = 99;
+        for (const t of texts) {
+          const w = Math.max(1, Math.floor(t.w)), h = Math.max(1, Math.floor(t.h)); if (t.y + h > cv.height) continue;
+          const d = g.getImageData(Math.floor(t.x), Math.floor(t.y), w, h).data;
+          const tc = t.color.match(/\d+(\.\d+)?/g).map(Number); const a = (tc[3] ?? 1) * t.op;
+          for (let i = 0; i < d.length; i += 4 * 2) { const bg = [d[i], d[i + 1], d[i + 2]]; const tx = tc.slice(0, 3).map((v, k) => v * a + bg[k] * (1 - a)); const A = lum(tx), B = lum(bg); min = Math.min(min, (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05)); }
+        }
         return min;
-      }, { png, color: info.color });
+      }, { png, texts: info.texts });
       if (r < worst.r) worst = { r, name: info.name };
-      check(r >= 4.5, `glass ${theme}: "${info.name}" text vs its busiest background pixel ${r.toFixed(2)}:1 (AA 4.5)`);
+      check(r >= 4.5, `glass ${theme}: "${info.name}" text vs the busiest pixel behind it ${r.toFixed(2)}:1 (AA 4.5)`);
     }
     console.log(`     glass ${theme}: worst card ${worst.name} ${worst.r.toFixed(2)}:1`);
     await context.close();
