@@ -461,7 +461,7 @@ const seriesStub = (await (await fetch(base + 'js/content.js')).text())
     await page.goto(base + hash); await page.waitForSelector('#app[data-ready]'); await page.waitForTimeout(800);
     if (setup) { await setup(page); await page.evaluate(() => document.querySelectorAll('.p-toast').forEach((t) => t.remove())); await page.waitForTimeout(200); }
     const cards = await page.$$(sel);
-    check(cards.length >= (surface ? 1 : 3) && await page.$eval(sel.split(',')[0], (c) => /blur/.test(getComputedStyle(c).backdropFilter || getComputedStyle(c).webkitBackdropFilter)), `glass ${theme}: cards are frosted (backdrop blur)`);
+    check(cards.length >= (surface ? 1 : 3) && await page.$eval(sel.split(',')[0], (c) => c.matches('.v-read .p-card') || /blur/.test(getComputedStyle(c).backdropFilter || getComputedStyle(c).webkitBackdropFilter)), `glass ${theme}: cards are frosted (backdrop blur; Read cards are solid Midnight & Gold by design)`);
     let worst = { r: 99, name: '' };
     for (const card of cards) {
       const box = await card.boundingBox(); if (!box || (!surface && (box.y + 60 > vp.height || box.height < 60)) || box.height < 20 || (surface && (box.x < 0 || box.x + box.width > vp.width + 1))) continue;
@@ -753,6 +753,22 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 900, height: 650 }
   }
   await page.screenshot({ path: `test-results/home-${viewport.width}.png` });
   await context.close();
+}
+
+// ---------- Read page: Midnight & Gold colours ----------
+for (const [theme, exp] of [['night', { bg: 'rgb(15, 21, 48)', ink: 'rgb(246, 238, 220)', gold: 'rgb(242, 196, 107)' }], ['day', { bg: 'rgb(238, 241, 248)', ink: 'rgb(27, 36, 71)', gold: 'rgb(122, 78, 0)', card: 'rgb(255, 255, 255)' }]]) {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+  await ctx.addInitScript((t) => { localStorage.setItem('ll.theme', t); localStorage.setItem('ll.calm', '1'); }, theme);
+  const pg = await ctx.newPage(); await pg.goto(base + '#read'); await pg.waitForSelector('#pCards .p-card');
+  const r = await pg.evaluate(() => { const v = getComputedStyle(document.querySelector('.v-read')); const c = document.querySelector('#pCards .p-card'); const cs = getComputedStyle(c);
+    return { bg: v.backgroundColor, img: v.backgroundImage, ink: cs.color, cardBg: cs.backgroundColor, cardImg: cs.backgroundImage, kick: getComputedStyle(c.querySelector('.p-kicker')).color, sheen: getComputedStyle(c, '::before').content, bw: cs.borderTopWidth, bc: cs.borderTopColor, bf: cs.backdropFilter, anim: cs.animationName }; });
+  check(r.bg === exp.bg && r.img === 'none', `read ${theme}: midnight & gold page background (${r.bg})`);
+  check(r.ink === exp.ink && r.kick === exp.gold, `read ${theme}: card text ${r.ink}, kicker ${r.kick}`);
+  check(theme === 'night' ? /linear-gradient/.test(r.cardImg) && /28, 38, 80/.test(r.cardImg) && /242, 196, 107/.test(r.cardImg) : r.cardBg === exp.card, `read ${theme}: card surface`);
+  check((r.sheen === 'none' || r.sheen === 'normal') && (r.bf === 'none' || !r.bf), `read ${theme}: solid cards, no glass sheen`);
+  check(parseFloat(r.bw) >= 1 && /border: 1.5px solid rgba\(242,196,107,.7\)/.test(await (await fetch(base + 'css/app.css')).text()) && (theme === 'night' ? /242, 196, 107, 0.7/ : /184, 134, 43/).test(r.bc), `read ${theme}: visible gold border (${r.bw} ${r.bc})`);
+  check(r.anim === 'none', `read ${theme}: calm, no card animation`);
+  await ctx.close();
 }
 
 await browser.close();
