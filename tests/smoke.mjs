@@ -123,7 +123,9 @@ async function openApp(viewport, sw = true, versesOn = true) {
       creamOnNavy: ratio(getComputedStyle(vis.querySelector('.wm-s')).color, 'rgb(15,13,32)'),
       plumOnLight: ratio(getComputedStyle(document.querySelector('.wm-onlight .wm-s')).color, 'rgb(251,246,238)'),
       plumOnNavy: ratio('rgb(59,31,74)', 'rgb(15,13,32)'),
-      flame: getComputedStyle(svg.querySelector('.wm-flame')).animationName, glow: getComputedStyle(l).animationName,
+      layers: ['.wm-sway', '.wm-flame', '.wm-fo', '.wm-fc', '.wm-halo', '.wm-ember'].map((q) => { const s = getComputedStyle(svg.querySelector(q)); return [s.animationName, s.animationDuration, s.transformOrigin]; }),
+      phases: new Set(all.map((w) => w.style.getPropertyValue('--wm-d'))).size,
+      flameBase: (() => { const r = svg.querySelector('.wm-flame').getBoundingClientRect(); return r.bottom; })(), stemTop: stem.top,
       _: vis.remove(),
     };
   });
@@ -132,7 +134,9 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(wm.font, 'wordmark: self-hosted Parisienne is loaded');
   check(wm.baseline < 0.03 && wm.xh < 0.03, `wordmark: candle sits on the baseline and reaches the x-height (${wm.baseline.toFixed(3)}em, ${wm.xh.toFixed(3)}em)`);
   check(wm.plumOnNavy < 3 && wm.creamOnNavy >= 7 && wm.plumOnLight >= 7, `wordmark: cream on the navy header, plum only on light backgrounds (${wm.creamOnNavy.toFixed(1)}:1, ${wm.plumOnLight.toFixed(1)}:1)`);
-  check(wm.flame === 'wm-flicker' && wm.glow === 'wm-glow', 'wordmark: flame flickers and Light glows');
+  check(wm.layers.every(([n]) => n.startsWith('wm-')) && new Set(wm.layers.map(([, d]) => d)).size === 6, `wordmark: six flame layers animate on different (prime) durations ${wm.layers.map(([, d]) => d).join(' ')}`);
+  check(wm.phases >= 5, 'wordmark: each wordmark flickers out of phase');
+  check(wm.flameBase <= wm.stemTop + 1, 'wordmark: flame stays above the wick, anchored at its base');
   check(html.includes('<meta name="application-name" content="Salt and Light">') && html.includes('<meta name="apple-mobile-web-app-title" content="Salt and Light">'), 'brand: app name meta tags');
   check((html.match(/Little Light: Bible Journeys/g) || []).length >= 3, 'brand: the game keeps its name');
   // Everything on for the rest of the journey.
@@ -230,7 +234,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
 
   await page.click('.p-rings [data-calm]');
   check(await page.$eval('#app', (a) => a.classList.contains('calm')), 'phone: calm mode turns on');
-  check(await page.$$eval('.wm-flame', (f) => f.every((x) => getComputedStyle(x).animationName === 'none')), 'phone: calm mode keeps the wordmark flame still');
+  check(await page.$$eval('.wm-sway, .wm-flame, .wm-fo, .wm-fc, .wm-halo, .wm-ember', (f) => f.length > 20 && f.every((x) => getComputedStyle(x).animationName === 'none')), 'phone: calm mode keeps the wordmark flame still');
 
   await page.click('.p-tab[data-tab="watch"]');
   await page.click('.p-reel .save');
@@ -284,7 +288,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 900, height: 650 }
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.waitForTimeout(100);
   check(await page.$eval('#app', (a) => a.classList.contains('calm')), `${viewport.width}px: system reduced motion enables Calm mode`);
-  check(await page.$$eval('.wm-flame', (f) => f.every((x) => getComputedStyle(x).animationName === 'none')), `${viewport.width}px: reduced motion keeps the wordmark flame still`);
+  check(await page.$$eval('.wm-sway, .wm-flame, .wm-fo, .wm-fc, .wm-halo, .wm-ember', (f) => f.length > 20 && f.every((x) => getComputedStyle(x).animationName === 'none')), `${viewport.width}px: reduced motion keeps the wordmark flame still`);
   await page.evaluate(() => document.querySelector('[data-mode]').click());
   await page.evaluate(() => document.querySelector('#pOwl').click());
   check(await page.$eval('#pOwl', (o) => !o.classList.contains('hoot')), `${viewport.width}px: owl responds without hopping in Calm mode`);
