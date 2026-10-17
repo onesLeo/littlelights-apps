@@ -78,12 +78,18 @@ check(await C(page, () => !!window.LL_CONTENT.episodes[+document.querySelector('
 await page.context().close();
 const audioPost = { id: 30, type: 'audio', status: 'published', publish_at: at, title: 'When I Am Afraid — Psalm 56:3', slug: 'when-i-am-afraid-psalm-56-3', show_on_today: true,
   media_url: 'https://fake-project.supabase.co/storage/v1/object/public/media/x.mp3',
-  fields: { kind: 'Devotion', minutes: '1:55', seconds: 115, ref: 'Psalm 56:3', verse: 'When I am afraid, I will put my trust in you.', builtin: 'audio:when-i-am-afraid-psalm-56-3' } };
+  fields: { kind: 'Devotion', minutes: '1:55', seconds: 115, ref: 'Psalm 56:3', verse: 'When I am afraid, I will put my trust in you.', builtin: 'audio:when-i-am-afraid-psalm-56-3', transcript: 'First <b>line</b>.\n\nSecond part.' } };
 page = await open('', [audioPost, ...posts]);
 const titles = await C(page, () => window.LL_CONTENT.episodes.map((e) => e.title));
 check(titles.filter((t) => t === 'When I Am Afraid — Psalm 56:3').length === 1, 'audio: the published copy replaces the built-in (listed once)');
 check(await C(page, () => window.LL_CONTENT.episodes[+document.querySelector('.p-slide.s4 [data-fa="play"]').dataset.ep].src.includes('fake-project')), 'audio: Today card plays the published post');
 check(await C(page, () => window.LL_CONTENT.episodes[+document.querySelector('.p-now [data-fa="play"]').dataset.ep].src.includes('fake-project')), 'audio: Listen hero plays the published post');
+await page.click('.p-slide.s4 [data-fa="play"]');
+await page.click('#pMiniOpen');
+await page.waitForTimeout(200);
+const ptx = await page.$$eval('#pFull .transcript p', (ps) => ps.map((p) => p.innerHTML));
+check(ptx.length === 2 && ptx[0] === 'First &lt;b&gt;line&lt;/b&gt;.', 'read along: a published post’s transcript is used, split on blank lines and escaped');
+await page.keyboard.press('Escape');
 check(await C(page, () => ![...document.querySelectorAll('#pFeed .p-slide.s-studio')].some((s) => s.textContent.includes('Psalm 56:3'))), 'audio: no second Today card for it');
 await page.context().close();
 

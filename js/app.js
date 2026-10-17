@@ -101,7 +101,7 @@
         var f = p.fields || {};
         audioAt[p.id] = eps.length;
         eps.push({ title: p.title, meta: f.kind || 'Audio', dur: f.seconds || toSeconds(f.minutes), color: f.color || '#a07fd6', src: p._src || '', _id: p.id,
-          verse: f.verse || '', ref: f.ref || '' });
+          verse: f.verse || '', ref: f.ref || '', transcript: f.transcript || '' });
         if (f.builtin) copyOf[f.builtin] = eps.length - 1;
       });
       posts.forEach(function (p) {
@@ -423,6 +423,17 @@
   wake();
 
   // ---------- colour ripple where you press ----------
+  // Wordmark flare: a tap on touch screens flares the candle for 1.5s. Never blocks the tap, so the logo link still works.
+  document.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'mouse') return;
+    document.documentElement.classList.add('wm-touch');
+    var w = e.target.closest && e.target.closest('.wm, .p-brand, .p-logo, .brand');
+    w = w && (w.classList.contains('wm') ? w : w.querySelector('.wm'));
+    if (!w) return;
+    w.classList.add('flaring');
+    clearTimeout(w._flare);
+    w._flare = setTimeout(function () { w.classList.remove('flaring'); }, 1500);
+  }, { passive: true });
   app.addEventListener('pointerdown', function (e) {
     wake();
     if (app.classList.contains('calm')) return;
@@ -639,18 +650,40 @@
     setPlaying(true);
     toast('Playing: ' + C.episodes[i].title);
   }
+  // Transcript as paragraphs: blank lines if the text has them, otherwise a few sentences each,
+  // with a new paragraph where a prayer starts.
+  function transcriptHtml(text) {
+    text = String(text || '').trim();
+    if (!text) return '';
+    var blocks = text.split(/\n\s*\n/);
+    if (blocks.length === 1) {
+      blocks = [];
+      var cur = [];
+      (text.match(/[^.!?]+[.!?]+["”’)]*|[^.!?]+$/g) || [text]).forEach(function (s) {
+        s = s.trim();
+        if (!s) return;
+        if (cur.length && (cur.length >= 3 || /^(Let us pray|Dear (Jesus|Lord|God|Father))/i.test(s))) { blocks.push(cur.join(' ')); cur = []; }
+        cur.push(s);
+      });
+      if (cur.length) blocks.push(cur.join(' '));
+    }
+    return blocks.map(function (b) { return '<p>' + esc(b.trim()).replace(/\n/g, '<br>') + '</p>'; }).join('');
+  }
   function openFull() {
     if (player.ep < 0) return;
-    var e = C.episodes[player.ep], full = $('#pFull');
+    var e = C.episodes[player.ep], full = $('#pFull'), tx = transcriptHtml(e.transcript);
     full.innerHTML =
-      '<button class="down" type="button" data-close>⌄ Close</button>' +
+      '<div class="p-full-top"><span class="handle" aria-hidden="true"></span>' +
+      '<button class="down" type="button" data-close aria-label="Close player"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>' +
       '<div class="bigart" style="background:radial-gradient(circle at 50% 40%,' + e.color + ',#2d2352 90%)"><i></i></div>' +
       '<div><b>' + esc(e.title) + '</b><br><small>' + esc(e.meta) + ' · Salt and Light</small></div>' +
       '<input type="range" id="pRange" min="0" max="' + Math.round(duration()) + '" step="1" value="' + player.t + '" aria-label="Position">' +
       '<div class="times"><span id="pTimeNow">' + fmt(player.t) + '</span><span>' + fmt(duration()) + '</span></div>' +
       '<div class="ctls"><button type="button" data-skip="-15">−15s</button><button class="main" type="button" id="pFullPP" aria-label="Play or pause"></button><button type="button" data-skip="15">+15s</button></div>' +
-      (e.devotion != null ? '<button class="p-btn ghost readalong" type="button" data-read="' + e.devotion + '" style="color:#fff">Read along</button>' : '') +
-      (e.src ? '' : '<div class="note">Recording coming soon. This player shows progress without sound.</div>');
+      (e.devotion != null ? '<button class="p-btn ghost readalong" type="button" data-read="' + e.devotion + '" style="color:#fff">Open the devotion</button>' : '') +
+      (e.src ? '' : '<div class="note">Recording coming soon. This player shows progress without sound.</div>') +
+      (tx ? '<section class="transcript" aria-labelledby="pTxHead" tabindex="0"><h4 id="pTxHead">Read along</h4>' + tx + '</section>' : '');
+    full.classList.toggle('has-text', !!tx);
     full.classList.add('on');
     renderPlayer();
   }
@@ -688,14 +721,41 @@
     document.title = 'Salt and Light';
     if (location.hash.indexOf('#read/') === 0) history.replaceState(null, '', '#read');
   }
+  // Devotion preview: bottom sheet on phones, centred modal on computers. Focus stays inside while
+  // it's open and goes back to the button that opened it; the page behind doesn't scroll.
+  var sheetOpener = null;
   function openSheet(i) {
     var d = C.devotions[i];
-    $('#pSheetBody').innerHTML = '<div class="p-txt"><div class="meta">' + esc(d.kicker) + '</div><h5>' + esc(d.title) + '</h5>' + d.html +
-      '<button class="p-btn" type="button" data-read="' + i + '" style="justify-self:start;background:#3a1426">Open as a page →</button></div>';
+    if (!d) return;
+    sheetOpener = document.activeElement;
+    var mins = /(\d+)\s*min/.exec(d.kicker || '');
+    $('#pSheetMeta').innerHTML = esc('Devotion' + (mins ? ' · ' + mins[1] + ' min' : ''));
+    $('#pSheetTitle').innerHTML = esc(d.title);
+    $('#pSheetBody').innerHTML = '<div class="p-txt">' + d.html + '</div>';
+    $('#pSheetFoot').innerHTML = '<button class="p-btn" type="button" data-read="' + i + '">Open as a page →</button>';
+    $('#pSheetBody').scrollTop = 0;
     $('#pSheetWrap').classList.add('on');
+    app.classList.add('sheet-open');
+    $('#pSheetClose').focus();
   }
-  $('#pSheetClose').addEventListener('click', function () { $('#pSheetWrap').classList.remove('on'); });
-  $('#pSheetWrap').addEventListener('click', function (e) { if (e.target.id === 'pSheetWrap') $('#pSheetWrap').classList.remove('on'); });
+  function closeSheet() {
+    var w = $('#pSheetWrap');
+    if (!w.classList.contains('on')) return;
+    w.classList.remove('on');
+    app.classList.remove('sheet-open');
+    var back = sheetOpener; sheetOpener = null;
+    if (back && back.focus && document.contains(back)) back.focus();
+  }
+  $('#pSheetClose').addEventListener('click', closeSheet);
+  $('#pSheetWrap').addEventListener('click', function (e) { if (e.target.id === 'pSheetWrap') closeSheet(); });
+  $('#pSheetWrap').addEventListener('keydown', function (e) {
+    if (e.key !== 'Tab') return;
+    var f = $$('button, [href], [tabindex]:not([tabindex="-1"])', $('#pSheetWrap .p-sheet')).filter(function (x) { return !x.disabled && x.offsetParent; });
+    if (!f.length) return;
+    var first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
 
   // ---------- verses ----------
   var filter = 'All';
@@ -872,7 +932,7 @@
   // ---------- overlays and global buttons ----------
   function closeOverlays() {
     closeSoon();
-    $('#pSheetWrap').classList.remove('on');
+    closeSheet();
     $('#pArticle').classList.remove('on');
     $('#pFull').classList.remove('on');
     closeStory();
