@@ -214,6 +214,41 @@ await page.click('.row >> text=Ephesians 6:10-18');
 await page.waitForSelector('#history li:nth-child(3)');
 check((await page.$eval('#f_verse', (t) => t.value)).startsWith('Be strong in the Lord'), 'history: the restored version is saved as the newest version');
 
+// ---------- built-in content: hide items that came with the app ----------
+await page.click('.side [data-view="builtins"]');
+await page.waitForSelector('#builtinList .row');
+const bRows = await page.$$eval('#builtinList .row', (r) => r.map((x) => x.dataset.key));
+check(bRows.includes('audio:keep-building') && bRows.includes('devotion:brave') && bRows.includes('reel:why-jonathan-gave-david-his-robe') && bRows.includes('verse:joshua-1-9'),
+  'built-ins: audio, devotions, reels and verses are all listed');
+check(!(await page.$$eval('#builtinList .pill', (p) => p.some((x) => x.textContent === 'Hidden'))), 'built-ins: everything is visible by default');
+await page.click('[data-bhide="devotion:brave"]');
+await page.click('[data-bhide="reel:why-jonathan-gave-david-his-robe"]');
+await page.click('#saveHidden');
+await page.waitForTimeout(200);
+check(await page.evaluate(() => JSON.parse(localStorage.getItem('ll.settings.v1')).builtins_hidden.hidden.join(',')) === 'devotion:brave,reel:why-jonathan-gave-david-his-robe',
+  'built-ins: Save stores the hidden list (builtins_hidden)');
+check(await page.$eval('[data-key="devotion:brave"] .pill', (p) => p.textContent) === 'Hidden', 'built-ins: the item shows as Hidden after saving');
+const app3 = await context.newPage();
+app3.on('pageerror', (e) => errors.push(e.message));
+await app3.goto(base);
+await app3.waitForSelector('#app[data-ready]');
+check(await app3.evaluate(() => !window.LL_CONTENT.devotions.some((d) => d.slug === 'brave') && !window.LL_CONTENT.reels.some((r) => r.title.startsWith('Why Jonathan'))), 'app: hidden built-ins are left out');
+check((await app3.$$('[data-sheet="-1"], [data-reel="-1"], [data-ep="-1"]')).length === 0, 'app: no buttons point at hidden items');
+check(!(await app3.$('#pFeed .p-slide.s2:not(.s-studio)')) && !(await app3.$('#pFeed .p-slide.s3:not(.s-studio)')), 'app: Today cards built around hidden items are removed');
+const row = await app3.evaluate(() => {
+  const f = document.getElementById('pFeed').getBoundingClientRect();
+  const s4 = document.querySelector('#pFeed .p-slide.s4').getBoundingClientRect();
+  const rows = {};
+  document.querySelectorAll('#pFeed .p-slide').forEach((e) => { const b = e.getBoundingClientRect(); rows[Math.round(b.top)] = Math.max(rows[Math.round(b.top)] || 0, b.right); });
+  return { cls: document.getElementById('pFeed').className, gapRight: Math.round(Math.max(...Object.values(rows).map((r) => f.right - r))) };
+});
+check(/mid-[12]/.test(row.cls) && row.gapRight < 4, `app: the Today row is filled to the edge, no row ends early (${row.cls}, ${row.gapRight}px)`);
+await app3.close();
+await page.click('[data-bhide="devotion:brave"]');
+await page.click('[data-bhide="reel:why-jonathan-gave-david-his-robe"]');
+await page.click('#saveHidden');
+await page.waitForTimeout(200);
+
 // ---------- delete, sign out, strangers stay out ----------
 await page.click('.side [data-view="posts"]');
 await page.click('.row >> text=Jonah is coming soon');

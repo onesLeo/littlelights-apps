@@ -65,6 +65,24 @@
     return Promise.race([fresh, slow]).catch(function () {});
   }
 
+  // ---------- built-ins hidden in the Studio (site setting 'builtins_hidden') ----------
+  // Same caching as the menus. A missing row means nothing is hidden.
+  var HIDDEN_KEY = 'll.builtinsHidden';
+  var HIDDEN = [];
+  function loadHidden() {
+    var S = window.LLStore;
+    if (!S || !S.getSetting) return Promise.resolve();
+    try { HIDDEN = S.normalizeHidden(JSON.parse(localStorage.getItem(HIDDEN_KEY) || 'null')) || []; } catch (err) { HIDDEN = []; }
+    var fresh = S.getSetting('builtins_hidden').then(function (v) {
+      var h = v == null ? [] : S.normalizeHidden(v);
+      if (!h) return;
+      HIDDEN = h;
+      try { localStorage.setItem(HIDDEN_KEY, JSON.stringify({ hidden: h })); } catch (err) { /* storage blocked */ }
+    });
+    var slow = new Promise(function (resolve) { setTimeout(resolve, 4000); });
+    return Promise.race([fresh, slow]).catch(function () {});
+  }
+
   function mergeStudioPosts() {
     var S = window.LLStore;
     if (!S) return Promise.resolve();
@@ -158,24 +176,49 @@
     }).catch(function (err) { if (window.console) console.warn('Studio posts could not be loaded:', err); });
   }
 
-  // Episodes without a recording (built-in placeholders) are left out everywhere: the Listen list,
-  // Today, and devotions' Listen buttons. Indexes that pointed at them become -1.
-  function dropSilentEpisodes() {
-    var keep = [], at = [];
-    C.episodes.forEach(function (e, i) { at[i] = e.src ? keep.length : -1; if (e.src) keep.push(e); });
-    if (keep.length === C.episodes.length) return;
+  // ---------- leaving items out: silent episodes (no recording) and built-ins hidden in the Studio ----------
+  // Built-in items get a key like the Studio's `fields.builtin` ("audio:keep-building"), tagged before
+  // Studio posts are merged in, so only built-ins can be hidden this way.
+  var BUILTIN_KEY = { episodes: ['audio', function (e) { return e.title; }], devotions: ['devotion', function (d) { return d.slug; }],
+    reels: ['reel', function (r) { return r.title; }], verses: ['verse', function (v) { return v.ref; }] };
+  function tagBuiltins() {
+    var S = window.LLStore;
+    if (!S) return;
+    Object.keys(BUILTIN_KEY).forEach(function (list) {
+      (C[list] || []).forEach(function (item) { item._builtin = BUILTIN_KEY[list][0] + ':' + S.slugify(BUILTIN_KEY[list][1](item)); });
+    });
+  }
+  // Which index-holding things point into each list.
+  var LINKS = { episodes: { attrs: ['ep'], today: 'audio' }, devotions: { attrs: ['sheet', 'read', 'share-dev'], today: 'devotion' },
+    reels: { attrs: ['reel'], today: 'reel' }, verses: { attrs: ['save-verse', 'share-verse'], today: 'verse' } };
+  // Removes items from C[list] and re-points everything at them; what pointed at a removed item gets -1.
+  function dropItems(list, keepFn) {
+    var items = C[list] || [], keep = [], at = [];
+    items.forEach(function (e, i) { var k = keepFn(e); at[i] = k ? keep.length : -1; if (k) keep.push(e); });
+    if (keep.length === items.length) return;
     var re = function (i) { return i == null || i < 0 ? -1 : at[i]; };
+    var L = LINKS[list];
     C.builtinAt = C.builtinAt || {};
-    var ep = C.builtinAt.ep;
-    C.builtinAt.ep = (ep || C.episodes.map(function (e, i) { return i; })).map(re);
-    C.devotions.forEach(function (d) { d.episode = re(d.episode); });
-    if (C.featuredAudio != null) C.featuredAudio = re(C.featuredAudio) < 0 ? null : re(C.featuredAudio);
-    if (C.today) C.today = C.today.filter(function (t) { if (t.type !== 'audio') return true; t.i = re(t.i); return t.i >= 0; });
-    C.episodes = keep;
+    L.attrs.forEach(function (attr) { C.builtinAt[attr] = (C.builtinAt[attr] || items.map(function (e, i) { return i; })).map(re); });
+    if (C.today) C.today = C.today.filter(function (t) { if (t.type !== L.today) return true; t.i = re(t.i); return t.i >= 0; });
+    if (list === 'episodes') {
+      C.devotions.forEach(function (d) { d.episode = re(d.episode); });
+      if (C.featuredAudio != null) C.featuredAudio = re(C.featuredAudio) < 0 ? null : re(C.featuredAudio);
+    }
+    if (list === 'devotions') C.episodes.forEach(function (e) { if (e.devotion != null) e.devotion = re(e.devotion) < 0 ? null : re(e.devotion); });
+    C[list] = keep;
+  }
+  function dropLeftOut() {
+    dropItems('episodes', function (e) { return !!e.src; });  // option C: no recording, not listed
+    var hidden = HIDDEN || [];
+    if (!hidden.length) return;
+    Object.keys(BUILTIN_KEY).forEach(function (list) {
+      dropItems(list, function (e) { return !e._builtin || hidden.indexOf(e._builtin) < 0; });
+    });
   }
 
   function startApp() {
-  dropSilentEpisodes();
+  dropLeftOut();
 
   var $ = function (s, r) { return (r || app).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || app).querySelectorAll(s)); };
@@ -186,13 +229,21 @@
       if (to != null) b.setAttribute('data-' + attr, to);
     });
   });
-  // A button whose recording was left out disappears; a card with nothing left to play goes too.
-  Array.prototype.forEach.call(document.querySelectorAll('[data-ep="-1"]'), function (b) {
-    var card = b.closest('[data-featured-audio]');
-    if (card && card.dataset.featuredAudio === 'today') card.remove();
-    else if (card) card.hidden = true;
+  // A button pointing at a left-out item disappears; a Today card built around one goes too, and
+  // the Listen hero is hidden. #pFeed then gets a class saying how many cards share the middle row.
+  Array.prototype.forEach.call(document.querySelectorAll('[data-ep="-1"], [data-sheet="-1"], [data-read="-1"], [data-share-dev="-1"], [data-reel="-1"], [data-save-verse="-1"], [data-share-verse="-1"]'), function (b) {
+    var box = b.closest('[data-featured-audio]') || b.closest('#pFeed .p-slide');
+    if (box && box.dataset.featuredAudio === 'listen') box.hidden = true;
+    else if (box) box.remove();
     else b.remove();
   });
+  (function markRow() {
+    var feed = document.getElementById('pFeed');
+    if (!feed) return;
+    var n = feed.querySelectorAll('.p-slide:is(.s2, .s3, .s4):not(.s-studio)').length;
+    feed.classList.remove('mid-0', 'mid-1', 'mid-2', 'mid-3');
+    feed.classList.add('mid-' + n);
+  })();
   // Today audio card and Listen "This week": the newest published audio marked for Today,
   // otherwise the built-in recording written in index.html.
   (function bindFeaturedAudio() {
@@ -863,7 +914,8 @@
   route();
   app.dataset.ready = '1';
   }
-  Promise.all([mergeStudioPosts(), loadNav()]).then(startApp);
+  tagBuiltins();
+  Promise.all([mergeStudioPosts(), loadNav(), loadHidden()]).then(startApp);
 
   // ---------- offline support ----------
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
