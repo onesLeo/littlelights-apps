@@ -24,7 +24,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   // Tests run in local mode so they never touch the real database.
   await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
   // Verses is "coming soon" by default; the computer checks below need it on.
-  if (versesOn) await context.addInitScript(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
+  if (versesOn) await context.addInitScript(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } }, content: { verses: true } })));
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -67,10 +67,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(await soonOpen(), 'nav: the Today shortcut shows the message too');
   await page.keyboard.press('Escape');
   check(!(await soonOpen()), 'nav: Escape closes the message');
-  await page.click('.p-slide [data-go="verses"]');
-  await page.waitForTimeout(150);
-  check(await soonOpen() && (await onView()) === 'today', 'nav: the More verses button shows the message');
-  await page.click('[data-soon-close]');
+  check(!(await page.$('#pFeed [data-go="verses"], #pFeed [data-save-verse]')), 'nav: with verses off by default there is no More verses or Save image button');
   await page.goto(base + '#verses');
   await page.waitForSelector('#app[data-ready]');
   check(await soonOpen() && (await onView()) === 'today', 'nav: opening #verses directly shows the message');
@@ -140,7 +137,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(html.includes('<meta name="application-name" content="Salt and Light">') && html.includes('<meta name="apple-mobile-web-app-title" content="Salt and Light">'), 'brand: app name meta tags');
   check((html.match(/Little Light: Bible Journeys/g) || []).length >= 3, 'brand: the game keeps its name');
   // Everything on for the rest of the journey.
-  await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
+  await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } }, content: { verses: true } })));
   await page.goto(base + '#today');
   await page.reload();
   await page.waitForSelector('#app[data-ready]');
@@ -320,7 +317,7 @@ const flareState = (sel) => (s) => {
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
   await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
-  await ctx.addInitScript(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
+  await ctx.addInitScript(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } }, content: { verses: true } })));
   const page = await ctx.newPage();
   for (const tab of ['listen', 'read', 'verses', 'play']) {
     await page.goto(base + '#' + tab); await page.waitForSelector('#app[data-ready]'); await page.waitForTimeout(300);
@@ -409,36 +406,80 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
   const css = await (await fetch(base + 'css/app.css')).text();
   check(/@supports\s+not\s*\(\(backdrop-filter/.test(css) && /-webkit-backdrop-filter:\s*blur/.test(css), 'glass: -webkit- prefix and an @supports not (backdrop-filter) solid fallback exist');
   check(!/@keyframes[^}]*\{[^@]*backdrop-filter/.test(css), 'glass: no animated filters');
-  for (const theme of ['day', 'night']) {
-    const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, serviceWorkers: 'block' });
+  for (const [theme, vp, hash, sel] of [['day', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['night', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['phone day', { width: 390, height: 844 }, '#read', '#pCards .p-card, .p-now'], ['phone night', { width: 390, height: 844 }, '#read', '#pCards .p-card']]) {
+    const context = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
     await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
-    await context.addInitScript((t) => { localStorage.setItem('ll.theme', t); localStorage.setItem('ll.calm', '1'); }, theme);
+    await context.addInitScript((t) => { localStorage.setItem('ll.theme', t.replace('phone ', '')); localStorage.setItem('ll.calm', '1'); localStorage.setItem('ll.settings.v1', JSON.stringify({ content: { verses: true } })); }, theme);
     const page = await context.newPage();
-    await page.goto(base + '#today'); await page.waitForSelector('#app[data-ready]'); await page.waitForTimeout(800);
-    const cards = await page.$$('.v-today .p-slide, .p-sidecard');
-    check(cards.length >= 5 && await page.$eval('.p-sidecard', (c) => /blur/.test(getComputedStyle(c).backdropFilter || getComputedStyle(c).webkitBackdropFilter)), `glass ${theme}: cards are frosted (backdrop blur)`);
+    await page.goto(base + hash); await page.waitForSelector('#app[data-ready]'); await page.waitForTimeout(800);
+    const cards = await page.$$(sel);
+    check(cards.length >= 3 && await page.$eval(sel.split(',')[0], (c) => /blur/.test(getComputedStyle(c).backdropFilter || getComputedStyle(c).webkitBackdropFilter)), `glass ${theme}: cards are frosted (backdrop blur)`);
     let worst = { r: 99, name: '' };
     for (const card of cards) {
-      const box = await card.boundingBox(); if (!box || box.y > 900 || box.height < 60) continue;
-      const info = await card.evaluate((c) => { const cs = getComputedStyle(c); c.querySelectorAll('*').forEach((e) => { e.dataset.vis = e.style.visibility; e.style.visibility = 'hidden'; }); return { color: cs.color, name: c.className }; });
-      const clip = { x: box.x + 18, y: box.y + 18, width: box.width - 36, height: Math.min(box.height, 900 - box.y) - 36 };
+      const box = await card.boundingBox(); if (!box || box.y + 60 > vp.height || box.height < 60) continue;
+      // Text elements (not buttons) and their own colours; then hide the content and sample what is behind each one.
+      const info = await card.evaluate((c) => {
+        const cr = c.getBoundingClientRect();
+        const texts = [...c.querySelectorAll('.p-kicker, .big, p, b, .verse, .ref, span, small')].filter((e) => !e.closest('.p-btn, button') && e.textContent.trim() && e.getClientRects().length)
+          .map((e) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); let op = 1; for (let x = e; x && x !== c.parentElement; x = x.parentElement) op *= +getComputedStyle(x).opacity; return { x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height, color: cs.color, op }; });
+        c.querySelectorAll('*').forEach((e) => { e.dataset.vis = e.style.visibility; e.style.visibility = 'hidden'; });
+        return { texts, name: c.className };
+      });
+      const clip = { x: box.x, y: box.y, width: box.width, height: Math.min(box.height, vp.height - box.y) };
       const png = (await page.screenshot({ clip })).toString('base64');
       await card.evaluate((c) => c.querySelectorAll('*').forEach((e) => { e.style.visibility = e.dataset.vis || ''; }));
-      const r = await page.evaluate(async ({ png, color }) => {
+      const r = await page.evaluate(async ({ png, texts }) => {
         const img = new Image(); img.src = 'data:image/png;base64,' + png; await img.decode();
         const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const g = cv.getContext('2d'); g.drawImage(img, 0, 0);
-        const d = g.getImageData(0, 0, cv.width, cv.height).data;
         const lum = (c) => { const v = c.map((n) => { n /= 255; return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
-        const t = color.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number); let min = 99;
-        for (let i = 0; i < d.length; i += 4 * 3) { const bg = [d[i], d[i + 1], d[i + 2]]; const tx = t.map((v, k) => v * 0.85 + bg[k] * 0.15); const a = lum(tx), b = lum(bg); min = Math.min(min, (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)); }
+        let min = 99;
+        for (const t of texts) {
+          const w = Math.max(1, Math.floor(t.w)), h = Math.max(1, Math.floor(t.h)); if (t.y + h > cv.height) continue;
+          const d = g.getImageData(Math.floor(t.x), Math.floor(t.y), w, h).data;
+          const tc = t.color.match(/\d+(\.\d+)?/g).map(Number); const a = (tc[3] ?? 1) * t.op;
+          for (let i = 0; i < d.length; i += 4 * 2) { const bg = [d[i], d[i + 1], d[i + 2]]; const tx = tc.slice(0, 3).map((v, k) => v * a + bg[k] * (1 - a)); const A = lum(tx), B = lum(bg); min = Math.min(min, (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05)); }
+        }
         return min;
-      }, { png, color: info.color });
+      }, { png, texts: info.texts });
       if (r < worst.r) worst = { r, name: info.name };
-      check(r >= 4.5, `glass ${theme}: "${info.name}" text vs its busiest background pixel ${r.toFixed(2)}:1 (AA 4.5)`);
+      check(r >= 4.5, `glass ${theme}: "${info.name}" text vs the busiest pixel behind it ${r.toFixed(2)}:1 (AA 4.5)`);
     }
     console.log(`     glass ${theme}: worst card ${worst.name} ${worst.r.toFixed(2)}:1`);
     await context.close();
   }
+}
+// ---------- verses switched off by default (site setting 'content') ----------
+for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+  const context = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
+  await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  const page = await context.newPage(); const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto(base + '#today'); await page.waitForSelector('#app[data-ready]');
+  const r = await page.evaluate(() => {
+    const vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
+    const slides = [...document.querySelectorAll('#pFeed .p-slide')].filter(vis);
+    const feed = document.getElementById('pFeed').getBoundingClientRect();
+    const first = slides.filter((s) => Math.abs(s.getBoundingClientRect().top - slides[0].getBoundingClientRect().top) < 2);
+    const rowRight = Math.max(...first.map((s) => s.getBoundingClientRect().right));
+    return {
+      verseText: [...document.querySelectorAll('#pFeed .verse, #pFeed .ref')].filter(vis).length,
+      buttons: document.querySelectorAll('[data-save-verse], [data-open-verse], #pFeed [data-go="verses"]').length - document.querySelectorAll('.v-verses [data-save-verse], .v-verses [data-open-verse]').length,
+      navVerses: vis(document.querySelector(innerWidth >= 900 ? '.p-tab[data-tab="verses"]' : '.p-ring[data-go="verses"]')),
+      hello: vis(document.querySelector('.p-hello')), welcome: vis(document.querySelector('.p-welcome')),
+      firstTopGap: slides[0].getBoundingClientRect().top - feed.top, rowGap: feed.right - rowRight,
+      devotionQuote: (window.LL_CONTENT.devotions || []).some((d) => /“|"/.test(JSON.stringify(d))),
+    };
+  });
+  const tag = vp.width >= 900 ? 'desktop' : 'phone';
+  check(r.verseText === 0 && r.buttons === 0, `verses off ${tag}: no verse cards, More verses or Save image on Today`);
+  check(r.navVerses, `verses off ${tag}: the Verses menu entry stays (coming soon)`);
+  check(tag === 'desktop' ? (r.welcome && !r.hello && r.firstTopGap < 2 && r.rowGap < 2) : r.hello, `verses off ${tag}: Today still opens with a welcome and the cards close up (gap ${Math.round(r.firstTopGap)}/${Math.round(r.rowGap)}px)`);
+  check(r.devotionQuote, `verses off ${tag}: Bible quotes inside devotions are kept`);
+  // Owner switches them back on: everything returns, nothing was deleted.
+  await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ content: { verses: true } })));
+  await page.reload(); await page.waitForSelector('#app[data-ready]');
+  check(await page.evaluate(() => !document.getElementById('app').classList.contains('no-verses') && [...document.querySelectorAll('#pFeed .verse')].some((e) => e.getClientRects().length) && !!document.querySelector('#pFeed [data-save-verse]')), `verses on ${tag}: switching the setting on brings the verse cards back`);
+  check(errors.length === 0, `verses ${tag}: no script errors ${errors.join(' | ')}`);
+  await context.close();
 }
 // Layout and motion regressions at the smallest phone and desktop breakpoints.
 for (const viewport of [{ width: 320, height: 568 }, { width: 900, height: 650 }, { width: 1024, height: 768 }]) {

@@ -83,6 +83,22 @@
     return Promise.race([fresh, slow]).catch(function () {});
   }
 
+  // ---------- content switches (site setting 'content') ----------
+  // Missing row/key = verses hidden. Same device caching as the other settings.
+  var CONTENT_KEY = 'll.contentSettings';
+  var CONTENT = { verses: false };
+  function loadContent() {
+    var S = window.LLStore;
+    if (!S || !S.getSetting || !S.contentDefault) return Promise.resolve();
+    try { CONTENT = S.normalizeContent(JSON.parse(localStorage.getItem(CONTENT_KEY) || 'null')) || S.contentDefault(); } catch (err) { CONTENT = S.contentDefault(); }
+    var fresh = S.getSetting('content').then(function (v) {
+      CONTENT = S.normalizeContent(v) || S.contentDefault();
+      try { localStorage.setItem(CONTENT_KEY, JSON.stringify(CONTENT)); } catch (err) { /* storage blocked */ }
+    });
+    var slow = new Promise(function (resolve) { setTimeout(resolve, 4000); });
+    return Promise.race([fresh, slow]).catch(function () {});
+  }
+
   function mergeStudioPosts() {
     var S = window.LLStore;
     if (!S) return Promise.resolve();
@@ -219,6 +235,16 @@
 
   function startApp() {
   dropLeftOut();
+  // Verses switched off: no verse cards on Today (built-in or Studio) and no verse buttons.
+  // Bible quotes inside devotions are untouched. The Verses menu keeps its own nav state.
+  if (!CONTENT.verses) {
+    app.classList.add('no-verses');
+    if (C.today) C.today = C.today.filter(function (t) { return t.type !== 'verse'; });
+    Array.prototype.forEach.call(document.querySelectorAll('#pFeed .p-slide.s1 > :is(.p-kicker, .verse, .ref, .p-btns)'), function (el) { el.remove(); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-save-verse], [data-share-verse], [data-open-verse], #pFeed [data-go="verses"]'), function (el) {
+      if (!el.closest('.v-verses')) el.remove();
+    });
+  }
 
   var $ = function (s, r) { return (r || app).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || app).querySelectorAll(s)); };
@@ -1007,7 +1033,7 @@
   app.dataset.ready = '1';
   }
   tagBuiltins();
-  Promise.all([mergeStudioPosts(), loadNav(), loadHidden()]).then(startApp);
+  Promise.all([mergeStudioPosts(), loadNav(), loadHidden(), loadContent()]).then(startApp);
 
   // ---------- offline support ----------
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {

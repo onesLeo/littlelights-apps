@@ -831,53 +831,89 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 @media (prefers-reduced-motion: reduce) { .p-sheet { animation: none; } }
 .p-app.calm .p-sheet { animation: none; }
 
-/* ---------- Frosted glass cards ----------
-   Each card keeps its own colour as a translucent tint over the sky, with blur + saturation,
-   a 1px light inner edge, a soft shadow and a top sheen (::before, behind the content).
-   Alphas were chosen so text stays WCAG AA over the brightest/darkest sky behind each card
-   (sun, clouds and the moon included); tests sample the real pixels to confirm.
-   Phones: Today posts are full-screen, so they stay solid (no backdrop-filter on huge scrolling
-   areas); only the small Read and Listen cards get a lighter blur there. Nothing animates a filter. */
-:root { --glass-blur: 16px; --glass-sat: 150%; }
-@media (max-width: 899px) { :root { --glass-blur: 10px; --glass-sat: 140%; } }
+/* ---------- Frosted glass cards (v2: genuinely see-through) ----------
+   Low tint (15-30%) + blur(22px) saturate(160%). Contrast comes from the blur, a soft scrim
+   behind the text block (a radial wash on the text side, not the whole card) and a subtle
+   text-shadow. In day mode every glass card uses dark ink (light ink can't pass AA on a
+   see-through card over a pale sky); at night, light ink. Tests sample the pixels behind
+   each text element and require AA (4.5:1).
+   Phones: the full-screen Today posts ARE the background (sky, sun, moon, owl live inside the
+   first one), so there is nothing behind them to see through and a full-viewport backdrop blur
+   on a scroll-snapping feed would cost a full-screen blur every frame: they stay solid. The
+   smaller Read and Listen cards get glass with a 12px blur over static colour blobs. */
+:root { --glass-blur: 22px; --glass-sat: 160%; }
+@media (max-width: 899px) { :root { --glass-blur: 12px; --glass-sat: 150%; } }
+/* Static colour blobs behind the cards: one layer, plain gradients, nothing animated. */
+@media (min-width: 900px) {
+  .p-sky::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(28% 34% at 18% 42%, rgba(238,143,178,.45), transparent 70%),
+      radial-gradient(26% 30% at 52% 70%, rgba(160,127,214,.40), transparent 70%),
+      radial-gradient(24% 30% at 80% 58%, rgba(105,186,126,.38), transparent 70%); }
+  .p-app.night .p-sky::after { background: radial-gradient(28% 34% at 18% 42%, rgba(238,143,178,.22), transparent 70%),
+      radial-gradient(26% 30% at 52% 70%, rgba(160,127,214,.28), transparent 70%),
+      radial-gradient(24% 30% at 80% 58%, rgba(105,186,126,.18), transparent 70%); }
+}
+@media (max-width: 899px) {
+  .v-read { background: radial-gradient(60% 30% at 15% 20%, rgba(238,143,178,.35), transparent 70%), radial-gradient(55% 28% at 90% 55%, rgba(247,194,63,.30), transparent 70%), radial-gradient(60% 30% at 30% 90%, rgba(160,127,214,.28), transparent 70%), #fbf6ee; background-attachment: local; }
+  .p-app.night .v-read { background: radial-gradient(60% 30% at 15% 20%, rgba(238,143,178,.16), transparent 70%), radial-gradient(55% 28% at 90% 55%, rgba(247,194,63,.10), transparent 70%), radial-gradient(60% 30% at 30% 90%, rgba(160,127,214,.16), transparent 70%), #1a1422; background-attachment: local; }
+  .v-listen { background: radial-gradient(70% 30% at 85% 10%, rgba(160,127,214,.45), transparent 70%), radial-gradient(60% 30% at 10% 40%, rgba(238,143,178,.25), transparent 70%), #17122e; background-attachment: local; }
+}
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .p-card, .p-now {
+  .p-card, .p-now, .v-today .p-slide, .p-sidecard { --g: 255,255,255; --ga: .22; --scrim: rgba(255,255,255,.34); }
+  :is(.p-card, .p-now) {
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.32), 0 10px 28px rgba(20,16,50,.16); position: relative; isolation: isolate; }
-  .p-card { background: color-mix(in srgb, var(--c, #2a2448) 86%, transparent); }
-  .p-now { background: radial-gradient(120% 90% at 80% 0%, rgba(195,168,238,.86), rgba(160,127,214,.86) 55%, rgba(111,82,168,.88)); }
-  .p-card::before, .p-now::before { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none;
-    background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.05) 38%, transparent 60%); }
+    border: 1px solid rgba(255,255,255,.25); box-shadow: 0 10px 30px rgba(20,16,50,.14); position: relative; isolation: isolate;
+    text-shadow: 0 1px 2px rgba(255,255,255,.45); }
+  .p-card { background: radial-gradient(110% 90% at 30% 65%, rgba(255,255,255,.5), transparent 80%), color-mix(in srgb, var(--c, #2a2448) 30%, transparent); }
+  .p-card span, .p-card .foot { opacity: 1; }
+  .p-now { background: radial-gradient(90% 80% at 25% 60%, rgba(255,255,255,.30), transparent 75%), rgba(160,127,214,.30); }
+  .p-app.night .p-card { filter: none; background: radial-gradient(110% 90% at 30% 65%, rgba(16,10,28,.6), transparent 80%), color-mix(in srgb, var(--c, #2a2448) 18%, rgba(20,14,34,.22)); color: #f7eef4 !important; text-shadow: 0 1px 3px rgba(0,0,0,.55); }
+  .p-now { color: #1a0f33; }
+  :is(.p-card, .p-now)::before { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none;
+    background: linear-gradient(125deg, rgba(255,255,255,.34), rgba(255,255,255,.08) 28%, transparent 46%, transparent 72%, rgba(255,255,255,.10)); }
   @media (min-width: 900px) {
     .v-today .p-slide, .p-sidecard {
       -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.34), inset 0 1px 0 rgba(255,255,255,.45), 0 14px 36px rgba(20,24,60,.18);
-      position: relative; isolation: isolate; }
-    .p-app.night .v-today .p-slide, .p-app.night .p-sidecard { box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), inset 0 1px 0 rgba(255,255,255,.22), 0 16px 40px rgba(0,0,0,.45); }
+      border: 1px solid rgba(255,255,255,.25); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 14px 36px rgba(20,24,60,.16);
+      position: relative; isolation: isolate; text-shadow: 0 1px 2px rgba(255,255,255,.5); }
     .v-today .p-slide::before, .p-sidecard::before { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none;
-      background: linear-gradient(180deg, rgba(255,255,255,.24), rgba(255,255,255,.06) 30%, transparent 55%); }
-    .p-app.night .v-today .p-slide::before, .p-app.night .p-sidecard::before { background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 30%, transparent 55%); }
-    /* Day tints */
-    .v-today .s1 { background: radial-gradient(120% 80% at 80% 25%, rgba(255,224,137,.55) 0%, rgba(247,194,63,.5) 45%, rgba(224,168,32,.55) 100%); }
-    .v-today .s2 { background: rgba(238,143,178,.5); }
-    .v-today .s3 { background: rgba(228,106,76,.5); }
-    .v-today .s4 { background: radial-gradient(120% 70% at 50% 30%, rgba(185,154,228,.5) 0%, rgba(160,127,214,.5) 50%, rgba(111,82,168,.55) 100%); }
-    .v-today .s5, .sc-game { background: linear-gradient(180deg, rgba(154,216,170,.5) 0%, rgba(105,186,126,.5) 55%, rgba(63,138,85,.55) 100%); }
-    .sc-family { background: rgba(36,67,52,.9); }
-    .sc-news { background: rgba(29,25,56,.86); }
-    .sc-family::before, .sc-news::before { background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.03) 30%, transparent 55%) !important; }
-    /* Night tints */
-    .p-app.night .v-today .s1 { background: radial-gradient(120% 80% at 80% 25%, rgba(37,48,106,.55) 0%, rgba(17,26,68,.55) 45%, rgba(7,11,34,.6) 100%); }
-    .p-app.night .v-today .s2 { background: rgba(58,26,43,.55); }
-    .p-app.night .v-today .s3 { background: rgba(59,23,16,.55); }
-    .p-app.night .v-today .s4 { background: radial-gradient(120% 70% at 50% 30%, rgba(58,42,106,.78) 0%, rgba(33,22,65,.75) 60%, rgba(20,13,43,.78) 100%); }
-    .p-app.night .v-today .s5, .p-app.night .sc-game { background: linear-gradient(180deg, rgba(19,36,58,.6) 0%, rgba(16,40,27,.6) 60%, rgba(10,29,18,.62) 100%); }
-    .p-app.night .sc-family { background: rgba(36,67,52,.9); }
-    .p-app.night .sc-news { background: rgba(29,25,56,.8); }
+      background: linear-gradient(125deg, rgba(255,255,255,.32), rgba(255,255,255,.07) 26%, transparent 44%, transparent 74%, rgba(255,255,255,.09)); }
+    /* Day: 20-28% tint + a pale scrim on the text side; dark ink everywhere. */
+    .v-today .s1 { background: radial-gradient(70% 90% at 22% 55%, rgba(255,250,230,.38), transparent 72%), rgba(247,194,63,.24); }
+    .v-today .s2 { background: radial-gradient(80% 90% at 25% 50%, rgba(255,240,246,.40), transparent 75%), rgba(238,143,178,.24); }
+    .v-today .s3 { background: radial-gradient(80% 90% at 25% 50%, rgba(255,236,230,.40), transparent 75%), rgba(228,106,76,.22); }
+    .v-today .s4 { background: radial-gradient(80% 90% at 25% 50%, rgba(245,238,255,.40), transparent 75%), rgba(160,127,214,.24); }
+    .v-today .s5, .sc-game { background: radial-gradient(70% 90% at 22% 50%, rgba(236,250,240,.40), transparent 75%), rgba(105,186,126,.24); }
+    .sc-family { background: radial-gradient(80% 90% at 25% 50%, rgba(236,248,240,.42), transparent 75%), rgba(36,67,52,.18); color: #12261b; }
+    .sc-news { background: radial-gradient(80% 90% at 25% 50%, rgba(240,238,252,.42), transparent 75%), rgba(29,25,56,.16); color: #1d1938; border-color: rgba(255,255,255,.25); }
+    .sc-family .p-kicker, .sc-news .p-kicker { color: inherit; }
+    /* Night: 22-30% tint + a dark scrim on the text side; light ink. */
+    .p-app.night .v-today .p-slide, .p-app.night .p-sidecard { border-color: rgba(255,255,255,.22); text-shadow: 0 1px 3px rgba(0,0,0,.6);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 16px 40px rgba(0,0,0,.4); }
+    .p-app.night .v-today .p-slide::before, .p-app.night .p-sidecard::before { background: linear-gradient(125deg, rgba(255,255,255,.16), rgba(255,255,255,.04) 26%, transparent 44%, transparent 74%, rgba(255,255,255,.05)); }
+    .p-app.night .v-today .s1 { background: radial-gradient(70% 90% at 22% 55%, rgba(6,9,30,.45), transparent 72%), rgba(37,48,106,.26); }
+    .p-app.night .v-today .s2 { background: radial-gradient(80% 90% at 25% 50%, rgba(20,8,16,.45), transparent 75%), rgba(58,26,43,.28); }
+    .p-app.night .v-today .s3 { background: radial-gradient(80% 90% at 25% 50%, rgba(20,8,6,.45), transparent 75%), rgba(59,23,16,.28); }
+    .p-app.night .v-today .s4 { background: radial-gradient(80% 90% at 25% 50%, rgba(10,6,24,.48), transparent 75%), rgba(58,42,106,.28); }
+    .p-app.night .v-today .s5, .p-app.night .sc-game { background: radial-gradient(70% 90% at 22% 50%, rgba(4,14,8,.45), transparent 75%), rgba(16,40,27,.30); }
+    /* This card sits in front of the moon: its scrim is stronger at the top where the moon shows through. */
+    .p-app.night .sc-family { background: linear-gradient(180deg, rgba(6,16,10,.62), rgba(6,16,10,.42) 55%, rgba(6,16,10,.2)), rgba(36,67,52,.28); color: #fff8e9; }
+    .p-app.night .sc-news { background: radial-gradient(80% 90% at 25% 50%, rgba(8,6,20,.5), transparent 75%), rgba(29,25,56,.30); color: #f4efe2; }
   }
 }
-/* Solid fallback where backdrop-filter is not supported: the original opaque colours stay
-   (they are declared above outside @supports) and the edge/shadow keeps the card shape. */
+/* Solid fallback: no backdrop-filter support keeps the original opaque colours (declared above,
+   outside @supports) with a light edge and soft shadow. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .p-card, .p-now, .v-today .p-slide, .p-sidecard { box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), 0 10px 28px rgba(20,16,50,.18); }
+}
+/* ---------- Verses switched off (site setting 'content'.verses = false, the default) ----------
+   Phone: the first full-screen post keeps its sky, moon and owl and becomes a welcome card.
+   Computer: the welcome heading already sits above the feed, so the verse card is removed and
+   the remaining cards close up. */
+.p-hello { display: none; }
+.no-verses .p-hello { display: grid; gap: 10px; }
+.no-verses .p-hello .big { font: 800 34px/1.1 var(--display); letter-spacing: -.02em; }
+.no-verses .p-hello p { font-size: 16px; line-height: 1.45; max-width: 30ch; }
+@media (min-width: 900px) {
+  .no-verses .v-today .p-slide.s1:not(.s-studio) { display: none; }
 }
