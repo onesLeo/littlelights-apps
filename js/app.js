@@ -135,7 +135,7 @@
           if (p.show_on_today) today.push({ type: 'devotion', i: devs.length - 1 });
         } else if (p.type === 'reel') {
           var look = reelLook.filter(function (l) { return l[1] === f.look; })[0] || reelLook[reels.length % 3];
-          reels.push({ title: p.title, len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '' });
+          reels.push({ title: p.title, len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '' });
           if (f.builtin) copyOf[f.builtin] = reels.length - 1;
           if (p.show_on_today) today.push({ type: 'reel', i: reels.length - 1 });
         } else if (p.type === 'verse') {
@@ -597,53 +597,150 @@
   }
   // YouTube is only ever embedded from youtube-nocookie with rel=0, and only once the player is opened.
   function ytId(u) { var m = String(u || '').match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/)([\w-]{11})/); return m ? m[1] : ''; }
-  function ytEmbed(id) { return 'https://www.youtube-nocookie.com/embed/' + id + '?rel=0&modestbranding=1&playsinline=1'; }
+  function ytEmbed(id) { return 'https://www.youtube-nocookie.com/embed/' + id + '?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=' + encodeURIComponent(location.origin); }
   window.LL_ytEmbed = ytEmbed; window.LL_ytId = ytId;
   var reelsEl = $('#pReels');
+  function rIcon(d) { return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + d + '"/></svg>'; }
+  var segs = '<div class="p-rsegs" aria-hidden="true">' + C.reels.map(function () { return '<i><b></b></i>'; }).join('') + '</div>';
   reelsEl.innerHTML = C.reels.map(function (r, i) {
     var yid = ytId(r.youtube);
     var scene = r.src
-      ? '<video src="' + esc(r.src) + '" playsinline muted loop controls preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
+      ? '<video src="' + esc(r.src) + '" playsinline muted controls preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
       : yid ? '<div class="p-yt-slot" data-yt="' + yid + '" style="position:absolute;inset:0;background:#000"></div>'
       : reelScene(r.kind);
-    return '<article class="p-reel" data-i="' + i + '" style="background:' + r.bg + '">' +
-      '<div class="scene">' + scene + '</div>' +
-      '<div class="bar"><i></i></div>' +
-      '<button class="tapzone" type="button" aria-label="Pause or play"></button><div class="paused"></div>' +
-      '<div class="side"><button type="button" class="save"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Save</button>' +
-      '<button type="button" class="share"><svg viewBox="0 0 24 24"><path d="M4 12v7h16v-7M12 3v12M7 8l5-5 5 5"/></svg>Share</button></div>' +
-      '<div class="cap"><span class="p-kicker">Reel' + (r.len ? ' · ' + esc(r.len) : '') + '</span><b>' + esc(r.title) + '</b><p>' + esc(r.caption) + '</p>' +
-      (r.youtube && !yid ? '<a class="p-yt" href="' + esc(r.youtube) + '" target="_blank" rel="noopener">Watch on YouTube</a>' : '') + '<button type="button" class="more">…more</button></div>' +
+    // Read / Listen only appear when the reel post links a devotion (fields.devotion = slug) or audio (fields.audio = title).
+    var acts = '<button type="button" class="save p-ract" aria-label="Save">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
+      '<button type="button" class="share p-ract" aria-label="Share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button>' +
+      (r.read ? '<button type="button" class="p-ract" data-read-slug="' + esc(r.read) + '" aria-label="Read the devotion">' + rIcon('M3 5h7a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H3zM21 5h-7a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h7z') + '<span>Read</span></button>' : '') +
+      (r.listen ? '<button type="button" class="p-ract" data-listen-title="' + esc(r.listen) + '" aria-label="Listen">' + rIcon('M4 14v-2a8 8 0 0 1 16 0v2M4 14h3v6H4zM17 14h3v6h-3z') + '<span>Listen</span></button>' : '');
+    return '<article class="p-reel" data-i="' + i + '" style="--rc:' + esc(r.bg) + ';background:' + esc(r.bg) + '" aria-label="' + esc(r.title) + '">' +
+      '<div class="scene"><div class="p-rkb">' + scene + '</div></div><div class="p-rfade" aria-hidden="true"></div>' +
+      '<div class="p-rtop">' + segs + '<span class="p-rchip">Reel' + (r.len ? ' · ' + esc(r.len) : '') + '</span></div>' +
+      '<div class="tapzone p-rzones"><button type="button" class="z-prev" aria-label="Previous reel"><span aria-hidden="true">‹</span></button><button type="button" class="z-mid" aria-label="Pause or play"></button><button type="button" class="z-next" aria-label="Next reel"><span aria-hidden="true">›</span></button></div>' +
+      '<div class="p-rend" hidden><b>That’s all for now</b><button type="button" class="p-ragain">↻ Watch again</button></div><div class="paused" aria-hidden="true"><span class="ic-pause"></span><span class="ic-play"></span></div>' +
+      '<div class="side">' + acts + '</div>' +
+      '<div class="cap"><b class="p-rtitle">' + esc(r.title) + '</b>' + (r.caption ? '<p>' + esc(r.caption) + '</p><button type="button" class="more" aria-haspopup="dialog">more</button>' : '') +
+      (r.youtube && !yid ? '<a class="p-yt" href="' + esc(r.youtube) + '" target="_blank" rel="noopener">Watch on YouTube</a>' : '') + '</div>' +
       '</article>';
   }).join('');
-  var visibleReel = 0;
+  var rSheet = document.createElement('div');
+  rSheet.className = 'p-rsheet glass glass--dark'; rSheet.id = 'pReelSheet'; rSheet.hidden = true;
+  rSheet.setAttribute('role', 'dialog'); rSheet.setAttribute('aria-modal', 'true'); rSheet.setAttribute('aria-labelledby', 'pReelSheetT');
+  rSheet.innerHTML = '<div class="p-rsheet-in"><span class="handle" aria-hidden="true"></span><h3 id="pReelSheetT"></h3><p></p><button type="button" class="p-rsheet-x" aria-label="Close caption">' + rIcon('M6 6l12 12M18 6L6 18') + '</button></div>';
+  $('#pWatchPlayer').appendChild(rSheet);
+  var rSheetFrom = null;
+  function openReelSheet(i, from) {
+    rSheetFrom = from; rSheet.querySelector('h3').textContent = C.reels[i].title; rSheet.querySelector('p').textContent = C.reels[i].caption;
+    rSheet.hidden = false; rSheet.querySelector('.p-rsheet-x').focus();
+  }
+  function closeReelSheet() { if (rSheet.hidden) return false; rSheet.hidden = true; if (rSheetFrom) rSheetFrom.focus(); updateReels(); return true; }
+  rSheet.addEventListener('click', function (e) { if (e.target === rSheet || e.target.closest('.p-rsheet-x')) closeReelSheet(); });
+  // ---------- Story player ----------
+  // The sequence is the list the player was opened from: the Watch gallery opens all reels in gallery order
+  // (earlier ones show full), a single "Watch" button elsewhere (Today) opens just that one reel.
+  var seq = [], pos = 0, visibleReel = 0, clock = { t: 0, dur: 0, real: false, last: 0 }, raf = 0, holdT = 0, held = false, ended = false;
   var savedReels = {};
   try { savedReels = JSON.parse(store('savedReels') || '{}') || {}; } catch (err) { savedReels = {}; }
   $$('.p-reel').forEach(function (el, i) { if (savedReels[i]) el.querySelector('.save').classList.add('saved'); });
+  function lenSec(s) { var m = String(s || '').match(/(\d+):(\d\d)/); return m ? +m[1] * 60 + +m[2] : 30; }
+  function reelEl(i) { return reelsEl.querySelector('.p-reel[data-i="' + i + '"]'); }
+  function motionOff() { return app.classList.contains('calm') || matchMedia('(prefers-reduced-motion: reduce)').matches; }
+  function buildSegs() {
+    $$('.p-reel', reelsEl).forEach(function (el) {
+      var k = seq.indexOf(+el.dataset.i); el.classList.toggle('inseq', k >= 0);
+      el.querySelector('.p-rsegs').innerHTML = seq.map(function (_, n) { return '<i class="' + (n < k ? 'done' : n === k ? 'cur' : '') + '"><b></b></i>'; }).join('');
+    });
+  }
+  function paint() { var el = reelEl(visibleReel); if (!el) return; var b = el.querySelector('.p-rsegs i.cur b'); if (b) b.style.transform = 'scaleX(' + Math.min(1, clock.dur ? clock.t / clock.dur : 0).toFixed(4) + ')'; }
+  function isPlaying() { var el = reelEl(visibleReel); return watchOpen && current === 'watch' && el && !el.classList.contains('userpaused') && !held && !ended; }
+  function ytSend(el, func, args) { var f = el && el.querySelector('.p-yt-slot iframe'); if (f && f.contentWindow) f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: func, args: args || [] }), '*'); }
+  function reelTick(now) {
+    raf = 0; if (!watchOpen) return;
+    var el = reelEl(visibleReel), v = el && el.querySelector('video'), dt = clock.last ? (now - clock.last) / 1000 : 0; clock.last = now;
+    if (v && isFinite(v.duration) && v.duration > 0) { clock.real = true; clock.dur = v.duration; clock.t = v.currentTime; if (v.ended) clock.t = clock.dur; }
+    else if (!clock.real && isPlaying()) clock.t += dt;  // fallback: the chip duration
+    paint();
+    if (clock.dur && clock.t >= clock.dur - 0.05 && !ended) { nextReel(true); }
+    raf = requestAnimationFrame(reelTick);
+  }
+  window.addEventListener('message', function (e) {
+    if (!/youtube(-nocookie)?\.com$/.test(String(e.origin).replace(/^https?:\/\/(www\.)?/, ''))) return;
+    var d; try { d = JSON.parse(e.data); } catch (x) { return; }
+    var el = reelEl(visibleReel), f = el && el.querySelector('.p-yt-slot iframe'); if (!f || e.source !== f.contentWindow) return;
+    var info = d && d.info; if (!info) return;
+    if (info.duration) { clock.real = true; clock.dur = info.duration; }
+    if (info.currentTime != null) clock.t = info.currentTime;
+    if (info.playerState === 0) clock.t = clock.dur;
+  });
   function updateReels() {
-    $$('.p-reel').forEach(function (el, i) {
-      var playing = current === 'watch' && watchOpen && i === visibleReel && !el.classList.contains('userpaused');
+    $$('.p-reel', reelsEl).forEach(function (el) {
+      var i = +el.dataset.i, on = watchOpen && i === visibleReel;
+      el.classList.toggle('on', on);
+      var playing = on && isPlaying();
       el.classList.toggle('playing', playing);
+      if (on) reelsEl.style.setProperty('--rc', C.reels[i].bg);
       var slot = el.querySelector('.p-yt-slot');
-      if (slot) { if (watchOpen && i === visibleReel) { if (!slot.firstChild) slot.innerHTML = '<iframe src="' + ytEmbed(slot.dataset.yt) + '" title="' + esc(C.reels[i].title) + '" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" style="width:100%;height:100%;border:0"></iframe>'; } else slot.innerHTML = ''; }
+      if (slot) {
+        if (on) { if (!slot.firstChild) { slot.innerHTML = '<iframe src="' + ytEmbed(slot.dataset.yt) + '" title="' + esc(C.reels[i].title) + '" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" style="width:100%;height:100%;border:0"></iframe>';
+            slot.firstChild.addEventListener('load', function () { this.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*'); }); }
+          ytSend(el, playing ? 'playVideo' : 'pauseVideo'); }
+        else slot.innerHTML = '';
+      }
       var v = el.querySelector('video');
       if (v) { if (playing) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } else v.pause(); }
     });
+    if (watchOpen && !raf) { clock.last = 0; raf = requestAnimationFrame(reelTick); }
   }
-  reelsEl.addEventListener('scroll', function () {
-    var i = Math.round(reelsEl.scrollTop / reelsEl.clientHeight);
-    if (i !== visibleReel) { visibleReel = i; updateReels(); }
-  }, { passive: true });
+  function showReel(k, again) {
+    if (k < 0 || k >= seq.length) return;
+    var prev = reelEl(visibleReel); if (prev) { prev.classList.remove('userpaused', 'flash'); var pv = prev.querySelector('video'); if (pv) { pv.pause(); } }
+    pos = k; visibleReel = seq[k]; ended = false;
+    var el = reelEl(visibleReel); el.querySelector('.p-rend').hidden = true;
+    var v = el.querySelector('video'); if (v) try { v.currentTime = 0; } catch (x) {}
+    if (again) ytSend(el, 'seekTo', [0, true]);
+    clock = { t: 0, dur: lenSec(C.reels[visibleReel].len), real: false, last: 0 };
+    reelsEl.classList.toggle('instant', motionOff());
+    buildSegs(); paint(); updateReels();
+  }
+  function restartReel() { var el = reelEl(visibleReel), v = el.querySelector('video'); if (v) try { v.currentTime = 0; } catch (x) {} ytSend(el, 'seekTo', [0, true]); clock.t = 0; ended = false; el.querySelector('.p-rend').hidden = true; paint(); updateReels(); }
+  function nextReel(auto) {
+    if (pos < seq.length - 1) { showReel(pos + 1); return; }
+    if (auto) { ended = true; clock.t = clock.dur; paint(); var el = reelEl(visibleReel); el.querySelector('.p-rend').hidden = false; updateReels(); el.querySelector('.p-ragain').focus(); }
+  }
+  function prevReel() { if (clock.t > 3 || pos === 0) restartReel(); else showReel(pos - 1); }
+  function togglePause(el) { el.classList.toggle('userpaused'); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); updateReels(); }
+  window.LL_reel = { next: function () { nextReel(); }, prev: prevReel, show: showReel, seek: function (t) { clock.t = t; paint(); }, state: function () { return { pos: pos, reel: visibleReel, seq: seq.slice(), t: clock.t, dur: clock.dur, real: clock.real, ended: ended, playing: !!isPlaying() }; } };
+  // Tap zones (left third: previous/restart, centre: pause, right third: next), press-and-hold pauses, swipe navigates.
+  var down = null;
+  reelsEl.addEventListener('pointerdown', function (e) {
+    var z = e.target.closest('.p-rzones button'); if (!z || e.button > 0) return;
+    down = { x: e.clientX, y: e.clientY, z: z }; held = false;
+    clearTimeout(holdT); holdT = setTimeout(function () { held = true; updateReels(); }, 300);
+  });
+  function endPress(e) {
+    clearTimeout(holdT); if (!down) return;
+    var d = down; down = null;
+    if (held) { held = false; d.suppress = true; updateReels(); reelsEl._suppress = Date.now(); return; }
+    var dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) { reelsEl._suppress = Date.now(); if (dx < 0) nextReel(); else prevReel(); }
+    else if (Math.abs(dy) > 60) { reelsEl._suppress = Date.now(); if (dy < 0) nextReel(); else prevReel(); }
+  }
+  reelsEl.addEventListener('pointerup', endPress);
+  reelsEl.addEventListener('pointercancel', function () { clearTimeout(holdT); down = null; if (held) { held = false; updateReels(); } });
   reelsEl.addEventListener('click', function (e) {
     var reel = e.target.closest('.p-reel');
     if (!reel) return;
     var i = +reel.dataset.i;
-    if (e.target.closest('.tapzone')) { reel.classList.toggle('userpaused'); updateReels(); }
-    else if (e.target.closest('.more')) {
-      var c = reel.querySelector('.cap');
-      var o = c.classList.toggle('open');
-      e.target.textContent = o ? 'less' : '…more';
-    } else if (e.target.closest('.save')) {
+    if (e.target.closest('.p-rzones')) {
+      if (reelsEl._suppress && Date.now() - reelsEl._suppress < 400) { reelsEl._suppress = 0; return; }
+      if (e.target.closest('.z-next')) nextReel(); else if (e.target.closest('.z-prev')) prevReel(); else togglePause(reel);
+      return;
+    }
+    e.stopPropagation();
+    if (e.target.closest('.p-ragain')) { showReel(0, true); var z = reelEl(visibleReel).querySelector('.z-mid'); if (z) z.focus(); }
+    else if (e.target.closest('.more')) { openReelSheet(i, e.target.closest('.more')); updateReels(); }
+    else if (e.target.closest('[data-read-slug]')) { closeWatch(); location.hash = 'read/' + e.target.closest('[data-read-slug]').dataset.readSlug; }
+    else if (e.target.closest('[data-listen-title]')) { var t = e.target.closest('[data-listen-title]').dataset.listenTitle; closeWatch(); var k = C.episodes.findIndex(function (x) { return x.title === t; }); go('listen'); if (k >= 0) playEp(k); } else if (e.target.closest('.save')) {
       var s = e.target.closest('.save');
       s.classList.toggle('saved');
       savedReels[i] = s.classList.contains('saved');
@@ -677,30 +774,33 @@
       }).join('') + '</div>' : '');
   }
   renderWatch();
-  wGal.addEventListener('click', function (e) { var b = e.target.closest('[data-watch]'); if (b) openReel(+b.dataset.watch); });
+  wGal.addEventListener('click', function (e) { var b = e.target.closest('[data-watch]'); if (b) openReel(+b.dataset.watch, C.reels.map(function (_, k) { return k; })); });
   function closeWatch() {
     if (!watchOpen) return;
-    watchOpen = false; wPlayer.hidden = true; wPlayer.classList.remove('on'); updateReels();
+    rSheet.hidden = true; watchOpen = false; wPlayer.hidden = true; wPlayer.classList.remove('on'); updateReels();
     if (watchReturn && document.contains(watchReturn)) watchReturn.focus();
   }
   window.LL_closeWatch = closeWatch;
   $('#pWatchClose').addEventListener('click', closeWatch);
   wPlayer.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { e.stopPropagation(); closeWatch(); }
+    if (e.key === 'Escape') { e.stopPropagation(); if (!closeReelSheet()) closeWatch(); }
     if (e.key === 'Tab') { var f = $$('#pWatchPlayer button, #pWatchPlayer a[href], #pWatchPlayer iframe, #pWatchPlayer video').filter(function (x) { return x.offsetParent; });
       if (!f.length) return; var a = f[0], z = f[f.length - 1];
       if (e.shiftKey && document.activeElement === a) { z.focus(); e.preventDefault(); } else if (!e.shiftKey && document.activeElement === z) { a.focus(); e.preventDefault(); } }
   });
-  function openReel(i) {
+  // openReel(i, list): list is the sequence to play (defaults to just this reel).
+  function openReel(i, list) {
     watchReturn = document.activeElement;
     go('watch');
+    seq = (list && list.length ? list : [i]).slice();
     watchOpen = true; wPlayer.hidden = false; wPlayer.classList.add('on');
-    setTimeout(function () { reelsEl.scrollTop = i * reelsEl.clientHeight; visibleReel = i; updateReels(); $('#pWatchClose').focus(); }, 0);
+    setTimeout(function () { showReel(Math.max(0, seq.indexOf(i))); $('#pWatchClose').focus(); }, 0);
   }
   document.addEventListener('keydown', function (e) {
-    if (current !== 'watch' || !watchOpen || e.target.closest('input, textarea')) return;
-    if (e.key === 'ArrowDown') { reelsEl.scrollBy({ top: reelsEl.clientHeight, behavior: 'smooth' }); e.preventDefault(); }
-    if (e.key === 'ArrowUp') { reelsEl.scrollBy({ top: -reelsEl.clientHeight, behavior: 'smooth' }); e.preventDefault(); }
+    if (current !== 'watch' || !watchOpen || !rSheet.hidden || e.target.closest('input, textarea')) return;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { nextReel(); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { prevReel(); e.preventDefault(); }
+    else if (e.key === ' ' || e.key === 'Spacebar') { if (!ended) togglePause(reelEl(visibleReel)); e.preventDefault(); }
   });
 
   // ---------- audio: real files when `src` is set, otherwise a silent demo ----------
