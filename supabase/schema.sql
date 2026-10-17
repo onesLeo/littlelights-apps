@@ -153,5 +153,51 @@ drop policy if exists "Owners and editors delete media" on storage.objects;
 create policy "Owners and editors delete media" on storage.objects for delete
   using (bucket_id = 'media' and private.team_role() in ('owner', 'editor'));
 
+-- ---------- site settings: public menus (key 'nav') ----------
+-- Purely additive: one new table, its security rules, an updated_at trigger and a seed row.
+-- value for 'nav': { "menus": { "watch"|"listen"|"read"|"verses"|"play": "on"|"coming_soon"|"hidden" },
+--                    "message": "text shown when a coming-soon menu is tapped" }   (Today is always on.)
+create table if not exists public.site_settings (
+  key         text primary key check (key ~ '^[a-z_]+$'),
+  value       jsonb not null default '{}'::jsonb,
+  updated_at  timestamptz not null default now(),
+  updated_by  text
+);
+
+alter table public.site_settings enable row level security;
+
+-- Everyone (no login) can read the settings; they hold nothing private.
+drop policy if exists "Settings are public" on public.site_settings;
+create policy "Settings are public" on public.site_settings for select using (true);
+
+-- Only owners change them.
+drop policy if exists "Owners add settings" on public.site_settings;
+create policy "Owners add settings" on public.site_settings for insert with check (private.team_role() = 'owner');
+drop policy if exists "Owners change settings" on public.site_settings;
+create policy "Owners change settings" on public.site_settings for update
+  using (private.team_role() = 'owner') with check (private.team_role() = 'owner');
+drop policy if exists "Owners remove settings" on public.site_settings;
+create policy "Owners remove settings" on public.site_settings for delete using (private.team_role() = 'owner');
+
+-- updated_at and updated_by are set by the database, whatever the client sends.
+create or replace function private.touch_site_setting() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  new.updated_at := now();
+  new.updated_by := coalesce(private.my_email(), 'database');
+  return new;
+end $$;
+
+drop trigger if exists site_settings_touch on public.site_settings;
+create trigger site_settings_touch before insert or update on public.site_settings
+  for each row execute function private.touch_site_setting();
+
+-- Starting value: Verses shows "coming soon", everything else is on.
+insert into public.site_settings (key, value) values ('nav', '{
+  "menus": { "watch": "on", "listen": "on", "read": "on", "verses": "coming_soon", "play": "on" },
+  "message": "This feature is coming soon! We’re still getting it ready for you."
+}'::jsonb)
+on conflict (key) do nothing;
+
 -- ---------- make yourself the owner (change the email) ----------
 -- insert into public.team_members (email, role) values ('you@example.com', 'owner');

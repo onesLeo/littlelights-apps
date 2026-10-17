@@ -64,6 +64,7 @@ page.on('pageerror', (e) => errors.push(e.message));
 await page.goto(base + '#verses');
 await page.waitForSelector('#app[data-ready]', { timeout: 15000 });
 check((await page.$$('#pGrid .p-tile')).length > 0, 'first visit offline: built-in verses still show');
+check(await page.$eval('#pSoon', (s) => s.classList.contains('on')), 'first visit offline: menu settings fall back to the default (Verses coming soon)');
 
 check(errors.length === 0, 'no script errors ' + errors.join(' | '));
 await browser.close();

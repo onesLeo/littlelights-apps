@@ -15,12 +15,16 @@ function check(ok, label) {
   if (!ok) failures++;
 }
 
-async function openApp(viewport) {
-  const context = await browser.newContext({ viewport, acceptDownloads: true });
+async function openApp(viewport, sw = true, versesOn = true) {
+  // Service workers would fetch the real js/config.js past the route below, so tests that change
+  // what the page loads block them.
+  const context = await browser.newContext({ viewport, acceptDownloads: true, ...(sw ? {} : { serviceWorkers: 'block' }) });
   // Block external font requests so the test does not depend on the network.
   await context.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
   // Tests run in local mode so they never touch the real database.
   await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  // Verses is "coming soon" by default; the computer checks below need it on.
+  if (versesOn) await context.addInitScript(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -29,10 +33,86 @@ async function openApp(viewport) {
   return { context, page, errors };
 }
 
+// ---------- short desktop window: Today scrolls to the very last card ----------
+{
+  const { context, page, errors } = await openApp({ width: 1024, height: 500 }, false);
+  const r = await page.evaluate(() => {
+    const v = document.querySelector('.v-today'); v.scrollTop = 1e6;
+    const last = [...document.querySelectorAll('#pFeed .p-slide, .v-today .p-sidecard')].reduce((m, e) => Math.max(m, e.getBoundingClientRect().bottom), 0);
+    const stage = document.querySelector('.v-today .p-stage');
+    return { last, bottom: v.getBoundingClientRect().bottom, clipped: stage.scrollHeight > stage.clientHeight + 2 };
+  });
+  check(!r.clipped && r.last <= r.bottom, `1024x500: Today scrolls to the last card (${Math.round(r.last)} <= ${Math.round(r.bottom)})`);
+  check(errors.length === 0, '1024x500: no script errors');
+  await context.close();
+}
+
 // ---------- phone ----------
 {
-  const { context, page, errors } = await openApp({ width: 390, height: 844 });
+  const { context, page, errors } = await openApp({ width: 390, height: 844 }, false, false);
   const onView = () => page.$eval('.p-view.on', (v) => v.dataset.view);
+  const soonOpen = () => page.$eval('#pSoon', (s) => s.classList.contains('on'));
+
+  // Built-in default (no setting saved): Verses is "coming soon", every way in shows the message.
+  check(await page.isVisible('.p-tab[data-tab="verses"]'), 'nav: Verses tab stays visible while coming soon');
+  await page.click('.p-tab[data-tab="verses"]');
+  await page.waitForTimeout(150);
+  check(await soonOpen(), 'nav: tapping Verses shows the coming-soon message');
+  check((await onView()) === 'today' && !page.url().includes('#verses'), 'nav: Verses section is not opened');
+  check((await page.$eval('#pSoonTitle', (t) => t.textContent)) === 'Verses is coming soon', 'nav: message names the menu');
+  await page.click('[data-soon-close]');
+  check(!(await soonOpen()), 'nav: Okay closes the message');
+  await page.click('.p-ring[data-go="verses"]');
+  await page.waitForTimeout(150);
+  check(await soonOpen(), 'nav: the Today shortcut shows the message too');
+  await page.keyboard.press('Escape');
+  check(!(await soonOpen()), 'nav: Escape closes the message');
+  await page.click('.p-slide [data-go="verses"]');
+  await page.waitForTimeout(150);
+  check(await soonOpen() && (await onView()) === 'today', 'nav: the More verses button shows the message');
+  await page.click('[data-soon-close]');
+  await page.goto(base + '#verses');
+  await page.waitForSelector('#app[data-ready]');
+  check(await soonOpen() && (await onView()) === 'today', 'nav: opening #verses directly shows the message');
+  await page.click('[data-soon-close]');
+
+  // A saved setting: hidden menus disappear, a custom message (as text, never HTML) is used.
+  await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'coming_soon', play: 'hidden' }, message: '<img src=x> Soon!' } })));
+  await page.reload();
+  await page.waitForSelector('#app[data-ready]');
+  check(!(await page.isVisible('.p-tab[data-tab="play"]')) && !(await page.isVisible('.p-ring[data-go="play"]')), 'nav: a hidden menu is removed from the tab bar and Today');
+  await page.goto(base + '#play');
+  await page.waitForSelector('#app[data-ready]');
+  check((await onView()) === 'today' && !(await soonOpen()), 'nav: #play goes to Today when Play is hidden');
+  await page.click('.p-tab[data-tab="verses"]');
+  await page.waitForTimeout(150);
+  check((await page.$eval('#pSoonMsg', (m) => m.textContent)) === '<img src=x> Soon!' && !(await page.$('#pSoonMsg img')), 'nav: custom message is shown as text');
+  await page.click('[data-soon-close]');
+
+  // Approved copy (Oct 2026): free game, Android closed test, no dead sign-up form, no audio-less Listen button.
+  const html = await page.content();
+  check(html.includes('Little Light: Bible Journeys is completely free. No ads, no purchases, nothing to unlock.'), 'copy: Play subhead says the game is free');
+  check(!html.includes('App Store') && !html.includes('Play the free preview') && !html.includes('Free preview'), 'copy: no App Store badge, preview button or Free preview status');
+  check(html.includes('14-day closed test') && !!(await page.$('.p-stores a[href$="/join"]')), 'copy: store line explains the closed test and links to /join');
+  check(new Set(await page.$$eval('#pMap .st', (s) => s.map((x) => x.textContent))).size === 1, 'copy: all journey statuses are the same');
+  check(!(await page.$('#pNewsEmail')) && html.includes('Weekly encouragement for families is on its way. Check back soon.'), 'copy: newsletter form is replaced by a note');
+  check(html.includes('>Add Salt and Light to your home screen<'), 'copy: install button label');
+  check(!(await page.$('.p-slide.s2 [data-ep], .p-slide [data-sheet="0"] + [data-ep]')), 'copy: Today devotion card has no Listen button');
+  check(await page.evaluate(() => window.LL_CONTENT.verses.some((v) => v.ref === 'Proverbs 17:17' && v.text === 'A friend loves at all times; and a brother is born for adversity.')), 'copy: Proverbs 17:17 is the full WEB verse');
+
+  check(await page.title() === 'Salt and Light' && (await page.textContent('.p-brand span')) === 'Salt and Light', 'brand: site is called Salt and Light');
+  check(html.includes('<meta name="application-name" content="Salt and Light">') && html.includes('<meta name="apple-mobile-web-app-title" content="Salt and Light">'), 'brand: app name meta tags');
+  check((html.match(/Little Light: Bible Journeys/g) || []).length >= 3, 'brand: the game keeps its name');
+  // Everything on for the rest of the journey.
+  await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'on' } } })));
+  await page.goto(base + '#today');
+  await page.reload();
+  await page.waitForSelector('#app[data-ready]');
+  await page.click('.p-tab[data-tab="play"]');
+  await page.waitForTimeout(150);
+  const join = await page.$eval('.p-stores .p-join', (a) => ({ h: a.getBoundingClientRect().height, bg: getComputedStyle(a).backgroundImage, c: getComputedStyle(a).color }));
+  check(join.h >= 48 && join.bg.includes('gradient') && join.c === 'rgb(42, 26, 5)', `copy: Join the testers is a big gold button (${Math.round(join.h)}px)`);
+  await page.click('.p-tab[data-tab="today"]');
 
   for (const tab of ['watch', 'listen', 'read', 'verses', 'play', 'today']) {
     await page.click(`.p-tab[data-tab="${tab}"]`);
@@ -49,7 +129,21 @@ async function openApp(viewport) {
   await page.waitForTimeout(150);
   check((await onView()) === 'listen', 'phone: story ring jumps to Listen');
 
-  await page.click('.p-row[data-ep="3"]');
+  const rows = await page.$$eval('#pEps .p-row', (r) => r.map((x) => x.textContent));
+  check(rows.length === 1 && rows[0].includes('Psalm 56:3'), `listen: only episodes with a recording are listed (${rows.length})`);
+  check(await page.evaluate(() => window.LL_CONTENT.episodes.every((e) => e.src)), 'listen: no silent placeholder episodes remain');
+  check(await page.isVisible('.p-now [data-fa="play"]'), 'listen: This week plays the Psalm 56:3 devotion');
+  check((await page.$$('[data-ep="-1"]')).length === 0, 'no buttons point at a left-out episode');
+  await page.click('.p-tab[data-tab="read"]');
+  await page.waitForTimeout(150);
+  check(!(await page.$eval('#pCards', (c) => c.textContent.includes('▶ Audio'))), 'read: devotions without a recording show no audio badge');
+  await page.click('#pCards .p-card');
+  await page.waitForTimeout(250);
+  check(!(await page.$('#pArticle [data-ep]')), 'read: a devotion without a recording has no Listen button');
+  await page.keyboard.press('Escape');
+  await page.click('.p-tab[data-tab="listen"]');
+  await page.waitForTimeout(150);
+  await page.click('#pEps .p-row');
   check(await page.$eval('#app', (a) => a.classList.contains('has-mini')), 'phone: mini player appears');
   await page.click('.p-tab[data-tab="verses"]');
   check(await page.$eval('#app', (a) => a.classList.contains('has-mini')), 'phone: mini player stays when changing tabs');
@@ -121,7 +215,7 @@ async function openApp(viewport) {
   await page.screenshot({ path: 'test-results/computer-article.png' });
 
   const manifest = await page.evaluate(async () => (await fetch('manifest.webmanifest')).json());
-  check(manifest.name === 'Little Light' && manifest.icons.length >= 3, 'app: manifest is valid');
+  check(manifest.name === 'Salt and Light' && manifest.short_name === 'Salt and Light' && manifest.icons.length >= 3, 'app: manifest is valid');
   const sw = await page.evaluate(() => Promise.race([
     navigator.serviceWorker.ready.then(() => true),
     new Promise((r) => setTimeout(() => r(false), 4000)),

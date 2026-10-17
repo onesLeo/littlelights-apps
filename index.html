@@ -3,15 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Little Light</title>
+  <title>Salt and Light</title>
   <meta name="description" content="Encouragement for families: Bible verses, short devotions, audio prayers, reels and the Little Light Bible game.">
   <meta name="theme-color" content="#0f0d20">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="Salt and Light">
+  <meta name="apple-mobile-web-app-title" content="Salt and Light">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta property="og:title" content="Little Light">
+  <meta property="og:title" content="Salt and Light">
+  <meta property="og:site_name" content="Salt and Light">
   <meta property="og:description" content="Encouragement for families: verses, devotions, audio, reels and a gentle Bible game.">
   <link rel="preload" href="fonts/newsreader-italic-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="fonts/fonts.css">
@@ -19,7 +22,7 @@
 </head>
 <body>
 <div class="p-app" id="app">
-  <noscript><p class="p-noscript">Little Light needs JavaScript turned on to show this week’s posts.</p></noscript>
+  <noscript><p class="p-noscript">Salt and Light needs JavaScript turned on to show this week’s posts.</p></noscript>
 
   <!-- TODAY -->
   <section class="p-view v-today on" data-view="today" aria-label="Today">
@@ -76,7 +79,7 @@
         <div class="p-kicker">Devotion · 3 min</div>
         <div class="big">You don’t have to feel brave to be brave.</div>
         <p>David wasn’t calm in the valley. God was with him. That was enough.</p>
-        <div class="p-btns"><button class="p-btn" type="button" data-sheet="0">Read ↑</button><button class="p-btn ghost" type="button" data-ep="0">▶ Listen</button></div>
+        <div class="p-btns"><button class="p-btn" type="button" data-sheet="0">Read ↑</button></div>
       </article>
       <article class="p-slide s3" data-c="#fff" data-cn="#ffc9b8">
         <svg viewBox="0 0 300 260" style="position:absolute;left:0;top:90px;width:100%" aria-hidden="true">
@@ -88,12 +91,12 @@
         <div class="big">Why Jonathan gave David his robe.</div>
         <div class="p-btns"><button class="p-btn" type="button" data-reel="0">▶ Watch</button></div>
       </article>
-      <article class="p-slide s4" data-c="#fff" data-cn="#d9c8f7">
+      <article class="p-slide s4" data-c="#fff" data-cn="#d9c8f7" data-featured-audio="today">
         <div class="p-wave" aria-hidden="true"><i style="animation-delay:-.1s"></i><i style="animation-delay:-.5s"></i><i style="animation-delay:-.2s"></i><i style="animation-delay:-.8s"></i><i style="animation-delay:-.3s"></i><i style="animation-delay:-.6s"></i><i style="animation-delay:-.9s"></i><i style="animation-delay:-.4s"></i><i style="animation-delay:-.7s"></i><i style="animation-delay:0s"></i><i style="animation-delay:-.55s"></i><i style="animation-delay:-.25s"></i></div>
-        <div class="p-kicker">Audio · 1:30</div>
-        <div class="big">Bedtime prayer: stay close tonight.</div>
-        <p>A calm prayer to listen to with your children before sleep.</p>
-        <div class="p-btns"><button class="p-btn" type="button" data-ep="3">▶ Play</button><button class="p-btn ghost" type="button" data-go="listen">All audio</button></div>
+        <div class="p-kicker" data-fa="kicker">Audio · 1:55</div>
+        <div class="big" data-fa="title">When I Am Afraid — Psalm 56:3</div>
+        <p data-fa="text">“When I am afraid, I will put my trust in you.” Psalm 56:3</p>
+        <div class="p-btns"><button class="p-btn" type="button" data-ep="5" data-fa="play">▶ Play</button><button class="p-btn ghost" type="button" data-go="listen">All audio</button></div>
       </article>
       <article class="p-slide s5" data-c="#fff3c4" data-cn="#cfeed6">
         <div class="p-stars"></div>
@@ -111,7 +114,7 @@
         </svg>
         <div class="p-kicker">Game</div>
         <div class="big">Walk into David’s Valley.</div>
-        <p>A gentle Bible adventure for ages 5–8. No ads. Read aloud.</p>
+        <p>A free, gentle Bible adventure for ages 5–8. No ads, no purchases, every line read aloud. Coming to Android after a 14-day closed test.</p>
         <div class="p-btns"><button class="p-btn" type="button" data-go="play">See the game</button></div>
       </article>
     </div>
@@ -123,18 +126,14 @@
         <div class="verse">“What helps you feel brave when something is hard?”</div>
         <span>Take turns sharing. Then thank God for being with you, and choose one small brave step for tomorrow.</span>
       </div>
-      <form class="p-sidecard sc-news" id="pNews">
+      <div class="p-sidecard sc-news">
         <div class="p-kicker">Weekly encouragement</div>
-        <b>One verse, one devotion and one family idea, every Monday.</b>
-        <label class="sr" for="pNewsEmail">Email address</label>
-        <input id="pNewsEmail" type="email" required placeholder="you@example.com" autocomplete="email">
-        <button class="p-btn" type="submit">Join the list</button>
-        <small>For grown-ups. Sign-up is coming soon.</small>
-      </form>
+        <b>Weekly encouragement for families is on its way. Check back soon.</b>
+      </div>
       <div class="p-sidecard sc-game">
         <div class="p-kicker">The game</div>
         <b>Little Light: Bible Journeys</b>
-        <span>Five gentle Bible stories to play and hear. Ages 5–8.</span>
+        <span>Walk into David’s Valley. A free, gentle Bible adventure for ages 5–8. No ads, no purchases, every line read aloud. Coming to Android after a 14-day closed test.</span>
         <button class="p-btn" type="button" data-go="play">See the game</button>
       </div>
     </aside>
@@ -147,12 +146,12 @@
 
   <!-- LISTEN -->
   <section class="p-view v-listen" data-view="listen" aria-label="Listen">
-    <div class="p-head"><h3>Listen</h3><div class="p-headr"><div class="p-logo"><i></i>Little Light</div><button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button></div></div>
-    <div class="p-now">
-      <div class="p-kicker">This week · Courage</div>
-      <b>You don’t have to feel brave to be brave</b>
-      <span style="font-size:13px">The devotion, read aloud. 3 min.</span>
-      <button class="p-btn" type="button" data-ep="0">▶ Play</button>
+    <div class="p-head"><h3>Listen</h3><div class="p-headr"><div class="p-logo"><i></i>Salt and Light</div><button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button></div></div>
+    <div class="p-now" data-featured-audio="listen">
+      <div class="p-kicker" data-fa="kicker">This week · 1:55</div>
+      <b data-fa="title">When I Am Afraid — Psalm 56:3</b>
+      <span style="font-size:13px" data-fa="text">“When I am afraid, I will put my trust in you.” Psalm 56:3</span>
+      <button class="p-btn" type="button" data-ep="5" data-fa="play">▶ Play</button>
     </div>
     <div class="p-sec">All episodes</div>
     <div class="p-list" id="pEps"></div>
@@ -160,20 +159,20 @@
 
   <!-- READ -->
   <section class="p-view v-read" data-view="read" aria-label="Read">
-    <div class="p-head"><h3>Read</h3><div class="p-headr"><div class="p-logo" style="color:#2a1f33"><i></i>Little Light</div><button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button></div></div>
+    <div class="p-head"><h3>Read</h3><div class="p-headr"><div class="p-logo" style="color:#2a1f33"><i></i>Salt and Light</div><button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button></div></div>
     <div class="p-cards" id="pCards"></div>
   </section>
 
   <!-- VERSES -->
   <section class="p-view v-verses" data-view="verses" aria-label="Verses">
-    <div class="p-head"><h3>Verses</h3><div class="p-headr"><div class="p-logo"><i style="background:#f7c23f"></i>Little Light</div><button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button></div></div>
+    <div class="p-head"><h3>Verses</h3><div class="p-headr"><div class="p-logo"><i style="background:#f7c23f"></i>Salt and Light</div><button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button></div></div>
     <div class="p-chips" id="pChips"></div>
     <div class="p-grid" id="pGrid"></div>
   </section>
 
   <!-- PLAY -->
   <section class="p-view v-play" data-view="play" aria-label="Play">
-    <div class="p-head"><h3>Play</h3><div class="p-headr"><div class="p-logo"><i></i>Little Light</div><button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button></div></div>
+    <div class="p-head"><h3>Play</h3><div class="p-headr"><div class="p-logo"><i></i>Salt and Light</div><button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button></div></div>
     <div class="p-gamehero">
       <svg viewBox="0 0 320 190" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
         <rect width="320" height="190" fill="#8fd0a0"/>
@@ -188,9 +187,8 @@
     </div>
     <div class="p-gameinfo">
       <div class="p-kicker" style="color:#3f8a55">Little Light: Bible Journeys</div>
-      <h4>Five gentle Bible stories to play and hear.</h4>
-      <p>Explore, find three Wonder Items, meet the Bible character, and hear the verse read aloud. Nothing to fail, nothing to buy inside.</p>
-      <button class="p-cta" type="button" data-preview>Play the free preview</button>
+      <h4>Little Light: Bible Journeys is completely free. No ads, no purchases, nothing to unlock. Five gentle Bible stories for ages 5–8.</h4>
+      <p>Explore, find three Wonder Items, meet the Bible character, and hear the verse read aloud. Nothing to fail, nothing to buy.</p>
     </div>
     <div class="p-gamenews" id="pGameNews"></div>
     <div class="p-trust">
@@ -198,7 +196,7 @@
     </div>
     <div class="p-sec" style="color:#7a5a2a">The five journeys</div>
     <div class="p-map" id="pMap"></div>
-    <div class="p-stores"><div>App Store<br>coming soon</div><div>Google Play<br>coming soon</div></div>
+    <div class="p-stores"><div>Coming to Google Play (Android). We’re in a closed test now, and the game opens to everyone after a 14-day closed test.<br><a class="p-join" href="https://littlesaltandlight.com/join" target="_blank" rel="noopener">Join the testers</a></div></div>
   </section>
 
   <!-- mini player -->
@@ -211,14 +209,14 @@
 
   <!-- tabs -->
   <nav class="p-tabs" aria-label="Main menu">
-    <a class="p-brand" href="#today"><i aria-hidden="true"><b></b><b></b><b></b><b></b><b></b></i><span>Little Light</span></a>
+    <a class="p-brand" href="#today"><i aria-hidden="true"><b></b><b></b><b></b><b></b><b></b></i><span>Salt and Light</span></a>
     <a class="p-tab on" href="#today" data-tab="today" style="--tc:var(--t-today)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Today</a>
     <a class="p-tab" href="#watch" data-tab="watch" style="--tc:var(--t-watch)"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M10 9l5 3-5 3z"/></svg>Watch</a>
     <a class="p-tab" href="#listen" data-tab="listen" style="--tc:var(--t-listen)"><svg viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0116 0v3M4 15h3v5H4zM17 15h3v5h-3z"/></svg>Listen</a>
     <a class="p-tab" href="#read" data-tab="read" style="--tc:var(--t-read)"><svg viewBox="0 0 24 24"><path d="M4 5h6a2 2 0 012 2v12a2 2 0 00-2-2H4zM20 5h-6a2 2 0 00-2 2v12a2 2 0 012-2h6z"/></svg>Read</a>
     <a class="p-tab" href="#verses" data-tab="verses" style="--tc:var(--t-verse)"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></svg>Verses</a>
     <a class="p-tab" href="#play" data-tab="play" style="--tc:var(--t-play)"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="11" rx="5"/><path d="M8 11v3M6.5 12.5h3M15.5 12h.01M17.5 14h.01"/></svg>Play</a>
-    <div class="p-tools"><button class="p-mode" type="button" data-install hidden>Install app</button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button><button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button></div>
+    <div class="p-tools"><button class="p-mode" type="button" data-install hidden>Add Salt and Light to your home screen</button><button class="p-mode" type="button" data-calm aria-pressed="false" aria-label="Calm mode: less movement"></button><button class="p-mode" type="button" data-mode aria-label="Switch to night mode"></button></div>
   </nav>
 
   <!-- overlays -->
@@ -231,6 +229,9 @@
   <article class="p-over p-article" id="pArticle" role="dialog" aria-label="Article"></article>
   <div class="p-over p-full" id="pFull" role="dialog" aria-label="Audio player"></div>
   <div class="p-over p-story" id="pStory" role="dialog" aria-label="Verse"></div>
+  <div class="p-soon" id="pSoon" role="dialog" aria-modal="true" aria-labelledby="pSoonTitle">
+    <div class="p-soon-card"><div class="p-soon-star" aria-hidden="true">✨</div><b id="pSoonTitle">Coming soon</b><p id="pSoonMsg"></p><button class="p-btn" type="button" data-soon-close>Okay!</button></div>
+  </div>
   <div class="p-toast" id="pToast" role="status"></div>
 </div>
 

@@ -44,6 +44,45 @@
       throw err;
     });
   }
+  // ---------- which menus are on (site setting 'nav') ----------
+  // The last value is kept on the device; if the database can't be reached (or the setting
+  // doesn't exist yet) the saved copy is used, then the built-in default.
+  var NAV_KEY = 'll.navSettings';
+  var NAV = null;
+  function loadNav() {
+    var S = window.LLStore;
+    if (!S || !S.getSetting) return Promise.resolve();
+    var saved = null;
+    try { saved = S.normalizeNav(JSON.parse(localStorage.getItem(NAV_KEY) || 'null')); } catch (err) { saved = null; }
+    NAV = saved || S.navDefault();
+    var fresh = S.getSetting('nav').then(function (v) {
+      var n = S.normalizeNav(v);
+      if (!n) return;
+      NAV = n;
+      try { localStorage.setItem(NAV_KEY, JSON.stringify(n)); } catch (err) { /* storage blocked */ }
+    });
+    var slow = new Promise(function (resolve) { setTimeout(resolve, 4000); });
+    return Promise.race([fresh, slow]).catch(function () {});
+  }
+
+  // ---------- built-ins hidden in the Studio (site setting 'builtins_hidden') ----------
+  // Same caching as the menus. A missing row means nothing is hidden.
+  var HIDDEN_KEY = 'll.builtinsHidden';
+  var HIDDEN = [];
+  function loadHidden() {
+    var S = window.LLStore;
+    if (!S || !S.getSetting) return Promise.resolve();
+    try { HIDDEN = S.normalizeHidden(JSON.parse(localStorage.getItem(HIDDEN_KEY) || 'null')) || []; } catch (err) { HIDDEN = []; }
+    var fresh = S.getSetting('builtins_hidden').then(function (v) {
+      var h = v == null ? [] : S.normalizeHidden(v);
+      if (!h) return;
+      HIDDEN = h;
+      try { localStorage.setItem(HIDDEN_KEY, JSON.stringify({ hidden: h })); } catch (err) { /* storage blocked */ }
+    });
+    var slow = new Promise(function (resolve) { setTimeout(resolve, 4000); });
+    return Promise.race([fresh, slow]).catch(function () {});
+  }
+
   function mergeStudioPosts() {
     var S = window.LLStore;
     if (!S) return Promise.resolve();
@@ -52,7 +91,7 @@
         return p.media_url ? S.resolveMedia(p.media_url).then(function (u) { p._src = u; }) : null;
       })).then(function () { return posts; });
     }).then(function (posts) {
-      var eps = [], devs = [], reels = [], verses = [], news = [], audioAt = {}, today = [];
+      var eps = [], devs = [], reels = [], verses = [], news = [], audioAt = {}, today = [], featured = null;
       // Posts moved from js/content.js carry `fields.builtin` (for example "devotion:brave"); once
       // published they replace the built-in item they came from.
       var copyOf = {};
@@ -61,7 +100,8 @@
         if (p.type !== 'audio') return;
         var f = p.fields || {};
         audioAt[p.id] = eps.length;
-        eps.push({ title: p.title, meta: f.kind || 'Audio', dur: f.seconds || toSeconds(f.minutes), color: f.color || '#a07fd6', src: p._src || '', _id: p.id });
+        eps.push({ title: p.title, meta: f.kind || 'Audio', dur: f.seconds || toSeconds(f.minutes), color: f.color || '#a07fd6', src: p._src || '', _id: p.id,
+          verse: f.verse || '', ref: f.ref || '' });
         if (f.builtin) copyOf[f.builtin] = eps.length - 1;
       });
       posts.forEach(function (p) {
@@ -90,7 +130,10 @@
           news.push({ title: p.title, text: f.text || '', button: f.button || '', date: p.publish_at });
           if (p.show_on_today) today.push({ type: 'game', i: news.length - 1 });
         } else if (p.type === 'audio' && p.show_on_today) {
-          today.push({ type: 'audio', i: audioAt[p.id] });
+          // The newest audio marked for Today fills the Today audio card and the Listen hero
+          // (see bindFeaturedAudio), so it doesn't get a second card of its own.
+          if (featured == null) featured = audioAt[p.id];
+          else today.push({ type: 'audio', i: audioAt[p.id] });
         }
       });
       // Studio posts come first, then the built-in items that have no published copy yet.
@@ -126,13 +169,56 @@
       // Buttons written in index.html point at built-in items by position (see startApp).
       C.builtinAt = { 'ep': E.map, 'sheet': D.map, 'read': D.map, 'share-dev': D.map, 'reel': R.map, 'save-verse': V.map, 'share-verse': V.map };
       C.news = news;
+      C.featuredAudio = featured; // Studio posts come first in C.episodes, so the index stays valid.
       C.today = today.slice(0, 5);
       // Topics added in the Studio get their own chip in Verses.
       verses.forEach(function (v) { v.topics.forEach(function (t) { if (C.topics.indexOf(t) < 0) C.topics = C.topics.concat([t]); }); });
     }).catch(function (err) { if (window.console) console.warn('Studio posts could not be loaded:', err); });
   }
 
+  // ---------- leaving items out: silent episodes (no recording) and built-ins hidden in the Studio ----------
+  // Built-in items get a key like the Studio's `fields.builtin` ("audio:keep-building"), tagged before
+  // Studio posts are merged in, so only built-ins can be hidden this way.
+  var BUILTIN_KEY = { episodes: ['audio', function (e) { return e.title; }], devotions: ['devotion', function (d) { return d.slug; }],
+    reels: ['reel', function (r) { return r.title; }], verses: ['verse', function (v) { return v.ref; }] };
+  function tagBuiltins() {
+    var S = window.LLStore;
+    if (!S) return;
+    Object.keys(BUILTIN_KEY).forEach(function (list) {
+      (C[list] || []).forEach(function (item) { item._builtin = BUILTIN_KEY[list][0] + ':' + S.slugify(BUILTIN_KEY[list][1](item)); });
+    });
+  }
+  // Which index-holding things point into each list.
+  var LINKS = { episodes: { attrs: ['ep'], today: 'audio' }, devotions: { attrs: ['sheet', 'read', 'share-dev'], today: 'devotion' },
+    reels: { attrs: ['reel'], today: 'reel' }, verses: { attrs: ['save-verse', 'share-verse'], today: 'verse' } };
+  // Removes items from C[list] and re-points everything at them; what pointed at a removed item gets -1.
+  function dropItems(list, keepFn) {
+    var items = C[list] || [], keep = [], at = [];
+    items.forEach(function (e, i) { var k = keepFn(e); at[i] = k ? keep.length : -1; if (k) keep.push(e); });
+    if (keep.length === items.length) return;
+    var re = function (i) { return i == null || i < 0 ? -1 : at[i]; };
+    var L = LINKS[list];
+    C.builtinAt = C.builtinAt || {};
+    L.attrs.forEach(function (attr) { C.builtinAt[attr] = (C.builtinAt[attr] || items.map(function (e, i) { return i; })).map(re); });
+    if (C.today) C.today = C.today.filter(function (t) { if (t.type !== L.today) return true; t.i = re(t.i); return t.i >= 0; });
+    if (list === 'episodes') {
+      C.devotions.forEach(function (d) { d.episode = re(d.episode); });
+      if (C.featuredAudio != null) C.featuredAudio = re(C.featuredAudio) < 0 ? null : re(C.featuredAudio);
+    }
+    if (list === 'devotions') C.episodes.forEach(function (e) { if (e.devotion != null) e.devotion = re(e.devotion) < 0 ? null : re(e.devotion); });
+    C[list] = keep;
+  }
+  function dropLeftOut() {
+    dropItems('episodes', function (e) { return !!e.src; });  // option C: no recording, not listed
+    var hidden = HIDDEN || [];
+    if (!hidden.length) return;
+    Object.keys(BUILTIN_KEY).forEach(function (list) {
+      dropItems(list, function (e) { return !e._builtin || hidden.indexOf(e._builtin) < 0; });
+    });
+  }
+
   function startApp() {
+  dropLeftOut();
 
   var $ = function (s, r) { return (r || app).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || app).querySelectorAll(s)); };
@@ -143,6 +229,36 @@
       if (to != null) b.setAttribute('data-' + attr, to);
     });
   });
+  // A button pointing at a left-out item disappears; a Today card built around one goes too, and
+  // the Listen hero is hidden. #pFeed then gets a class saying how many cards share the middle row.
+  Array.prototype.forEach.call(document.querySelectorAll('[data-ep="-1"], [data-sheet="-1"], [data-read="-1"], [data-share-dev="-1"], [data-reel="-1"], [data-save-verse="-1"], [data-share-verse="-1"]'), function (b) {
+    var box = b.closest('[data-featured-audio]') || b.closest('#pFeed .p-slide');
+    if (box && box.dataset.featuredAudio === 'listen') box.hidden = true;
+    else if (box) box.remove();
+    else b.remove();
+  });
+  (function markRow() {
+    var feed = document.getElementById('pFeed');
+    if (!feed) return;
+    var n = feed.querySelectorAll('.p-slide:is(.s2, .s3, .s4):not(.s-studio)').length;
+    feed.classList.remove('mid-0', 'mid-1', 'mid-2', 'mid-3');
+    feed.classList.add('mid-' + n);
+  })();
+  // Today audio card and Listen "This week": the newest published audio marked for Today,
+  // otherwise the built-in recording written in index.html.
+  (function bindFeaturedAudio() {
+    if (C.featuredAudio == null) return;
+    var e = C.episodes[C.featuredAudio];
+    if (!e) return;
+    var line = e.verse ? '“' + e.verse + '”' + (e.ref ? ' ' + e.ref : '') : e.meta;
+    $$('[data-featured-audio]').forEach(function (box) {
+      var set = function (sel, text) { var el = box.querySelector(sel); if (el) el.innerHTML = esc(text); };
+      set('[data-fa="kicker"]', (box.dataset.featuredAudio === 'today' ? 'Audio · ' : 'This week · ') + fmt(e.dur));
+      set('[data-fa="title"]', e.title);
+      set('[data-fa="text"]', line);
+      var b = box.querySelector('[data-fa="play"]'); if (b) b.setAttribute('data-ep', C.featuredAudio);
+    });
+  })();
   var ICON_PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg>';
   var ICON_PAUSE = '<svg viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
   var ICON_SUN = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
@@ -184,9 +300,35 @@
     });
     updateReels();
   }
+  function navState(tab) { return tab === 'today' || !NAV ? 'on' : NAV.menus[tab] || 'on'; }
+  // Hide menus that are switched off, and mark the "coming soon" ones.
+  function applyNav() {
+    TABS.forEach(function (tab) {
+      var st = navState(tab);
+      $$('.p-tab[data-tab="' + tab + '"], [data-go="' + tab + '"]').forEach(function (el) {
+        el.hidden = st === 'hidden';
+        if (st === 'coming_soon') el.setAttribute('data-soon', ''); else el.removeAttribute('data-soon');
+      });
+    });
+  }
+  var TAB_NAME = { watch: 'Watch', listen: 'Listen', read: 'Read', verses: 'Verses', play: 'Play' };
+  function showSoon(tab) {
+    var box = $('#pSoon');
+    $('#pSoonTitle').innerHTML = esc(TAB_NAME[tab] || 'This') + ' is coming soon';
+    $('#pSoonMsg').innerHTML = esc(NAV ? NAV.message : '');
+    box.classList.add('on');
+    var ok = $('#pSoon [data-soon-close]'); if (ok) ok.focus();
+  }
+  function closeSoon() { $('#pSoon').classList.remove('on'); }
   function route() {
     var parts = (location.hash || '#today').slice(1).split('/');
     var tab = TABS.indexOf(parts[0]) >= 0 ? parts[0] : 'today';
+    if (navState(tab) !== 'on') {
+      // Stay where we are (Today on a fresh visit) and drop the address back.
+      if (navState(tab) === 'coming_soon') showSoon(tab);
+      if (history.replaceState) history.replaceState(null, '', current === 'today' ? location.pathname + location.search : '#' + current);
+      return;
+    }
     if (tab === 'read' && parts[1]) {
       var i = indexBySlug(parts[1]);
       if (current !== 'read') show('read');
@@ -503,7 +645,7 @@
     full.innerHTML =
       '<button class="down" type="button" data-close>⌄ Close</button>' +
       '<div class="bigart" style="background:radial-gradient(circle at 50% 40%,' + e.color + ',#2d2352 90%)"><i></i></div>' +
-      '<div><b>' + esc(e.title) + '</b><br><small>' + esc(e.meta) + ' · Little Light</small></div>' +
+      '<div><b>' + esc(e.title) + '</b><br><small>' + esc(e.meta) + ' · Salt and Light</small></div>' +
       '<input type="range" id="pRange" min="0" max="' + Math.round(duration()) + '" step="1" value="' + player.t + '" aria-label="Position">' +
       '<div class="times"><span id="pTimeNow">' + fmt(player.t) + '</span><span>' + fmt(duration()) + '</span></div>' +
       '<div class="ctls"><button type="button" data-skip="-15">−15s</button><button class="main" type="button" id="pFullPP" aria-label="Play or pause"></button><button type="button" data-skip="15">+15s</button></div>' +
@@ -539,11 +681,11 @@
     closeOverlays();
     a.classList.add('on');
     a.scrollTop = 0;
-    document.title = d.title + ' · Little Light';
+    document.title = d.title + ' · Salt and Light';
   }
   function closeArticle() {
     $('#pArticle').classList.remove('on');
-    document.title = 'Little Light';
+    document.title = 'Salt and Light';
     if (location.hash.indexOf('#read/') === 0) history.replaceState(null, '', '#read');
   }
   function openSheet(i) {
@@ -665,7 +807,7 @@
     g.fillText((v.topics[0] || 'Verse').toUpperCase(), 96, top - size - 30);
     g.fillText(v.ref.toUpperCase() + ' · ' + (v.translation || 'WEB'), 96, y + 20);
     g.globalAlpha = .75;
-    g.fillText('Little Light', 96, 1260);
+    g.fillText('Salt and Light', 96, 1260);
     g.globalAlpha = 1;
     return cv;
   }
@@ -724,11 +866,12 @@
   });
   window.addEventListener('appinstalled', function () {
     $$('[data-install]').forEach(function (b) { b.hidden = true; });
-    toast('Little Light is installed');
+    toast('Salt and Light is installed');
   });
 
   // ---------- overlays and global buttons ----------
   function closeOverlays() {
+    closeSoon();
     $('#pSheetWrap').classList.remove('on');
     $('#pArticle').classList.remove('on');
     $('#pFull').classList.remove('on');
@@ -741,6 +884,7 @@
     if (d.mode != null) setNight(!app.classList.contains('night'), true);
     else if (d.calm != null) setCalm(!app.classList.contains('calm'), true);
     else if (d.install != null && installEvent) { installEvent.prompt(); installEvent = null; }
+    else if (d.soonClose != null) closeSoon();
     else if (d.go) go(d.go);
     else if (d.ep != null && !b.closest('#pFull')) playEp(+d.ep);
     else if (d.sheet != null) openSheet(+d.sheet);
@@ -765,10 +909,13 @@
     }
   });
 
+  $('#pSoon').addEventListener('click', function (e) { if (e.target.id === 'pSoon') closeSoon(); });
+  applyNav();
   route();
   app.dataset.ready = '1';
   }
-  mergeStudioPosts().then(startApp);
+  tagBuiltins();
+  Promise.all([mergeStudioPosts(), loadNav(), loadHidden()]).then(startApp);
 
   // ---------- offline support ----------
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {

@@ -56,11 +56,11 @@ check(devs.filter((s) => s === 'brave').length === 1 && devs.length === 3, 'devo
 const brave = await C(page, () => window.LL_CONTENT.devotions.find((d) => d.slug === 'brave'));
 check(brave.title.includes('(Studio)'), 'devotions: the Studio copy of "brave" is used');
 const braveEp = await C(page, () => { const d = window.LL_CONTENT.devotions.find((x) => x.slug === 'brave'); return d.episode >= 0 ? window.LL_CONTENT.episodes[d.episode].title : null; });
-check(braveEp === 'You don’t have to feel brave to be brave', 'devotions: while its audio copy is a draft, "brave" still plays the built-in recording');
+check(braveEp === null, 'devotions: "brave" has no Listen link while its recording is a silent placeholder');
 const sheet = await C(page, () => window.LL_CONTENT.devotions[+document.querySelector('.p-slide.s2 [data-sheet]').dataset.sheet].slug);
 check(sheet === 'brave', 'Today: the devotion Read button still opens "brave"');
 const bedtime = await C(page, () => window.LL_CONTENT.episodes[+document.querySelector('.p-slide.s4 [data-ep]').dataset.ep].title);
-check(bedtime.startsWith('Bedtime prayer'), 'Today: the audio Play button still plays the bedtime prayer');
+check(bedtime === 'When I Am Afraid — Psalm 56:3', 'Today: the audio Play button plays the Psalm 56:3 devotion (built-in index still mapped)');
 const reel = await C(page, () => window.LL_CONTENT.reels[+document.querySelector('.p-slide.s3 [data-reel]').dataset.reel].title);
 check(reel.startsWith('Why Jonathan'), 'Today: the reel Watch button still opens the Jonathan reel');
 await page.context().close();
@@ -68,6 +68,23 @@ await page.context().close();
 page = await open('#read/brave', posts);
 await page.waitForTimeout(300);
 check((await page.$eval('#pArticle', (a) => a.textContent)).includes('Studio body text'), 'links: #read/brave opens the Studio copy');
+await page.context().close();
+
+// Built-in Psalm 56:3 recording fills the Today audio card and the Listen hero; once its Studio post is
+// published (marked for Today, with fields.builtin) the card uses the post and nothing is listed twice.
+page = await open('', posts);
+check(await page.$eval('.p-slide.s4 [data-fa="title"]', (e) => e.textContent) === 'When I Am Afraid — Psalm 56:3', 'audio: Today card shows the Psalm 56:3 devotion');
+check(await C(page, () => !!window.LL_CONTENT.episodes[+document.querySelector('.p-slide.s4 [data-fa="play"]').dataset.ep].src), 'audio: Today card plays a real file');
+await page.context().close();
+const audioPost = { id: 30, type: 'audio', status: 'published', publish_at: at, title: 'When I Am Afraid — Psalm 56:3', slug: 'when-i-am-afraid-psalm-56-3', show_on_today: true,
+  media_url: 'https://fake-project.supabase.co/storage/v1/object/public/media/x.mp3',
+  fields: { kind: 'Devotion', minutes: '1:55', seconds: 115, ref: 'Psalm 56:3', verse: 'When I am afraid, I will put my trust in you.', builtin: 'audio:when-i-am-afraid-psalm-56-3' } };
+page = await open('', [audioPost, ...posts]);
+const titles = await C(page, () => window.LL_CONTENT.episodes.map((e) => e.title));
+check(titles.filter((t) => t === 'When I Am Afraid — Psalm 56:3').length === 1, 'audio: the published copy replaces the built-in (listed once)');
+check(await C(page, () => window.LL_CONTENT.episodes[+document.querySelector('.p-slide.s4 [data-fa="play"]').dataset.ep].src.includes('fake-project')), 'audio: Today card plays the published post');
+check(await C(page, () => window.LL_CONTENT.episodes[+document.querySelector('.p-now [data-fa="play"]').dataset.ep].src.includes('fake-project')), 'audio: Listen hero plays the published post');
+check(await C(page, () => ![...document.querySelectorAll('#pFeed .p-slide.s-studio')].some((s) => s.textContent.includes('Psalm 56:3'))), 'audio: no second Today card for it');
 await page.context().close();
 
 check(errors.length === 0, 'no script errors ' + errors.join(' | '));

@@ -13,6 +13,7 @@
   var remote = !!(cfg.supabaseUrl && cfg.supabaseAnonKey);
   // Bundled copy of supabase-js (MIT), so the Studio does not depend on a CDN.
   var SUPABASE_JS = (document.currentScript && document.currentScript.src ? new URL('vendor/supabase-2.117.2.js', document.currentScript.src).href : 'js/vendor/supabase-2.117.2.js');
+  var SETTINGS_KEY = 'll.settings.v1';
   var POSTS_KEY = 'll.posts.v1', SESSION_KEY = 'll.studio.session', TEAM_KEY = 'll.studio.team', HISTORY_KEY = 'll.history.v1';
 
   function nowIso() { return new Date().toISOString(); }
@@ -78,7 +79,7 @@
     signInWithEmail: function (email) {
       var team = local._team();
       if (team.length && !team.some(function (m) { return m.email === email.toLowerCase(); })) {
-        return Promise.reject(new Error('This email isn’t on the Little Light team.'));
+        return Promise.reject(new Error('This email isn’t on the Salt and Light team.'));
       }
       if (!team.length) writeJSON(TEAM_KEY, [{ email: email.toLowerCase(), role: 'owner', invited_at: nowIso() }]);
       var s = { email: email.toLowerCase(), role: local._roleOf(email) };
@@ -134,6 +135,14 @@
     uploadMedia: function (file) {
       var id = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
       return idbDo('readwrite', function (s) { s.put(file, id); }).then(function () { return 'local-media:' + id; });
+    },
+    // Site settings (the `site_settings` table in Supabase mode), for example key 'nav'.
+    getSetting: function (key) { var v = readJSON(SETTINGS_KEY, {})[key]; return Promise.resolve(v == null ? null : v); },
+    saveSetting: function (key, value) {
+      var all = readJSON(SETTINGS_KEY, {});
+      all[key] = value;
+      if (!writeJSON(SETTINGS_KEY, all)) return Promise.reject(new Error('The browser’s storage is full.'));
+      return Promise.resolve(value);
     },
     listTeam: function () { return Promise.resolve(local._team()); },
     invite: function (email, role) {
@@ -194,7 +203,7 @@
         var email = s.user.email.toLowerCase();
         return client.from('team_members').select('role').eq('email', email).maybeSingle().then(function (r) {
           if (r.error || !r.data) {
-            return client.auth.signOut().then(function () { throw new Error('This email isn’t on the Little Light team.'); });
+            return client.auth.signOut().then(function () { throw new Error('This email isn’t on the Salt and Light team.'); });
           }
           return { email: email, role: r.data.role };
         });
@@ -241,6 +250,15 @@
       return loadClient().then(function (c) { return c.storage.from('media').upload(path, file, { contentType: file.type, upsert: false }); })
         .then(must).then(function () { return client.storage.from('media').getPublicUrl(path).data.publicUrl; });
     },
+    getSetting: function (key) {
+      return loadClient().then(function (c) { return c.from('site_settings').select('value').eq('key', key).maybeSingle(); })
+        .then(must).then(function (row) { return row && !Array.isArray(row) ? row.value : null; });
+    },
+    // Only owners may write (row-level security in supabase/schema.sql).
+    saveSetting: function (key, value) {
+      return loadClient().then(function (c) { return c.from('site_settings').upsert({ key: key, value: value }).select('value').single(); })
+        .then(must).then(function (row) { return row.value; });
+    },
     listTeam: function () { return loadClient().then(function (c) { return c.from('team_members').select('*').order('invited_at'); }).then(must); },
     invite: function (email, role) {
       return loadClient().then(function (c) { return c.from('team_members').insert({ email: email.toLowerCase(), role: role }); }).then(must);
@@ -248,7 +266,8 @@
     removeMember: function (email) { return loadClient().then(function (c) { return c.from('team_members').delete().eq('email', email); }).then(must); },
     publishedPosts: function () {
       return loadClient().then(function (c) {
-        return c.from('posts').select('*').in('status', ['published', 'scheduled']).lte('publish_at', nowIso()).order('publish_at', { ascending: false });
+        // Visitors may read every column except author_email (column grants in the database), so `*` is refused.
+        return c.from('posts').select('id,type,status,publish_at,title,slug,show_on_today,fields,media_url,created_at,updated_at').in('status', ['published', 'scheduled']).lte('publish_at', nowIso()).order('publish_at', { ascending: false });
       }).then(must);
     }
   };
@@ -266,4 +285,34 @@
   window.LLStore.resolveMedia = resolveMedia;
   window.LLStore.isLive = isLive;
   window.LLStore.slugify = slugify;
+
+  // ---------- public menus (site setting 'nav') ----------
+  // Each menu is 'on', 'coming_soon' (the tab stays, tapping it shows a friendly message) or
+  // 'hidden'. Today is always on. Used when the setting is missing or can't be loaded.
+  var NAV_MENUS = ['watch', 'listen', 'read', 'verses', 'play'];
+  var NAV_STATES = ['on', 'coming_soon', 'hidden'];
+  var NAV_DEFAULT = { menus: { watch: 'on', listen: 'on', read: 'on', verses: 'coming_soon', play: 'on' },
+    message: 'This feature is coming soon! We’re still getting it ready for you.' };
+  // Returns a clean copy, or null when `v` doesn't look like a nav setting.
+  function normalizeNav(v) {
+    if (!v || typeof v !== 'object' || Array.isArray(v) || !v.menus || typeof v.menus !== 'object') return null;
+    var out = { menus: {}, message: typeof v.message === 'string' && v.message.trim() ? v.message.trim().slice(0, 300) : NAV_DEFAULT.message };
+    NAV_MENUS.forEach(function (m) { out.menus[m] = NAV_STATES.indexOf(v.menus[m]) >= 0 ? v.menus[m] : 'on'; });
+    return out;
+  }
+  window.LLStore.NAV_MENUS = NAV_MENUS;
+  window.LLStore.NAV_STATES = NAV_STATES;
+  window.LLStore.navDefault = function () { return normalizeNav(NAV_DEFAULT); };
+  window.LLStore.normalizeNav = normalizeNav;
+
+  // ---------- built-in items hidden in the Studio (site setting 'builtins_hidden') ----------
+  // value: { hidden: ["audio:keep-building", "verse:joshua-1-9", ...] }. Returns the clean list, or
+  // null when `v` doesn't look like this setting.
+  function normalizeHidden(v) {
+    if (!v || typeof v !== 'object' || !Array.isArray(v.hidden)) return null;
+    var out = [];
+    v.hidden.forEach(function (k) { if (typeof k === 'string' && /^(audio|devotion|reel|verse):[a-z0-9-]{1,60}$/.test(k) && out.indexOf(k) < 0) out.push(k); });
+    return out;
+  }
+  window.LLStore.normalizeHidden = normalizeHidden;
 })();

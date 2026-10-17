@@ -42,6 +42,7 @@
     posts: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>',
     plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
     media: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 16l5-5 4 4 3-3 6 6"/></svg>',
+    site: '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
     team: '<svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.5"/><path d="M3 19c.8-3.3 3.2-5 6-5s5.2 1.7 6 5M16 5.5a3 3 0 010 6M17.5 14c1.8.5 3 2.2 3.5 5"/></svg>',
     site: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.6 2.5 13.4 0 16M12 4c-2.5 2.6-2.5 13.4 0 16"/></svg>'
   };
@@ -176,7 +177,14 @@
 
   // ---------- data ----------
   function loadAll() {
-    return Promise.all([S.listPosts(), S.listTeam()]).then(function (r) { state.posts = r[0] || []; state.team = r[1] || []; });
+    // A missing site_settings table (SQL not applied yet) must not stop the Studio from loading.
+    var hid = S.getSetting('builtins_hidden').then(function (v) { state.hiddenError = ''; return v; }, function (err) { state.hiddenError = err.message; return null; });
+    var nav = S.getSetting('nav').then(function (v) { state.navError = ''; return v; }, function (err) { state.navError = err.message; return null; });
+    return Promise.all([S.listPosts(), S.listTeam(), nav, hid]).then(function (r) {
+      state.hidden = S.normalizeHidden(r[3]) || [];
+      state.posts = r[0] || []; state.team = r[1] || [];
+      state.nav = S.normalizeNav(r[2]) || S.navDefault();
+    });
   }
   function enter(session) {
     state.session = session;
@@ -201,13 +209,13 @@
   function signin() {
     var err = state.authError;
     return '<main class="auth"><form class="auth-card" id="signinForm" novalidate>' +
-      '<div class="brand"><span class="dot"></span>Little Light Studio</div>' +
-      '<div><h1>Sign in to post</h1><p style="margin-top:6px">For the Little Light team. Visitors never need an account.</p></div>' +
+      '<div class="brand"><span class="dot"></span>Salt and Light Studio</div>' +
+      '<div><h1>Sign in to post</h1><p style="margin-top:6px">For the Salt and Light team. Visitors never need an account.</p></div>' +
       modeBar() +
       '<label class="field"><span>Email</span><input class="input' + (err ? ' err' : '') + '" id="email" type="email" autocomplete="email" placeholder="you@example.com" value="' + esc(state.email) + '">' +
       (err ? '<span class="errmsg" role="alert">' + esc(err) + '</span>' : '<small>' + (S.mode === 'local' ? 'The first email to sign in becomes the owner.' : 'We’ll email you a one-time sign-in link. No password to remember.') + '</small>') + '</label>' +
       '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>' + (S.mode === 'local' ? 'Sign in' : state.busy ? 'Sending…' : 'Email me a sign-in link') + '</button>' +
-      '<div class="note">Only people on the team can sign in. Anyone else sees “This email isn’t on the Little Light team.”</div>' +
+      '<div class="note">Only people on the team can sign in. Anyone else sees “This email isn’t on the Salt and Light team.”</div>' +
       '</form></main>';
   }
   function checkEmail() {
@@ -217,9 +225,9 @@
       '<button class="btn ghost" type="button" id="back">Use a different email</button></div></main>';
   }
   function shell(inner) {
-    var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['team', 'Team', ICON.team]];
+    var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['site', 'Menus', ICON.site], ['builtins', 'Built-in content', ICON.media], ['team', 'Team', ICON.team]];
     return '<div class="shell"><aside class="side">' +
-      '<div class="brand"><span class="dot"></span><span>Little Light Studio</span></div>' +
+      '<div class="brand"><span class="dot"></span><span>Salt and Light Studio</span></div>' +
       '<nav aria-label="Studio">' + nav.map(function (n) {
         var on = state.view === n[0] || (n[0] === 'new' && state.view === 'edit' && state.editing && !state.editing.id);
         return '<button class="nav' + (on ? ' on' : '') + '" type="button" data-view="' + n[0] + '"' + (on ? ' aria-current="page"' : '') + '>' + n[2] + n[1] +
@@ -360,6 +368,48 @@
           '<' + (isVideo ? 'video' : 'audio') + ' controls preload="none" data-src="' + esc(p.media_url) + '"></' + (isVideo ? 'video' : 'audio') + '></div></div>';
       }).join('') + '</div>' : '<div class="list"><div class="empty">No files yet. Upload one when you write an audio or reel post.</div></div>');
   }
+  var NAV_LABEL = { watch: 'Watch', listen: 'Listen', read: 'Read', verses: 'Verses', play: 'Play' };
+  var NAV_STATE_LABEL = { on: 'On', coming_soon: 'Coming soon', hidden: 'Hidden' };
+  function siteView() {
+    var n = state.nav || S.navDefault(), owner = isOwner();
+    return '<div class="top"><div><h2>Menus</h2><p>Choose which menus visitors see in the app. “Coming soon” keeps the menu but shows a friendly message when tapped.</p></div></div>' +
+      (state.navError ? '<p class="role-note" role="alert">The menu settings could not be loaded (' + esc(state.navError) + '). If the <code>site_settings</code> table hasn’t been created yet, run supabase/schema.sql first. Until then the app uses its built-in default (Verses: coming soon).</p>' : '') +
+      (owner ? '' : '<p class="role-note">Only owners can change the menus.</p>') +
+      '<form class="form" id="siteForm" novalidate>' +
+      '<label class="field"><span>Today</span><select class="select" disabled><option>Always on</option></select></label>' +
+      S.NAV_MENUS.map(function (m) {
+        return '<label class="field"><span>' + esc(NAV_LABEL[m]) + '</span><select class="select" id="nav_' + m + '"' + (owner ? '' : ' disabled') + '>' +
+          S.NAV_STATES.map(function (st) { return '<option value="' + st + '"' + (n.menus[m] === st ? ' selected' : '') + '>' + esc(NAV_STATE_LABEL[st]) + '</option>'; }).join('') + '</select></label>';
+      }).join('') +
+      '<label class="field"><span>Coming-soon message</span><textarea class="input" id="nav_message" rows="3" maxlength="300"' + (owner ? '' : ' disabled') + '>' + esc(n.message) + '</textarea>' +
+      '<small>Shown under “Verses is coming soon” (or the menu’s name). Keep it short and friendly.</small></label>' +
+      (owner ? '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>Save menus</button>' : '') + '</form>';
+  }
+  // Items written into the app (js/content.js). A Studio post with the same `builtin` key replaces one
+  // once published; here they can be hidden altogether.
+  function builtinItems() {
+    var C = window.LL_CONTENT || {}, out = [];
+    [['episodes', 'audio', 'Audio', function (e) { return e.title; }], ['devotions', 'devotion', 'Devotion', function (d) { return d.slug; }, function (d) { return d.title; }],
+      ['reels', 'reel', 'Reel', function (r) { return r.title; }], ['verses', 'verse', 'Verse', function (v) { return v.ref; }]].forEach(function (t) {
+      (C[t[0]] || []).forEach(function (item) {
+        out.push({ key: t[1] + ':' + S.slugify(t[3](item)), type: t[2], title: (t[4] || t[3])(item), silent: t[1] === 'audio' && !item.src });
+      });
+    });
+    return out;
+  }
+  function builtinsView() {
+    var owner = isOwner(), hidden = state.hidden || [];
+    return '<div class="top"><div><h2>Built-in content</h2><p>Items that came with the app. Hide any you don’t want visitors to see. A published Studio copy of an item replaces it anyway.</p></div></div>' +
+      (state.hiddenError ? '<p class="role-note" role="alert">The hidden list could not be loaded (' + esc(state.hiddenError) + '). Nothing is hidden until it can be.</p>' : '') +
+      (owner ? '' : '<p class="role-note">Only owners can change this.</p>') +
+      '<div class="list" id="builtinList">' + builtinItems().map(function (it) {
+        var off = hidden.indexOf(it.key) >= 0;
+        return '<div class="row" data-key="' + esc(it.key) + '"><span><b>' + esc(it.title) + '</b><small>' + esc(it.type) + (it.silent ? ' · no recording yet, not shown in the app' : '') + '</small></span>' +
+          '<span style="display:flex;gap:8px;align-items:center"><span class="pill ' + (off ? 'draft' : 'published') + '">' + (off ? 'Hidden' : 'Visible') + '</span>' +
+          (owner ? '<button class="btn ghost small" type="button" data-bhide="' + esc(it.key) + '" aria-pressed="' + off + '">' + (off ? 'Show' : 'Hide') + '</button>' : '') + '</span></div>';
+      }).join('') + '</div>' +
+      (owner ? '<div style="margin-top:16px"><button class="btn primary" type="button" id="saveHidden"' + (state.busy ? ' disabled' : '') + '>Save</button></div>' : '');
+  }
   function teamView() {
     return '<div class="top"><div><h2>Team</h2><p>Only people on this list can sign in to the Studio.</p></div></div>' +
       (isOwner() ? '<form class="form invite" id="inviteForm" novalidate>' +
@@ -384,7 +434,7 @@
     if (state.screen === 'signin') root.innerHTML = signin();
     else if (state.screen === 'check') root.innerHTML = checkEmail();
     else {
-      var v = state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : teamView();
+      var v = state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : state.view === 'site' ? siteView() : state.view === 'builtins' ? builtinsView() : teamView();
       root.innerHTML = shell(v);
       if (state.view === 'media') resolveMediaElements();
     }
@@ -495,6 +545,16 @@
     } else if (id === 'postForm') {
       if (!canPublish()) return save('draft');
       save(state.editing._mode === 'schedule' ? 'scheduled' : 'published');
+    } else if (id === 'siteForm') {
+      if (!isOwner()) return;
+      var value = { menus: {}, message: document.getElementById('nav_message').value.trim() };
+      S.NAV_MENUS.forEach(function (m) { value.menus[m] = document.getElementById('nav_' + m).value; });
+      value = S.normalizeNav(value);
+      state.busy = true; render();
+      S.saveSetting('nav', value, state.email).then(function (saved) {
+        state.busy = false; state.navError = ''; state.nav = S.normalizeNav(saved) || value;
+        toast('Menus saved. Visitors see the change next time the app loads.'); render();
+      }).catch(fail);
     } else if (id === 'inviteForm') {
       var em = document.getElementById('inviteEmail').value.trim().toLowerCase(), role = document.getElementById('inviteRole').value;
       state.errors = {};
@@ -540,6 +600,21 @@
     else if (b.id === 'delNo') { state.confirmDelete = false; render(); }
     else if (b.id === 'delYes') {
       S.deletePost(state.editing.id, state.email).then(function () { toast('Post deleted'); return loadAll(); }).then(function () { go('posts'); }).catch(fail);
+    }
+    else if (d.bhide) {
+      if (!isOwner()) return;
+      var h = state.hidden || (state.hidden = []), at = h.indexOf(d.bhide);
+      if (at >= 0) h.splice(at, 1); else h.push(d.bhide);
+      render();
+    }
+    else if (b.id === 'saveHidden') {
+      if (!isOwner()) return;
+      var value = { hidden: S.normalizeHidden({ hidden: state.hidden || [] }) };
+      state.busy = true; render();
+      S.saveSetting('builtins_hidden', value, state.email).then(function (saved) {
+        state.busy = false; state.hiddenError = ''; state.hidden = S.normalizeHidden(saved) || value.hidden;
+        toast('Saved. Visitors see the change next time the app loads.'); render();
+      }).catch(fail);
     }
     else if (d.remove) S.removeMember(d.remove).then(function () { toast(d.remove + ' was removed from the team.'); return loadAll(); }).then(render).catch(fail);
   });
