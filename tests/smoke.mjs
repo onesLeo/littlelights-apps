@@ -143,6 +143,16 @@ async function openApp(viewport, sw = true, versesOn = true) {
   await page.keyboard.press('Escape');
   await page.click('.p-tab[data-tab="listen"]');
   await page.waitForTimeout(150);
+  await page.click('.p-tab[data-tab="today"]');
+  await page.waitForTimeout(150);
+  await page.evaluate(() => document.querySelector('.p-slide.s2 [data-sheet]').scrollIntoView());
+  await page.click('.p-slide.s2 [data-sheet]');
+  const ps = await page.evaluate(() => { const s = document.querySelector('.p-sheet').getBoundingClientRect(); return { w: s.width, b: Math.round(innerHeight - s.bottom), vw: innerWidth }; });
+  check(Math.round(ps.w) === ps.vw && ps.b <= 1, 'phone: devotion opens as a full-width bottom sheet');
+  await page.click('#pSheetClose');
+  check(!(await page.$eval('#pSheetWrap', (a) => a.classList.contains('on'))), 'phone: the close button closes the sheet');
+  await page.click('.p-tab[data-tab="listen"]');
+  await page.waitForTimeout(150);
   await page.click('#pEps .p-row');
   await page.click('#pMiniOpen');
   await page.waitForTimeout(200);
@@ -256,6 +266,25 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 900, height: 650 }
     check(await page.$eval('#pFeed', (f) => getComputedStyle(f).display === 'grid'), `${viewport.width}px: desktop content uses a card grid`);
     await page.click('.v-today .s2 [data-sheet]');
     check(await page.$eval('#pSheetWrap', (a) => a.classList.contains('on')), `${viewport.width}px: desktop devotion card opens its preview`);
+    const sh = await page.evaluate(() => {
+      const s = document.querySelector('.p-sheet').getBoundingClientRect(), x = document.getElementById('pSheetClose').getBoundingClientRect();
+      return { w: s.width, mid: Math.abs(s.left + s.width / 2 - innerWidth / 2), title: document.getElementById('pSheetTitle').textContent, meta: document.getElementById('pSheetMeta').textContent,
+        x: [x.width, x.height], label: document.getElementById('pSheetClose').getAttribute('aria-label'), focus: document.activeElement.id,
+        foot: getComputedStyle(document.getElementById('pSheetFoot')).position, lock: getComputedStyle(document.querySelector('.p-view.on')).overflowY,
+        measure: document.querySelector('#pSheetBody .p-txt').getBoundingClientRect().width / parseFloat(getComputedStyle(document.querySelector('#pSheetBody .p-txt')).fontSize) };
+    });
+    check(sh.w <= 660 && sh.w >= 560 && sh.mid < 4, `${viewport.width}px: devotion opens as a centred modal (${Math.round(sh.w)}px)`);
+    check(sh.title.includes('brave') && /Devotion/.test(sh.meta), `${viewport.width}px: modal header shows the label and title`);
+    check(sh.label === 'Close devotion' && sh.x[0] >= 44 && sh.x[1] >= 44 && sh.focus === 'pSheetClose', `${viewport.width}px: round close button, labelled, 44px, focused on open`);
+    check(sh.foot === 'sticky' && sh.lock === 'hidden' && sh.measure < 36, `${viewport.width}px: sticky footer, background locked, readable line length`);
+    await page.keyboard.press('Tab'); await page.keyboard.press('Tab'); await page.keyboard.press('Tab'); await page.keyboard.press('Tab');
+    check(await page.evaluate(() => !!document.activeElement.closest('.p-sheet')), `${viewport.width}px: focus stays inside the modal`);
+    await page.keyboard.press('Escape');
+    check(!(await page.$eval('#pSheetWrap', (a) => a.classList.contains('on'))) && await page.evaluate(() => document.activeElement.matches('.s2 [data-sheet]')), `${viewport.width}px: Esc closes and focus returns to the card`);
+    await page.click('.v-today .s2 [data-sheet]');
+    await page.mouse.click(10, 300);
+    check(!(await page.$eval('#pSheetWrap', (a) => a.classList.contains('on'))), `${viewport.width}px: a click on the backdrop closes it`);
+    await page.click('.v-today .s2 [data-sheet]');
     await page.click('#pSheetWrap [data-read]');
     await page.waitForSelector('#pArticle.on');
     check(await page.$eval('#pArticle', (a) => a.classList.contains('on')), `${viewport.width}px: desktop devotion card opens its article`);

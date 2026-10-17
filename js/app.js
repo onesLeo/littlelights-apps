@@ -710,14 +710,41 @@
     document.title = 'Salt and Light';
     if (location.hash.indexOf('#read/') === 0) history.replaceState(null, '', '#read');
   }
+  // Devotion preview: bottom sheet on phones, centred modal on computers. Focus stays inside while
+  // it's open and goes back to the button that opened it; the page behind doesn't scroll.
+  var sheetOpener = null;
   function openSheet(i) {
     var d = C.devotions[i];
-    $('#pSheetBody').innerHTML = '<div class="p-txt"><div class="meta">' + esc(d.kicker) + '</div><h5>' + esc(d.title) + '</h5>' + d.html +
-      '<button class="p-btn" type="button" data-read="' + i + '" style="justify-self:start;background:#3a1426">Open as a page →</button></div>';
+    if (!d) return;
+    sheetOpener = document.activeElement;
+    var mins = /(\d+)\s*min/.exec(d.kicker || '');
+    $('#pSheetMeta').innerHTML = esc('Devotion' + (mins ? ' · ' + mins[1] + ' min' : ''));
+    $('#pSheetTitle').innerHTML = esc(d.title);
+    $('#pSheetBody').innerHTML = '<div class="p-txt">' + d.html + '</div>';
+    $('#pSheetFoot').innerHTML = '<button class="p-btn" type="button" data-read="' + i + '">Open as a page →</button>';
+    $('#pSheetBody').scrollTop = 0;
     $('#pSheetWrap').classList.add('on');
+    app.classList.add('sheet-open');
+    $('#pSheetClose').focus();
   }
-  $('#pSheetClose').addEventListener('click', function () { $('#pSheetWrap').classList.remove('on'); });
-  $('#pSheetWrap').addEventListener('click', function (e) { if (e.target.id === 'pSheetWrap') $('#pSheetWrap').classList.remove('on'); });
+  function closeSheet() {
+    var w = $('#pSheetWrap');
+    if (!w.classList.contains('on')) return;
+    w.classList.remove('on');
+    app.classList.remove('sheet-open');
+    var back = sheetOpener; sheetOpener = null;
+    if (back && back.focus && document.contains(back)) back.focus();
+  }
+  $('#pSheetClose').addEventListener('click', closeSheet);
+  $('#pSheetWrap').addEventListener('click', function (e) { if (e.target.id === 'pSheetWrap') closeSheet(); });
+  $('#pSheetWrap').addEventListener('keydown', function (e) {
+    if (e.key !== 'Tab') return;
+    var f = $$('button, [href], [tabindex]:not([tabindex="-1"])', $('#pSheetWrap .p-sheet')).filter(function (x) { return !x.disabled && x.offsetParent; });
+    if (!f.length) return;
+    var first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
 
   // ---------- verses ----------
   var filter = 'All';
@@ -894,7 +921,7 @@
   // ---------- overlays and global buttons ----------
   function closeOverlays() {
     closeSoon();
-    $('#pSheetWrap').classList.remove('on');
+    closeSheet();
     $('#pArticle').classList.remove('on');
     $('#pFull').classList.remove('on');
     closeStory();

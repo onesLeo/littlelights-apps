@@ -221,9 +221,14 @@
 
   <!-- overlays -->
   <div class="p-over p-sheetwrap" id="pSheetWrap">
-    <div class="p-sheet" role="dialog" aria-label="Devotion">
-      <button class="grab" type="button" id="pSheetClose" aria-label="Close"><i></i></button>
-      <div class="scroll" id="pSheetBody"></div>
+    <div class="p-sheet" role="dialog" aria-modal="true" aria-labelledby="pSheetTitle">
+      <header class="p-sheet-head">
+        <span class="handle" aria-hidden="true"></span>
+        <div class="p-sheet-titles"><div class="meta" id="pSheetMeta"></div><h2 id="pSheetTitle"></h2></div>
+        <button class="p-x" type="button" id="pSheetClose" aria-label="Close devotion"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+      </header>
+      <div class="scroll" id="pSheetBody" tabindex="0"></div>
+      <footer class="p-sheet-foot" id="pSheetFoot"></footer>
     </div>
   </div>
   <article class="p-over p-article" id="pArticle" role="dialog" aria-label="Article"></article>
