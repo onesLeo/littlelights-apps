@@ -258,8 +258,8 @@ async function openApp(viewport, sw = true, versesOn = true) {
   const nav = await page.$eval('.p-tabs', (n) => n.getBoundingClientRect().top);
   check(nav < 10, 'computer: menu sits at the top');
   check(await page.$eval('.p-side', (s) => getComputedStyle(s).display !== 'none'), 'computer: side panel is shown');
-  check(await page.$eval('.v-today .p-sky', (k) => !!k.querySelector('.p-orb') && !!k.querySelector('.p-clouds') && !!k.querySelector('#pOwl')),
-    'computer: the sun, clouds and owl fill the page behind the Today feed');
+  check(await page.$eval('.v-today .p-sky', (k) => !!k.querySelector('.p-orb') && !!k.querySelector('.p-clouds') && !!document.querySelector('.v-today > .p-perch #pOwl')),
+    'computer: the sun and clouds fill the sky; the owl perches in the page beside the welcome');
   await page.screenshot({ path: 'test-results/computer-today.png' });
   await page.click('.p-tab[data-tab="verses"]');
   await page.waitForTimeout(150);
@@ -340,6 +340,69 @@ const flareState = (sel) => (s) => {
   await p2.tap('.p-brand .wm-l'); await p2.waitForTimeout(400);
   check((await p2.evaluate(() => location.hash)) === '#today' && (await p2.$eval('.p-brand .wm', (w) => w.classList.contains('flaring'))), 'flare: tapping the logo link still navigates to Today');
   await ctx2.close();
+}
+// ---------- night owl: perched on a branch, never covered, no sideways scroll ----------
+async function openNight(viewport, extra = {}) {
+  const context = await browser.newContext({ viewport, serviceWorkers: 'block', ...extra });
+  await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  await context.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('ll.theme', 'night'); sessionStorage.setItem('seeded', '1'); } });
+  const page = await context.newPage(); const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto(base + '#today'); await page.waitForSelector('#app[data-ready]');
+  return { context, page, errors };
+}
+const owlCheck = () => {
+  const owl = document.querySelector('#pOwl'); const r = owl.getBoundingClientRect();
+  const wide = innerWidth >= 900;
+  const blockers = [...document.querySelectorAll(wide ? '.v-today .p-stage, .v-today .p-side > *, .p-welcome h1, .p-welcome p, .p-welcome .p-kicker, .p-tabs, .p-brand' : '.s1 .verse, .s1 .p-btns, .s1 .ref, .s1 .p-kicker, .p-rings, .p-tabs')].filter((e) => e.offsetWidth);
+  const box = (e) => { if (/^(H1|P)$/.test(e.tagName) || e.classList.contains('p-kicker')) { const g = document.createRange(); g.selectNodeContents(e); return g.getBoundingClientRect(); } return e.getBoundingClientRect(); };
+  const hit = blockers.filter((e) => { const b = box(e); return r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top; }).map((e) => e.className || e.tagName);
+  const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height * 0.6);
+  const branch = owl.parentNode.querySelector('.p-branch').getBoundingClientRect();
+  const sc = document.scrollingElement; const today = document.querySelector('.v-today');
+  return { w: r.width, inView: r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth, hit, onTop: !!top && owl.contains(top),
+    feetOnBranch: Math.abs((r.top + r.width * 0.833) - (branch.top + branch.height * 0.3)) < r.width * 0.12,
+    branchAtEdge: wide ? Math.abs(branch.right - today.clientWidth) < 2 : Math.abs(branch.left) < 2,
+    hscroll: sc.scrollWidth > innerWidth + 1 || today.scrollWidth > today.clientWidth + 1, opacity: getComputedStyle(owl.parentNode).opacity,
+    perchPE: getComputedStyle(owl.parentNode).pointerEvents };
+};
+for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1024, height: 768 }, { width: 1280, height: 800 }, { width: 1440, height: 900 }]) {
+  const { context, page, errors } = await openNight(vp);
+  await page.waitForTimeout(2600);
+  const o = await page.evaluate(owlCheck);
+  check(o.w >= 50 && o.inView && o.opacity === '1', `owl ${vp.width}px: owl is fully visible in night mode (${Math.round(o.w)}px)`);
+  check(o.hit.length === 0 && o.onTop, `owl ${vp.width}px: no card or control overlaps the owl ${o.hit.join(',')}`);
+  check(o.feetOnBranch && o.branchAtEdge, `owl ${vp.width}px: owl stands on a branch that grows from the screen edge`);
+  check(!o.hscroll, `owl ${vp.width}px: no horizontal scroll`);
+  check(o.perchPE === 'none', `owl ${vp.width}px: the branch never blocks taps`);
+  if (vp.width >= 900) {
+    await page.evaluate(() => { document.querySelector('.v-today').scrollTop = 300; }); await page.waitForTimeout(100);
+    const s = await page.evaluate(() => { const r = document.querySelector('#pOwl').getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height * 0.6); return r.bottom < 70 || (!!e && document.querySelector('#pOwl').contains(e)); });
+    check(s, `owl ${vp.width}px: scrolling never slides a card over the owl`);
+  }
+  check(errors.length === 0, `owl ${vp.width}px: no script errors ${errors.join(' | ')}`);
+  await context.close();
+}
+{
+  // Fly-in plays when night starts, not on navigation; calm and reduced motion keep it perched and still.
+  const { context, page } = await openNight({ width: 1280, height: 800 });
+  check(await page.$eval('#pOwl', (o) => o.classList.contains('fly') && getComputedStyle(o).animationName === 'owlflyx'), 'owl: flies in when the app opens at night');
+  await page.waitForTimeout(2300);
+  check(await page.$eval('#pOwl', (o) => !o.classList.contains('fly')), 'owl: lands and settles on the branch');
+  await page.click('.p-tab[data-tab="listen"]'); await page.click('.p-tab[data-tab="today"]'); await page.waitForTimeout(50);
+  check(await page.$eval('#pOwl', (o) => !o.classList.contains('fly')), 'owl: does not fly again on page navigation');
+  await page.evaluate(() => document.querySelector('[data-mode]').click()); await page.waitForTimeout(100);
+  check(await page.$eval('#app', (a) => !a.classList.contains('night')), 'owl: day mode hides it');
+  await page.evaluate(() => document.querySelector('[data-mode]').click()); await page.waitForTimeout(80);
+  check(await page.$eval('#pOwl', (o) => o.classList.contains('fly')), 'owl: flies in again when night mode is switched on');
+  check(await page.$eval('#pOwl .lid', (l) => getComputedStyle(l).animationName === 'blink') && await page.$eval('#pOwl .head', (h) => getComputedStyle(h).animationName === 'owlhead'), 'owl: idles with a blink and head tilt');
+  await context.close();
+  const c2 = await openNight({ width: 390, height: 844 }, { reducedMotion: 'reduce' });
+  await c2.page.waitForTimeout(150);
+  const still = await c2.page.evaluate(() => { const o = document.querySelector('#pOwl'); return [o, o.querySelector('svg'), ...o.querySelectorAll('.wing, .head, .lid, .pupil')].every((e) => getComputedStyle(e).animationName === 'none') && document.getElementById('app').classList.contains('calm'); });
+  check(still, 'owl: calm mode / reduced motion keeps the owl perched and still');
+  const o2 = await c2.page.evaluate(owlCheck);
+  check(o2.inView && o2.hit.length === 0, 'owl: perched in place straight away in calm mode');
+  await c2.context.close();
 }
 // Layout and motion regressions at the smallest phone and desktop breakpoints.
 for (const viewport of [{ width: 320, height: 568 }, { width: 900, height: 650 }, { width: 1024, height: 768 }]) {

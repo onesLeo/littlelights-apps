@@ -433,9 +433,26 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 @keyframes fly-wide { 0% { transform: translate(-90px, 20px); } 25% { transform: translate(25vw, -10px); } 50% { transform: translate(50vw, 18px); } 75% { transform: translate(75vw, -6px); } 100% { transform: translate(calc(100vw + 90px), 12px); } }
 
 /* ---------- Night owl ---------- */
-.p-owl { position: absolute; left: 0; top: 150px; width: 128px; z-index: 2; border: 0; padding: 0; background: none; cursor: pointer;
-  opacity: 0; transform: translateY(14px); transition: opacity .8s ease, transform .8s ease; pointer-events: none; }
-.p-app.night .p-owl { opacity: 1; transform: none; transition-delay: .35s; pointer-events: auto; }
+.p-perch { position: absolute; left: 0; right: 0; bottom: 12px; height: .95em; font-size: 76px; z-index: 2; pointer-events: none; overflow-x: clip; overflow-y: visible;
+  visibility: hidden; transition: visibility 0s .6s; --fx: 75vw; }
+.p-app.night .p-perch { visibility: visible; transition: none; }
+.p-perch .p-branch, .p-perch .p-owl { opacity: 0; transition: opacity .6s ease; }
+.p-app.night .p-perch .p-branch, .p-app.night .p-perch .p-owl { opacity: 1; }
+.p-perch.no-room { display: none; }
+.p-branch { position: absolute; left: 0; top: .663em; width: 2.7em; height: .4em; overflow: visible; }
+.p-branch .bark { fill: #4a3529; } .p-branch .hi { fill: none; stroke: #7a5a43; stroke-width: 1.6; stroke-linecap: round; opacity: .7; }
+.p-branch .twig { fill: none; stroke: #4a3529; stroke-width: 3; stroke-linecap: round; } .p-branch .leaf { fill: #3f6a4f; }
+.p-owl { position: absolute; left: 1.15em; top: 0; width: 1em; font-size: inherit; border: 0; padding: 0; background: none; cursor: pointer; pointer-events: auto; }
+.p-perch .p-hootbub { left: 1.95em; top: auto; bottom: .78em; }
+/* Fly-in when night mode starts: X and Y on separate elements make a gentle arc. */
+.p-owl.fly { animation: owlflyx 1.9s cubic-bezier(.22,.61,.36,1) both; }
+.p-owl.fly svg { animation: owlflyy 1.9s ease-in-out both; }
+.p-owl.fly .wing.l { animation: flapL .16s ease-in-out 10 alternate; }
+.p-owl.fly .wing.r { animation: flapR .16s ease-in-out 10 alternate; }
+@keyframes owlflyx { 0% { transform: translateX(var(--fx)) rotate(-8deg); opacity: 0; } 12% { opacity: 1; } 85% { transform: translateX(0) rotate(4deg); } 100% { transform: none; opacity: 1; } }
+@keyframes owlflyy { 0% { transform: translateY(-.35em) scale(.8); } 45% { transform: translateY(-.75em) scale(.92); } 85% { transform: translateY(-.08em) scale(1); } 92% { transform: translateY(.04em) scale(1.03, .97); } 100% { transform: none; } }
+.p-app.calm .p-owl.fly, .p-app.calm .p-owl.fly svg, .p-app.calm .p-owl.fly .wing { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .p-owl.fly, .p-owl.fly svg, .p-owl.fly .wing { animation: none !important; } }
 .p-owl svg { display: block; width: 100%; height: auto; overflow: visible; }
 .p-owl .head { transform-box: view-box; transform-origin: 68px 58px; animation: owlhead 8s ease-in-out infinite; }
 .p-owl .lid { transform-box: fill-box; transform-origin: top; transform: scaleY(0); animation: blink 5s ease-in-out infinite; }
@@ -530,7 +547,7 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .p-app.calm .p-cloud:nth-child(2) { transform: translateX(190px); }
 .p-app.calm .p-cloud:nth-child(3) { transform: translateX(70px); }
 .p-app.calm .p-cloud:nth-child(4) { transform: translateX(230px); }
-.p-app.calm .p-owl, .p-app.calm .p-view.on, .p-app.calm .p-sheet, .p-app.calm .p-article, .p-app.calm .p-full { transition: none; animation: none; }
+.p-app.calm .p-view.on, .p-app.calm .p-sheet, .p-app.calm .p-article, .p-app.calm .p-full { transition: none; animation: none; }
 
 /* ---------- Side panel cards (computer layout) ---------- */
 .p-sidecard { border-radius: 20px; padding: 18px; display: grid; gap: 10px; }
@@ -570,6 +587,12 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 
   .v-today.on { display: grid; grid-template-columns: minmax(340px, 430px) 320px; justify-content: center; gap: 40px; padding: 28px; position: absolute; overflow: hidden; }
   .v-today > :not(.p-sky) { position: relative; z-index: 1; }
+  /* Desktop: the owl perches in the free space right of the welcome text, just above the cards,
+     on a branch growing from the right edge. It scrolls with the page, so cards never pass over it. */
+  .v-today > .p-perch { position: absolute; top: var(--perch-top, 90px); bottom: auto; font-size: var(--perch-size, 110px); z-index: 2; --fx: -60vw; }
+  .v-today > .p-perch .p-branch { left: auto; right: 0; transform: scaleX(-1); }
+  .v-today > .p-perch .p-owl { left: auto; right: 1.15em; }
+  .v-today > .p-perch .p-hootbub { left: auto; right: 2.05em; border-radius: 14px 14px 4px 14px; transform-origin: bottom right; }
 
   /* The sky behind the Today page (moved here from the first post by js/app.js) */
   .p-sky { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
@@ -581,8 +604,6 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
   .p-sky .p-cloud:nth-child(2) { top: 34%; }
   .p-sky .p-cloud:nth-child(3) { top: 58%; }
   .p-sky .p-cloud:nth-child(4) { top: 76%; }
-  .p-sky .p-owl { left: 4%; top: auto; bottom: 5%; width: 170px; }
-  .p-sky .p-hootbub { left: calc(4% + 130px); top: auto; bottom: calc(5% + 150px); }
   .p-sky .p-flyowl { top: 18%; width: 64px; }
   .p-app.night .p-sky .p-flyowl { animation-name: fly-wide; animation-duration: 42s; }
   .p-sky .p-stars { background-size: 520px 460px; }
@@ -690,8 +711,6 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 
 /* Narrower computer screens: keep the owl in the corner beside the feed */
 @media (min-width: 900px) and (max-width: 1199px) {
-  .p-sky .p-owl { left: 4px; width: 104px; }
-  .p-sky .p-hootbub { left: 84px; bottom: calc(5% + 92px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -706,8 +725,6 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 @media (min-width: 900px) { .p-chips { top: 70px; } }
 
 @media (max-width: 899px) {
-  .v-today .s1 .p-owl { top: auto; bottom: 14px; left: 12px; width: 76px; }
-  .v-today .s1 .p-hootbub { top: auto; bottom: 100px; left: 20px; }
 }
 @media (max-width: 359px) {
   .p-rings { gap: 8px; padding-inline: 8px; }
@@ -717,8 +734,8 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 @media (max-width: 899px) and (max-height: 650px) {
   .v-today .p-slide.s1 { padding-top: 120px; padding-bottom: 76px; gap: 8px; }
   .v-today .s1 .p-orb { top: 82px; right: 24px; width: 80px; height: 80px; }
+  .v-today .s1 .p-perch { font-size: 58px; bottom: 6px; }
   .v-today .s1 .p-clouds { height: 28%; }
-  .v-today .s1 .p-owl { width: 60px; bottom: 6px; }
 }
 
 /* Keep the empty notification fully hidden until it has something to say */
