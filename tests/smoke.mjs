@@ -941,8 +941,8 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
       check(r.brand === 'none' && r.kickerBelow, `phone ${v.width}px ${mode}: no desktop top bar, and Today's text starts below the circles`);
       if (night) check(r.bg === 'rgba(0, 0, 0, 0)' && r.beamOn && r.beam.includes('linear-gradient') && r.hair.includes('linear-gradient'), `phone ${v.width}px night: no solid block, a soft golden beam with a fading hairline`);
       else check(r.bg === 'rgba(0, 0, 0, 0)' && !r.beamOn, `phone ${v.width}px day: no background behind the title`);
-      if (!night) check(/rgba\(42, 15, 31/.test(r.shadow) && /drop-shadow/.test(r.lfilter), `phone ${v.width}px day: thin plum outline and lift on both words (shadow + drop-shadow)`);
-      check(r.color === 'rgb(246, 238, 220)' || (!night && r.color === 'rgb(255, 248, 234)'), `phone ${v.width}px ${mode}: cream text (${r.color})`);
+      if (!night) check(/rgba\(90, 40, 20, 0\.3\)/.test(r.shadow) && /drop-shadow/.test(r.lfilter) && !/rgba\(42, 15, 31/.test(r.shadow + r.lfilter), `phone ${v.width}px day: light depth only (soft warm shadow, no dark outline) on both words`);
+      check(r.color === (night ? 'rgb(246, 238, 220)' : 'rgb(255, 249, 236)'), `phone ${v.width}px ${mode}: ${night ? 'cream' : 'warm cream'} text (${r.color})`);
       check(r.anim === 'none', `phone ${v.width}px ${mode}: the beam is static`);
     }
     await ctx.close();
