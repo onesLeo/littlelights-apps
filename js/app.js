@@ -72,12 +72,11 @@
   function loadHidden() {
     var S = window.LLStore;
     if (!S || !S.getSetting) return Promise.resolve();
-    try { HIDDEN = S.normalizeHidden(JSON.parse(localStorage.getItem(HIDDEN_KEY) || 'null')) || []; } catch (err) { HIDDEN = []; }
+    try { HIDDEN = S.effectiveHidden(JSON.parse(localStorage.getItem(HIDDEN_KEY) || 'null')); } catch (err) { HIDDEN = S.effectiveHidden(null); }
     var fresh = S.getSetting('builtins_hidden').then(function (v) {
-      var h = v == null ? [] : S.normalizeHidden(v);
-      if (!h) return;
-      HIDDEN = h;
-      try { localStorage.setItem(HIDDEN_KEY, JSON.stringify({ hidden: h })); } catch (err) { /* storage blocked */ }
+      if (v != null && !S.normalizeHidden(v)) return;
+      HIDDEN = S.effectiveHidden(v);
+      try { localStorage.setItem(HIDDEN_KEY, JSON.stringify(v == null ? { hidden: [] } : v)); } catch (err) { /* storage blocked */ }
     });
     var slow = new Promise(function (resolve) { setTimeout(resolve, 4000); });
     return Promise.race([fresh, slow]).catch(function () {});
@@ -137,7 +136,7 @@
           if (p.show_on_today) today.push({ type: 'devotion', i: devs.length - 1 });
         } else if (p.type === 'reel') {
           var look = reelLook.filter(function (l) { return l[1] === f.look; })[0] || reelLook[reels.length % 3];
-          reels.push({ title: p.title, len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '', date: p.publish_at || p.created_at || '', series: f.series || '', episode: +f.episode || 0, seriesDesc: f.series_description || '' });
+          reels.push({ title: p.title, len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '', date: p.publish_at || p.created_at || '', series: f.series || '', episode: +f.episode || 0, seriesDesc: f.series_description || '', pageStyle: f.page_style || '', pageColor: /^#[0-9a-f]{6}$/i.test(f.page_color || '') ? f.page_color : '' });
           if (f.builtin) copyOf[f.builtin] = reels.length - 1;
           if (p.show_on_today) today.push({ type: 'reel', i: reels.length - 1 });
         } else if (p.type === 'verse') {
@@ -490,6 +489,7 @@
   function setNight(on, save) {
     var was = app.classList.contains('night');
     app.classList.toggle('night', on);
+    if (window.LL_pagePalette) applyBook();
     if (on && !was) setTimeout(function () { if (!app.classList.contains('calm')) flyOwl(); if (window.LL_perchFit) window.LL_perchFit(); }, 0);
     document.querySelector('meta[name="theme-color"]').setAttribute('content', on ? '#070b22' : '#0f0d20');
     $$('[data-mode]').forEach(function (b) {
@@ -673,7 +673,7 @@
   var reelsEl = $('#pReels');
   function rIcon(d) { return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + d + '"/></svg>'; }
   // Each reel (episode) plays alone with one progress bar. The old `parts` field is no longer read.
-  function partsOf(r) { return [{ src: r.src || '', youtube: r.youtube || '', len: r.len || '', kind: r.kind, bg: r.bg }]; }
+  function partsOf(r) { return [{ src: r.src || '', youtube: r.youtube || '', len: r.len || '', kind: r.kind, bg: r.bg, poster: r.poster || '' }]; }
   // Series: reels sharing `series` (fields.series) are grouped and ordered by `episode` (fields.episode).
   // A unit is one series or one standalone reel. Cover art = first episode's art; description =
   // fields.series_description from any episode, otherwise the first episode's caption.
@@ -700,27 +700,46 @@
   function epLabel(i) { var r = C.reels[i]; return r.series && r.episode ? 'Ep ' + r.episode + ' · ' : ''; }
   function storyKey(r) { return 'reel:' + String(r.title || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   var curStory = -1, parts = [];
+  // Video reels start muted (autoplay rules); the sound toggle unmutes inside the tap itself
+  // (required by iOS Safari) and the choice lasts for this session across reels.
+  var reelSound = false; try { reelSound = sessionStorage.getItem('ll.reelSound') === '1'; } catch (x) {}
+  function soundIcon(on) { return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/>' + (on ? '<path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/>' : '<path d="M16 9l5 6M21 9l-5 6"/>') + '</svg>'; }
+  function paintSound() {
+    $$('.p-rsound', reelsEl).forEach(function (b) {
+      b.setAttribute('aria-pressed', String(reelSound)); b.setAttribute('aria-label', reelSound ? 'Turn sound off' : 'Turn sound on');
+      b.innerHTML = soundIcon(reelSound) + '<span class="p-rsound-t">' + (reelSound ? 'Sound on' : 'Tap for sound') + '</span>';
+    });
+  }
+  function setSound(on) {
+    reelSound = on; try { sessionStorage.setItem('ll.reelSound', on ? '1' : '0'); } catch (x) {}
+    $$('.p-reel video', reelsEl).forEach(function (v) { v.muted = !on; if (on) v.volume = 1; });
+    var el = reelEl(visibleReel), v = el && el.querySelector('video');
+    if (v && on && v.paused && isPlaying()) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+    paintSound();
+  }
   function renderReelStory(i) {
     var r = C.reels[i]; curStory = i; parts = partsOf(r);
     // Read / Listen only appear when the reel post links a devotion (fields.devotion = slug) or audio (fields.audio = title).
     var acts = '<button type="button" class="save p-ract' + (savedReels[i] ? ' saved' : '') + '" aria-label="Save">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
       '<button type="button" class="share p-ract" aria-label="Share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button>' +
+      (r.caption ? '<button type="button" class="more p-ract p-rcc" aria-label="Show caption" aria-expanded="false" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6" width="17" height="12" rx="3"/><text x="12" y="15.2" text-anchor="middle">CC</text></svg><span>Caption</span></button>' : '') +
       (r.read ? '<button type="button" class="p-ract" data-read-slug="' + esc(r.read) + '" aria-label="Read the devotion">' + rIcon('M3 5h7a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H3zM21 5h-7a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h7z') + '<span>Read</span></button>' : '') +
       (r.listen ? '<button type="button" class="p-ract" data-listen-title="' + esc(r.listen) + '" aria-label="Listen">' + rIcon('M4 14v-2a8 8 0 0 1 16 0v2M4 14h3v6H4zM17 14h3v6h-3z') + '<span>Listen</span></button>' : '');
     var many = parts.length > 1;
     reelsEl.innerHTML = parts.map(function (pt, k) {
       var yid = ytId(pt.youtube);
       var scene = pt.src
-        ? '<video src="' + esc(pt.src) + '" playsinline muted controls preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
+        ? '<video src="' + esc(pt.src) + '"' + (pt.poster ? ' poster="' + esc(pt.poster) + '"' : '') + ' playsinline muted preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
         : yid ? '<div class="p-yt-slot" data-yt="' + yid + '" style="position:absolute;inset:0;background:#000"></div>'
         : reelScene(pt.kind);
-      return '<article class="p-reel" data-i="' + i + '" data-p="' + k + '" style="--rc:' + esc(pt.bg) + ';background:' + esc(pt.bg) + '" aria-label="' + esc(r.title) + (many ? ', part ' + (k + 1) + ' of ' + parts.length : '') + '">' +
+      return '<article class="p-reel' + (pt.src ? ' is-video' : '') + '" data-i="' + i + '" data-p="' + k + '" style="--rc:' + esc(pt.bg) + ';background:' + esc(pt.bg) + '" aria-label="' + esc(r.title) + (many ? ', part ' + (k + 1) + ' of ' + parts.length : '') + '">' +
         '<div class="scene"><div class="p-rkb">' + scene + '</div></div><div class="p-rfade" aria-hidden="true"></div>' +
-        '<div class="p-rtop"><div class="p-rsegs" aria-hidden="true"></div><span class="p-rchip">Reel' + (many ? ' · ' + (k + 1) + '/' + parts.length : '') + (pt.len ? ' · ' + esc(pt.len) : '') + '</span></div>' +
+        '<div class="p-rtop"><div class="p-rsegs" aria-hidden="true"></div><div class="p-rtoprow"><span class="p-rchip">Reel' + (many ? ' · ' + (k + 1) + '/' + parts.length : '') + (pt.len ? ' · ' + esc(pt.len) : '') + '</span>' +
+          (pt.src ? '<button type="button" class="p-rsound" aria-pressed="' + reelSound + '" aria-label="' + (reelSound ? 'Turn sound off' : 'Turn sound on') + '">' + soundIcon(reelSound) + '<span class="p-rsound-t">' + (reelSound ? 'Sound on' : 'Tap for sound') + '</span></button>' : '') + '</div></div>' +
         '<div class="tapzone p-rzones"><button type="button" class="z-prev" aria-label="Previous part"><span aria-hidden="true">‹</span></button><button type="button" class="z-mid" aria-label="Pause or play"></button><button type="button" class="z-next" aria-label="Next part"><span aria-hidden="true">›</span></button></div>' +
         '<div class="p-rend" hidden></div><div class="paused" aria-hidden="true"><span class="ic-pause"></span><span class="ic-play"></span></div>' +
         '<div class="side">' + acts + '</div>' +
-        '<div class="cap">' + (r.series ? '<span class="p-rseries">' + esc(r.series) + (r.episode ? ' · Episode ' + r.episode : '') + '</span>' : '') + '<b class="p-rtitle">' + esc(r.title) + '</b>' + (r.caption ? '<p>' + esc(r.caption) + '</p><button type="button" class="more" aria-haspopup="dialog">more</button>' : '') +
+        '<div class="cap">' + (r.series ? '<span class="p-rseries">' + esc(r.series) + (r.episode ? ' · Episode ' + r.episode : '') + '</span>' : r.topic ? '<span class="p-rseries">' + esc(r.topic) + '</span>' : '') + '<b class="p-rtitle">' + esc(r.title) + '</b>' + (r.caption ? '<p>' + esc(r.caption) + '</p>' : '') +
         (pt.youtube && !yid ? '<a class="p-yt" href="' + esc(pt.youtube) + '" target="_blank" rel="noopener">Watch on YouTube</a>' : '') + '</div>' +
         '</article>';
     }).join('');
@@ -733,15 +752,106 @@
   var rSheet = document.createElement('div');
   rSheet.className = 'p-rsheet glass glass--dark'; rSheet.id = 'pReelSheet'; rSheet.hidden = true;
   rSheet.setAttribute('role', 'dialog'); rSheet.setAttribute('aria-modal', 'true'); rSheet.setAttribute('aria-labelledby', 'pReelSheetT');
-  rSheet.innerHTML = '<div class="p-rsheet-in"><span class="handle" aria-hidden="true"></span><h3 id="pReelSheetT"></h3><p></p><button type="button" class="p-rsheet-x" aria-label="Close caption">' + rIcon('M6 6l12 12M18 6L6 18') + '</button></div>';
+  rSheet.innerHTML = '<div class="p-rsheet-in"><div class="bk-art" aria-hidden="true"></div><span class="bk-hair" aria-hidden="true"><i class="bk-led"></i></span><span class="handle" aria-hidden="true"></span>' +
+    '<span class="bk-kick"></span><h3 id="pReelSheetT"></h3><i class="bk-rule" aria-hidden="true"></i><p></p>' +
+    '<div class="bk-acts"><button type="button" class="bk-save" aria-pressed="false">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
+    '<button type="button" class="bk-share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button></div>' +
+    '<button type="button" class="p-rsheet-x" aria-label="Close caption">' + rIcon('M6 6l12 12M18 6L6 18') + '</button></div>';
   $('#pWatchPlayer').appendChild(rSheet);
   var rSheetFrom = null;
-  function openReelSheet(i, from) {
-    rSheetFrom = from; rSheet.querySelector('h3').textContent = C.reels[i].title; rSheet.querySelector('p').textContent = C.reels[i].caption;
-    rSheet.hidden = false; rSheet.querySelector('.p-rsheet-x').focus();
+  // ---------- Desktop book spread: the caption becomes a tinted glass page beside the reel ----------
+  // Page colours come from the reel (fields.page_color, else its theme colour); text and accent are
+  // picked with a contrast check so any colour stays readable (AA). Phones keep the bottom sheet.
+  var BOOK_MQ = matchMedia('(min-width: 900px)'), REEL_PAGE = { style: 'auto' }, rSheetI = -1;
+  try { REEL_PAGE = JSON.parse(localStorage.getItem('ll.reelPage') || 'null') || REEL_PAGE; } catch (err) { /* storage blocked */ }
+  if (window.LLStore && window.LLStore.getSetting) window.LLStore.getSetting('reel_page').then(function (v) {
+    if (v && typeof v === 'object') { REEL_PAGE = { style: /^(auto|dark|light|clear)$/.test(v.style) ? v.style : 'auto' }; try { localStorage.setItem('ll.reelPage', JSON.stringify(REEL_PAGE)); } catch (err) { /* blocked */ } }
+  }, function () {});
+  var pg = {
+    rgb: function (h) { h = h.replace('#', ''); return [0, 2, 4].map(function (k) { return parseInt(h.substr(k, 2), 16); }); },
+    hex: function (c) { return '#' + c.map(function (v) { return ('0' + Math.round(Math.max(0, Math.min(255, v))).toString(16)).slice(-2); }).join(''); },
+    hsl: function (c) { var r = c[0] / 255, g = c[1] / 255, b = c[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn, h = 0, s = 0;
+      if (d) { s = d / (1 - Math.abs(2 * l - 1)); h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; if (h < 0) h += 360; } return [h, s, l]; },
+    fromHsl: function (h, s, l) { var c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2, r = [0, 0, 0], k = Math.floor(h / 60) % 6;
+      r = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][k]; return pg.hex(r.map(function (v) { return (v + m) * 255; })); },
+    lum: function (h) { return pg.rgb(h).map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }).reduce(function (a, v, k) { return a + v * [0.2126, 0.7152, 0.0722][k]; }, 0); },
+    ratio: function (a, b) { var x = pg.lum(a), y = pg.lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); },
+    rgba: function (h, a) { return 'rgba(' + pg.rgb(h).join(',') + ',' + a + ')'; }
+  };
+  // style: 'dark' | 'light' | 'clear'. Returns CSS custom properties for the page.
+  function pagePalette(base, style) {
+    var hs = pg.hsl(pg.rgb(base)), h = hs[0], s = Math.min(Math.max(hs[1], 0.3), 0.62), v = {}, L;
+    if (style === 'light') {
+      v.p1 = pg.fromHsl(h, Math.min(s, 0.7), 0.94); v.p2 = pg.fromHsl(h, Math.min(s, 0.6), 0.88);
+      v.text = pg.fromHsl(h, 0.45, 0.14); if (pg.ratio(v.text, v.p2) < 8) v.text = '#1F1420';
+      for (L = 0.38; L > 0.12 && pg.ratio(pg.fromHsl(h, 0.65, L), v.p2) < 5.6; L -= 0.02); v.acc = pg.fromHsl(h, 0.65, L);
+      v.onacc = pg.ratio('#FFF8EE', v.acc) >= 5 ? '#FFF8EE' : '#FFFFFF'; v.hair = '#B07A1E'; v.a1 = 0.93; v.a2 = 0.96;
+    } else {
+      v.p1 = pg.fromHsl(h, s, 0.24); v.p2 = pg.fromHsl(h, s * 0.95, 0.15);
+      v.text = pg.ratio('#FBF3E6', v.p1) >= 7 ? '#FBF3E6' : '#FFFFFF';
+      for (L = 0.72; L < 0.94 && pg.ratio(pg.fromHsl(h, 0.8, L), v.p1) < 5.6; L += 0.02); v.acc = pg.fromHsl(h, 0.8, L);
+      v.onacc = pg.fromHsl(h, 0.55, 0.12); if (pg.ratio(v.onacc, v.acc) < 5) v.onacc = '#1B1020';
+      v.hair = '#F2C46B'; v.a1 = style === 'clear' ? 0.66 : 0.86; v.a2 = style === 'clear' ? 0.74 : 0.92;
+    }
+    v.style = style; return v;
   }
-  function closeReelSheet() { if (rSheet.hidden) return false; rSheet.hidden = true; if (rSheetFrom) rSheetFrom.focus(); updateReels(); return true; }
-  rSheet.addEventListener('click', function (e) { if (e.target === rSheet || e.target.closest('.p-rsheet-x')) closeReelSheet(); });
+  window.LL_pagePalette = pagePalette;
+  function bookStyle(r) {
+    var st = r.pageStyle && r.pageStyle !== 'auto' ? r.pageStyle : REEL_PAGE.style && REEL_PAGE.style !== 'auto' ? REEL_PAGE.style : '';
+    return st || (app.classList.contains('night') ? 'dark' : 'light');
+  }
+  function applyBook() {
+    var open = !rSheet.hidden && rSheetI >= 0;
+    wPlayer.classList.toggle('book', open && BOOK_MQ.matches); wPlayer.classList.toggle('capopen', open);
+    // Native video controls (and their floating mute pill) must not sit on top of the caption sheet.
+    if (!open) return;
+    var r = C.reels[rSheetI], base = r.pageColor || (parts[visibleReel] || r).bg || '#3B1F4A', v = pagePalette(base, bookStyle(r)), inn = rSheet.querySelector('.p-rsheet-in');
+    inn.dataset.style = v.style;
+    [['p1', v.p1], ['p2', v.p2], ['text', v.text], ['acc', v.acc], ['onacc', v.onacc], ['hair', v.hair]].forEach(function (x) { inn.style.setProperty('--bk-' + x[0], x[1]); });
+    // Clear glass: a light tint so the moving reel reads through (phone sheet 0.24 -> 0.34; the
+    // desktop book page a little denser, 0.40 -> 0.50). Text gets its own soft halo (--bk-halo).
+    var gA = BOOK_MQ.matches ? [0.40, 0.50] : [0.24, 0.34];
+    inn.style.setProperty('--bk-t1', pg.rgba(v.p1, gA[0])); inn.style.setProperty('--bk-t2', pg.rgba(v.p2, gA[1]));
+    var hc = v.style === 'light' ? v.p1 : v.p2; inn.style.setProperty('--bk-halo', pg.rgba(hc, 0.55)); inn.style.setProperty('--bk-halo2', pg.rgba(hc, v.style === 'light' ? 0.86 : 0.72)); inn.style.setProperty('--bk-edge', pg.rgba(v.acc, 0.6));
+    // The blurred reel art seen through the page: built-in scenes are SVG copies; a video reel shows
+    // its own video (a muted twin kept in sync with playback, see syncBookArt).
+    var src = reelEl(visibleReel), kb = src && src.querySelector('.p-rkb'), art = rSheet.querySelector('.bk-art'), sv0 = kb && kb.querySelector('video');
+    if (sv0) { var tw = art.querySelector('video'); if (!tw || tw.getAttribute('src') !== sv0.getAttribute('src')) { art.innerHTML = '<video muted playsinline preload="auto" tabindex="-1" src="' + esc(sv0.getAttribute('src')) + '"' + (sv0.getAttribute('poster') ? ' poster="' + esc(sv0.getAttribute('poster')) + '"' : '') + '></video>'; } syncBookArt(); }
+    else art.innerHTML = kb && !kb.querySelector('iframe, .p-yt-slot') ? kb.innerHTML : '';
+    art.style.background = base;
+    var sv = src && src.querySelector('.save'); rSheet.querySelector('.bk-save').setAttribute('aria-pressed', String(!!(sv && sv.classList.contains('saved'))));
+  }
+  function openReelSheet(i, from) {
+    var r = C.reels[i], pt = parts[visibleReel] || r;
+    rSheetFrom = from; rSheetI = i; rSheet.querySelector('h3').textContent = r.title; rSheet.querySelector('p').textContent = r.caption;
+    rSheet.querySelector('.bk-kick').textContent = r.series ? r.series + (r.episode ? ' · Episode ' + r.episode : '') : 'Reel' + (pt.len ? ' · ' + pt.len : '');
+    rSheet.hidden = false; if (from) from.setAttribute('aria-expanded', 'true'); applyBook(); wakeOverlay(); rSheet.querySelector('.p-rsheet-x').focus();
+  }
+  function closeReelSheet() { if (rSheet.hidden) return false; rSheet.hidden = true; applyBook(); var tw = rSheet.querySelector('.bk-art video'); if (tw) tw.pause(); if (rSheetFrom) { rSheetFrom.setAttribute('aria-expanded', 'false'); rSheetFrom.focus(); } wakeOverlay(); updateReels(); return true; }
+  // Keep the blurred twin video behind the glass page in step with the reel.
+  function syncBookArt() {
+    var tw = rSheet.querySelector('.bk-art video'); if (!tw || rSheet.hidden) return;
+    var el = reelEl(visibleReel), v = el && el.querySelector('video'); if (!v) return;
+    if (Math.abs((tw.currentTime || 0) - (v.currentTime || 0)) > 0.4) try { tw.currentTime = v.currentTime; } catch (x) {}
+    if (!v.paused && tw.paused) { var q = tw.play(); if (q && q.catch) q.catch(function () {}); } else if (v.paused && !tw.paused) tw.pause();
+  }
+  if (BOOK_MQ.addEventListener) BOOK_MQ.addEventListener('change', applyBook);
+  rSheet.addEventListener('click', function (e) {
+    if (e.target.closest('.bk-save')) { var sv = reelEl(visibleReel) && reelEl(visibleReel).querySelector('.save'); if (sv) sv.click(); applyBook(); return; }
+    if (e.target.closest('.bk-share')) { var sh = reelEl(visibleReel) && reelEl(visibleReel).querySelector('.share'); if (sh) sh.click(); return; }
+    if (e.target === rSheet || e.target.closest('.p-rsheet-x')) closeReelSheet();
+  });
+  // Title/topic overlay on playing video reels rests at 60% opacity and wakes to 100% on touch,
+  // tap, hover, focus or an open caption; it settles again after ~3s idle (CSS does the fade).
+  var wakeT = 0;
+  function wakeOverlay() {
+    if (!reelsEl) return; reelsEl.classList.add('awake'); clearTimeout(wakeT);
+    wakeT = setTimeout(function () { if (rSheet.hidden) reelsEl.classList.remove('awake'); else wakeOverlay(); }, 3000);
+  }
+  ['pointerdown', 'pointermove', 'focusin', 'keydown', 'wheel'].forEach(function (ev) { reelsEl.addEventListener(ev, wakeOverlay, { passive: true }); });
+  // Press feedback: the pressed control shows at 100% at once (touch browsers apply :active late or not at all).
+  reelsEl.addEventListener('pointerdown', function (e) { var b = e.target.closest('.side .p-ract, .p-rsound'); if (b) b.classList.add('pressed'); }, { passive: true });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { reelsEl.addEventListener(ev, function () { $$('.pressed', reelsEl).forEach(function (b) { b.classList.remove('pressed'); }); }, { passive: true }); });
   // ---------- Story player ----------
   // The progress bars and taps move between the parts of the open story only; the end screen offers
   // Watch again and up to two unwatched stories instead of running into the next story by itself.
@@ -765,7 +875,7 @@
     var el = reelEl(visibleReel), v = el && el.querySelector('video'), dt = clock.last ? (now - clock.last) / 1000 : 0; clock.last = now;
     if (v && isFinite(v.duration) && v.duration > 0) { clock.real = true; clock.dur = v.duration; clock.t = v.currentTime; if (v.ended) clock.t = clock.dur; }
     else if (!clock.real && isPlaying()) clock.t += dt;  // fallback: the chip duration
-    paint();
+    paint(); syncBookArt();
     if (clock.dur && clock.t >= clock.dur - 0.05 && !ended) { nextReel(true); }
     raf = requestAnimationFrame(reelTick);
   }
@@ -779,6 +889,8 @@
     if (info.playerState === 0) clock.t = clock.dur;
   });
   function updateReels() {
+    // The caption page's running light follows playback (paused, held or ended: it stops in place).
+    if (wPlayer) wPlayer.classList.toggle('rplaying', !!isPlaying());
     $$('.p-reel', reelsEl).forEach(function (el) {
       var i = +el.dataset.i, on = watchOpen && +el.dataset.p === visibleReel;
       el.classList.toggle('on', on);
@@ -793,7 +905,10 @@
         else slot.innerHTML = '';
       }
       var v = el.querySelector('video');
-      if (v) { if (playing) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } else v.pause(); }
+      if (v) {
+        v.muted = !reelSound;
+        if (playing) { var p = v.play(); if (p && p.catch) p.catch(function (err) { if (!v.muted && err && err.name === 'NotAllowedError') { v.muted = true; reelSound = false; paintSound(); var q = v.play(); if (q && q.catch) q.catch(function () {}); } }); } else v.pause();
+      }
     });
     if (watchOpen && !raf) { clock.last = 0; raf = requestAnimationFrame(reelTick); }
   }
@@ -832,7 +947,7 @@
   }
   function prevReel() { if (clock.t > 3 || pos === 0) restartReel(); else showReel(pos - 1); }
   function togglePause(el) { el.classList.toggle('userpaused'); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); updateReels(); }
-  window.LL_reel = { next: function () { nextReel(); }, prev: prevReel, show: showReel, seek: function (t) { clock.t = t; paint(); }, open: function (i) { openStory(i); }, state: function () { return { story: curStory, parts: parts.length, pos: pos, reel: visibleReel, seq: seq.slice(), t: clock.t, dur: clock.dur, real: clock.real, ended: ended, playing: !!isPlaying() }; } };
+  window.LL_reel = { sound: function () { return reelSound; }, next: function () { nextReel(); }, prev: prevReel, show: showReel, seek: function (t) { clock.t = t; paint(); }, open: function (i) { openStory(i); }, state: function () { return { story: curStory, parts: parts.length, pos: pos, reel: visibleReel, seq: seq.slice(), t: clock.t, dur: clock.dur, real: clock.real, ended: ended, playing: !!isPlaying() }; } };
   // Tap zones (left third: previous/restart, centre: pause, right third: next), press-and-hold pauses, swipe navigates.
   var down = null;
   reelsEl.addEventListener('pointerdown', function (e) {
@@ -854,6 +969,7 @@
     var reel = e.target.closest('.p-reel');
     if (!reel) return;
     var i = +reel.dataset.i;
+    if (e.target.closest('.p-rsound')) { e.stopPropagation(); e.preventDefault(); setSound(!reelSound); return; }
     if (e.target.closest('.p-rzones') && !e.target.closest('.p-rend')) {
       if (reelsEl._suppress && Date.now() - reelsEl._suppress < 400) { reelsEl._suppress = 0; return; }
       if (e.target.closest('.z-next')) nextReel(); else if (e.target.closest('.z-prev')) prevReel(); else togglePause(reel);
@@ -880,6 +996,7 @@
   var watchOpen = false, watchReturn = null, wPlayer = $('#pWatchPlayer'), wGal = $('#pWatchGal');
   function thumb(r) {
     var yid = ytId(r.youtube);
+    if (r.src && r.poster) return '<img src="' + esc(r.poster) + '" alt="" loading="lazy">';
     if (r.src) return '<video src="' + esc(r.src) + '#t=0.5" muted playsinline preload="metadata" tabindex="-1" aria-hidden="true"></video>';
     if (yid) return '<img src="https://i.ytimg.com/vi/' + yid + '/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">';
     return '<div class="p-wscene" aria-hidden="true">' + reelScene(r.kind) + '</div>';
@@ -961,7 +1078,7 @@
   wGal.addEventListener('click', function (e) { var b = e.target.closest('[data-watch]'); if (b) openReel(+b.dataset.watch); var sr = e.target.closest('[data-series]'); if (sr) openSeries(sr.dataset.series); var cl = e.target.closest('[data-clear-watched]'); if (cl) { window.LL_watched.clear(); var h = wGal.querySelector('.p-whero'); if (h) h.focus(); } });
   function closeWatch() {
     if (!watchOpen) return;
-    rSheet.hidden = true; watchOpen = false; wPlayer.hidden = true; wPlayer.classList.remove('on'); updateReels();
+    rSheet.hidden = true; wPlayer.classList.remove('book', 'capopen'); watchOpen = false; wPlayer.hidden = true; wPlayer.classList.remove('on'); updateReels();
     if (watchReturn && document.contains(watchReturn)) watchReturn.focus();
   }
   window.LL_closeWatch = closeWatch;
@@ -974,7 +1091,7 @@
   });
   // openReel(i): opens story i; its parts are the sequence.
   function openStory(i) {
-    rSheet.hidden = true; renderReelStory(i); seq = parts.map(function (_, k) { return k; });
+    rSheet.hidden = true; wPlayer.classList.remove('book', 'capopen'); renderReelStory(i); seq = parts.map(function (_, k) { return k; });
     showReel(0); $('#pWatchClose').focus();
   }
   function openReel(i) {

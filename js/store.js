@@ -315,6 +315,28 @@
     return out;
   }
   window.LLStore.normalizeHidden = normalizeHidden;
+  // Built-ins marked `hidden: true` in js/content.js start hidden; the Studio can show them again,
+  // which is saved as value.shown. Effective list = value.hidden + (hidden-by-default - value.shown).
+  function defaultHidden() {
+    var C = window.LL_CONTENT || {}, out = [];
+    [['episodes', 'audio', 'title'], ['devotions', 'devotion', 'slug'], ['reels', 'reel', 'title'], ['verses', 'verse', 'ref']].forEach(function (t) {
+      (C[t[0]] || []).forEach(function (it) { if (it && it.hidden === true) out.push(t[1] + ':' + slugify(it[t[2]])); });
+    });
+    return out;
+  }
+  function effectiveHidden(v) {
+    var base = normalizeHidden(v) || [], shown = (v && Array.isArray(v.shown) ? normalizeHidden({ hidden: v.shown }) : null) || [];
+    defaultHidden().forEach(function (k) { if (shown.indexOf(k) < 0 && base.indexOf(k) < 0) base.push(k); });
+    return base;
+  }
+  // The setting value to save for an effective hidden list.
+  function hiddenValue(list) {
+    var d = defaultHidden(), l = normalizeHidden({ hidden: list || [] }) || [];
+    return { hidden: l.filter(function (k) { return d.indexOf(k) < 0; }), shown: d.filter(function (k) { return l.indexOf(k) < 0; }) };
+  }
+  window.LLStore.defaultHidden = defaultHidden;
+  window.LLStore.effectiveHidden = effectiveHidden;
+  window.LLStore.hiddenValue = hiddenValue;
 
   // ---------- which kinds of content the site shows (site setting 'content') ----------
   // value: { verses: true|false }. A missing row or key means verses are HIDDEN (Taman's choice,

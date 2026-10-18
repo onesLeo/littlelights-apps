@@ -82,9 +82,17 @@ await page.fill('#f_title', 'Test episode one');
 await page.fill('#f_youtube', 'https://youtube.com/shorts/abcdefghijk');
 await page.fill('#f_series', 'Test series');
 await page.fill('#f_episode', '2');
+check(await page.$eval('#f_page_style', (s) => [...s.options].map((o) => o.textContent).join('|')) === 'Auto from reel|Dark|Light|Glass clear', 'reel: Page style offers Auto from reel / Dark / Light / Glass clear');
+check(await page.$eval('#f_page_color', (i) => i.value === '' && /Auto/.test(i.placeholder)) && !!(await page.$('#f_page_color_pick[type=color]')), 'reel: Page colour has a picker and is empty (auto) by default');
+await page.selectOption('#f_page_style', 'light');
+await page.$eval('#f_page_color_pick', (i) => { i.value = '#2a7f62'; i.dispatchEvent(new Event('input', { bubbles: true })); });
+check(await page.$eval('#f_page_color', (i) => i.value) === '#2a7f62', 'reel: the colour picker fills the Page colour box');
+await page.locator('#f_page_style').evaluate((s) => s.closest('.two').scrollIntoView({ block: 'center' }));
+await page.locator('.two:has(#f_page_style)').screenshot({ path: '/workspace/bk-studio.png' });
 await page.click('#postForm button[type=submit]');
 await page.waitForSelector('.list .row');
 const saved = await page.evaluate(async () => (await window.LLStore.publishedPosts()).filter((p) => p.title === 'Test episode one')[0]);
+check(saved && saved.fields.page_style === 'light' && saved.fields.page_color === '#2a7f62', `reel: page style and colour are saved in fields.page_style / fields.page_color (${JSON.stringify(saved && [saved.fields.page_style, saved.fields.page_color])})`);
 check(saved && saved.fields.series === 'Test series' && saved.fields.episode === 2, `reel: series and episode number are saved (${JSON.stringify(saved && { s: saved.fields.series, e: saved.fields.episode })})`);
 await page.click('.side [data-view="new"]');
 await page.click('[data-new="reel"]');
@@ -180,6 +188,11 @@ check(await page.evaluate(() => JSON.parse(localStorage.getItem('ll.settings.v1'
 await app.reload();
 await app.waitForSelector('#app[data-ready]');
 check(!!(await app.$('#pFeed .s-studio .verse')), 'content: with verses switched on, the published verse post is back on Today');
+check(await page.$eval('#reel_page_style', (s) => s.value) === 'auto', 'reel page: the site-wide default is Auto');
+await page.selectOption('#reel_page_style', 'clear');
+await page.click('#reelPageForm button[type=submit]');
+await page.waitForTimeout(200);
+check(await page.evaluate(() => JSON.parse(localStorage.getItem('ll.settings.v1')).reel_page.style === 'clear'), 'reel page: the owner saves the site default in site_settings key reel_page');
 check(await app.$('#pFeed [data-open-verse]') !== null, 'app: long Today verse offers a full-passage action');
 await app.click('#pFeed [data-open-verse]');
 check(await app.$eval('#pStory', (el) => el.classList.contains('long')), 'app: long verse opens in a readable passage view');
@@ -246,19 +259,19 @@ await page.waitForSelector('#builtinList .row');
 const bRows = await page.$$eval('#builtinList .row', (r) => r.map((x) => x.dataset.key));
 check(bRows.includes('audio:keep-building') && bRows.includes('devotion:brave') && bRows.includes('reel:why-jonathan-gave-david-his-robe') && bRows.includes('verse:joshua-1-9'),
   'built-ins: audio, devotions, reels and verses are all listed');
-check(!(await page.$$eval('#builtinList .pill', (p) => p.some((x) => x.textContent === 'Hidden'))), 'built-ins: everything is visible by default');
+check((await page.$$eval('#builtinList .row', (r) => r.filter((x) => x.querySelector('.pill').textContent === 'Hidden').map((x) => x.dataset.key))).join() === 'reel:why-jonathan-gave-david-his-robe,reel:noah-kept-building,reel:jonah-and-the-second-chance', 'built-ins: everything is visible by default except the 3 placeholder reels (hidden: true)');
 await page.click('[data-bhide="devotion:brave"]');
-await page.click('[data-bhide="reel:why-jonathan-gave-david-his-robe"]');
+await page.click('[data-bhide="reel:noah-kept-building"]');
 await page.click('#saveHidden');
 await page.waitForTimeout(200);
-check(await page.evaluate(() => JSON.parse(localStorage.getItem('ll.settings.v1')).builtins_hidden.hidden.join(',')) === 'devotion:brave,reel:why-jonathan-gave-david-his-robe',
-  'built-ins: Save stores the hidden list (builtins_hidden)');
+check(await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('ll.settings.v1')).builtins_hidden)) === JSON.stringify({ hidden: ['devotion:brave'], shown: ['reel:noah-kept-building'] }),
+  'built-ins: Save stores the hidden list and the default-hidden items shown again (builtins_hidden)');
 check(await page.$eval('[data-key="devotion:brave"] .pill', (p) => p.textContent) === 'Hidden', 'built-ins: the item shows as Hidden after saving');
 const app3 = await context.newPage();
 app3.on('pageerror', (e) => errors.push(e.message));
 await app3.goto(base);
 await app3.waitForSelector('#app[data-ready]');
-check(await app3.evaluate(() => !window.LL_CONTENT.devotions.some((d) => d.slug === 'brave') && !window.LL_CONTENT.reels.some((r) => r.title.startsWith('Why Jonathan'))), 'app: hidden built-ins are left out');
+check(await app3.evaluate(() => !window.LL_CONTENT.devotions.some((d) => d.slug === 'brave') && !window.LL_CONTENT.reels.some((r) => r.title.startsWith('Why Jonathan')) && window.LL_CONTENT.reels.some((r) => r.title === 'Noah kept building')), 'app: hidden built-ins are left out; a default-hidden reel shown in the Studio comes back');
 check((await app3.$$('[data-sheet="-1"], [data-reel="-1"], [data-ep="-1"]')).length === 0, 'app: no buttons point at hidden items');
 check(!(await app3.$('#pFeed .p-slide.s2:not(.s-studio)')) && !(await app3.$('#pFeed .p-slide.s3:not(.s-studio)')), 'app: Today cards built around hidden items are removed');
 const row = await app3.evaluate(() => {
@@ -271,7 +284,7 @@ const row = await app3.evaluate(() => {
 check(/mid-[12]/.test(row.cls) && row.gapRight < 4, `app: the Today row is filled to the edge, no row ends early (${row.cls}, ${row.gapRight}px)`);
 await app3.close();
 await page.click('[data-bhide="devotion:brave"]');
-await page.click('[data-bhide="reel:why-jonathan-gave-david-his-robe"]');
+await page.click('[data-bhide="reel:noah-kept-building"]');
 await page.click('#saveHidden');
 await page.waitForTimeout(200);
 

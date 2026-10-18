@@ -1231,3 +1231,168 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
   .v-read { background: radial-gradient(38% 34% at 22% 22%, rgba(90,115,215,.45), transparent 70%), radial-gradient(34% 30% at 80% 30%, rgba(242,196,107,.42), transparent 70%), radial-gradient(40% 30% at 50% 50%, rgba(120,140,230,.40), transparent 70%), #EEF1F8; background-attachment: local; }
   .p-app.night .v-read { background: radial-gradient(38% 34% at 22% 22%, rgba(70,100,230,.55), transparent 70%), radial-gradient(34% 30% at 80% 30%, rgba(242,196,107,.24), transparent 70%), radial-gradient(40% 30% at 50% 50%, rgba(80,100,220,.50), transparent 70%), #0F1530; background-attachment: local; }
 }
+
+/* ---------- Reel caption: desktop book spread (the reel is the left page, the caption a tinted glass page) ---------- */
+.p-rsheet-in .bk-art, .p-rsheet-in .bk-hair, .p-rsheet-in .bk-kick, .p-rsheet-in .bk-rule, .p-rsheet-in .bk-acts { display: none; }
+@media (min-width: 900px) {
+  .p-wplayer { --bkw: min(470px, calc(100vw - 430px - 64px)); }
+  .p-wplayer .p-feed { transition: transform .38s cubic-bezier(.2,.8,.2,1), border-radius .38s; }
+  .p-wplayer.book .p-feed { transform: translateX(calc(var(--bkw) / -2)); border-radius: 28px 6px 6px 28px; }
+  .p-wplayer.book .p-reel { border-radius: 28px 6px 6px 28px; }
+  .p-wplayer.book .p-reel .side, .p-wplayer.book .p-reel .cap { visibility: hidden; }
+  .p-wplayer.book .p-rsheet { background: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; display: block; }
+  .p-wplayer.book .p-rsheet-in { position: absolute; top: 24px; bottom: 24px; left: calc(50% + 215px - var(--bkw) / 2); width: var(--bkw); max-height: none; margin: 0; box-sizing: border-box;
+    display: flex; flex-direction: column; gap: 14px; padding: 56px 44px 34px 52px; overflow: auto; isolation: isolate;
+    border-radius: 6px 28px 28px 6px; border: 1.5px solid var(--bk-edge); border-left: 0; color: var(--bk-text); text-shadow: none;
+    background: linear-gradient(90deg, rgba(0,0,0,.34), rgba(0,0,0,.08) 5%, transparent 13%), linear-gradient(170deg, var(--bk-p1), var(--bk-p2));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.38), inset 0 0 0 1px rgba(255,255,255,.06), 0 30px 70px rgba(0,0,0,.5);
+    animation: bkIn .38s cubic-bezier(.2,.8,.2,1); }
+  .p-wplayer.book .p-rsheet-in[data-style="light"] { background: linear-gradient(90deg, rgba(40,20,10,.2), rgba(40,20,10,.05) 5%, transparent 13%), linear-gradient(170deg, var(--bk-p1), var(--bk-p2)); box-shadow: inset 0 1px 0 rgba(255,255,255,.8), inset 0 0 0 1px rgba(255,255,255,.3), 0 30px 70px rgba(0,0,0,.5); }
+  .p-wplayer.book .p-rsheet-in .handle { display: none; }
+  .p-wplayer.book .bk-art { display: block; position: absolute; inset: 0; border-radius: inherit; z-index: -2; overflow: hidden; filter: blur(30px) saturate(1.7); opacity: .5; pointer-events: none;
+    -webkit-mask-image: linear-gradient(180deg, transparent 0 46%, #000 62% 76%, transparent 88%); mask-image: linear-gradient(180deg, transparent 0 46%, #000 62% 76%, transparent 88%); }
+  .p-wplayer.book .p-rsheet-in[data-style="light"] .bk-art { opacity: .3; }
+  .p-wplayer.book .bk-art > * { position: absolute; inset: 0; width: 100%; height: 100%; transform: scale(1.3); }
+  .p-wplayer.book .p-rsheet-in::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit; opacity: .07; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23n%29'/%3E%3C/svg%3E"); }
+  .p-wplayer.book .bk-hair { display: block; position: absolute; top: 0; left: 14%; right: 8%; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--bk-hair) 20%, var(--bk-acc) 80%, transparent); }
+  .p-wplayer.book .bk-kick { display: block; font: 800 12px/1.2 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--bk-acc); }
+  .p-wplayer.book .p-rsheet-in h3 { font: italic 500 42px/1.04 var(--serif); letter-spacing: -.01em; margin: 0; padding-right: 40px; color: var(--bk-text); }
+  .p-wplayer.book .bk-rule { display: block; width: 64px; height: 1.5px; background: var(--bk-hair); }
+  .p-wplayer.book .p-rsheet-in p { font: 400 21px/1.6 var(--serif); color: var(--bk-text); margin: 0; }
+  .p-wplayer.book .p-rsheet-in p::first-letter { float: left; font: italic 500 3.1em/.82 var(--serif); margin: .08em .1em 0 0; color: var(--bk-acc); }
+  .p-wplayer.book .bk-acts { display: flex; gap: 10px; margin-top: auto; padding-top: 18px; }
+  .p-wplayer.book .bk-acts button { min-height: 44px; padding: 0 18px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px; font: 800 15px var(--display); cursor: pointer; }
+  .p-wplayer.book .bk-acts svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .p-wplayer.book .bk-save { background: var(--bk-acc); color: var(--bk-onacc); border: 0; }
+  .p-wplayer.book .bk-save[aria-pressed="true"] svg { fill: currentColor; }
+  .p-wplayer.book .bk-share { background: transparent; color: var(--bk-acc); border: 1.5px solid var(--bk-acc); }
+  .p-wplayer.book .bk-acts button:focus-visible { outline: 3px solid var(--bk-acc); outline-offset: 3px; }
+  .p-wplayer.book .p-rsheet-x { border-color: var(--bk-edge); background: transparent; color: var(--bk-text); top: 14px; right: 14px; }
+  .p-wplayer.book .p-rsheet-x:focus-visible { outline-color: var(--bk-acc); }
+  @keyframes bkIn { from { opacity: 0; transform: translateX(-28px); } }
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .p-wplayer.book .p-rsheet-in { -webkit-backdrop-filter: blur(30px) saturate(1.7); backdrop-filter: blur(30px) saturate(1.7);
+      background: linear-gradient(90deg, rgba(0,0,0,.34), rgba(0,0,0,.08) 5%, transparent 13%), linear-gradient(170deg, var(--bk-t1), var(--bk-t2)); }
+    .p-wplayer.book .p-rsheet-in[data-style="light"] { background: linear-gradient(90deg, rgba(40,20,10,.2), rgba(40,20,10,.05) 5%, transparent 13%), linear-gradient(170deg, var(--bk-t1), var(--bk-t2)); }
+  }
+  .p-app.calm .p-wplayer .p-feed, .p-app.calm .p-wplayer.book .p-rsheet-in { transition: none !important; animation: none !important; }
+}
+@media (min-width: 900px) and (prefers-reduced-motion: reduce) { .p-wplayer .p-feed, .p-wplayer.book .p-rsheet-in { transition: none !important; animation: none !important; } }
+@media (min-width: 900px) { .p-wplayer.book .p-feed { box-shadow: 0 0 0 1px rgba(255,255,255,.14), 0 24px 70px rgba(0,0,0,.45); } }
+
+/* ---------- Reel caption on phones: the same reel-coloured glass, as a bottom sheet ---------- */
+@media (max-width: 899px) {
+  .p-rsheet { background: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: none !important; }
+  .p-rsheet-in { display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; isolation: isolate; text-shadow: none; padding: 34px 22px calc(24px + env(safe-area-inset-bottom, 0px));
+    color: var(--bk-text, #f6f1ff); border: 1.5px solid var(--bk-edge, rgba(255,255,255,.2)); border-bottom: 0;
+    background: linear-gradient(180deg, var(--bk-p1, #2a1d48), var(--bk-p2, #1a1230));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.38), inset 0 0 0 1px rgba(255,255,255,.06), 0 -18px 50px rgba(0,0,0,.35); }
+  .p-rsheet-in[data-style="light"] { box-shadow: inset 0 1px 0 rgba(255,255,255,.85), inset 0 0 0 1px rgba(255,255,255,.3), 0 -18px 50px rgba(0,0,0,.35); }
+  .p-rsheet-in::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit; opacity: .07; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23n%29'/%3E%3C/svg%3E"); }
+  .p-rsheet-in .handle { background: var(--bk-text, #fff); opacity: .45; }
+  .p-rsheet-in .bk-hair { display: block; position: absolute; top: 0; left: 12%; right: 12%; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--bk-hair, #F2C46B) 20%, var(--bk-acc, #F2C46B) 80%, transparent); }
+  .p-rsheet-in .bk-kick { display: block; font: 800 11px/1.2 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--bk-acc, #F2C46B); padding-right: 52px; }
+  .p-rsheet-in h3 { font: italic 500 29px/1.08 var(--serif); letter-spacing: -.01em; margin: 0; padding-right: 48px; color: var(--bk-text, #fff); }
+  .p-rsheet-in .bk-rule { display: block; width: 52px; height: 1.5px; background: var(--bk-hair, #F2C46B); }
+  .p-rsheet-in p { font: 400 18.5px/1.6 var(--serif); color: var(--bk-text, #fff); margin: 0; }
+  .p-rsheet-in p::first-letter { float: left; font: italic 500 2.9em/.82 var(--serif); margin: .08em .1em 0 0; color: var(--bk-acc, #F2C46B); }
+  .p-rsheet-in .bk-acts { display: flex; gap: 10px; padding-top: 6px; }
+  .p-rsheet-in .bk-acts button { min-height: 44px; padding: 0 18px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px; font: 800 15px var(--display); cursor: pointer; }
+  .p-rsheet-in .bk-acts svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .p-rsheet-in .bk-save { background: var(--bk-acc, #F2C46B); color: var(--bk-onacc, #1B2447); border: 0; }
+  .p-rsheet-in .bk-save[aria-pressed="true"] svg { fill: currentColor; }
+  .p-rsheet-in .bk-share { background: transparent; color: var(--bk-acc, #F2C46B); border: 1.5px solid var(--bk-acc, #F2C46B); }
+  .p-rsheet-in .bk-acts button:focus-visible { outline: 3px solid var(--bk-acc, #F2C46B); outline-offset: 3px; }
+  .p-rsheet-in .p-rsheet-x { border-color: var(--bk-edge, rgba(255,255,255,.35)); background: transparent; color: var(--bk-text, #fff); }
+  .p-wplayer.capopen .p-reel.on .side, .p-wplayer.capopen .p-reel.on .cap { visibility: hidden; }
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .p-rsheet-in { -webkit-backdrop-filter: blur(30px) saturate(1.7); backdrop-filter: blur(30px) saturate(1.7);
+      background: linear-gradient(180deg, var(--bk-t1, rgba(24,16,48,.86)), var(--bk-t2, rgba(24,16,48,.92))); }
+  }
+}
+
+/* ---------- Caption page: LED running light on the top hairline (transform/opacity only) ---------- */
+.p-rsheet-in .bk-hair { background: none !important; overflow: visible; }
+.p-rsheet-in .bk-hair::before { content: ""; position: absolute; inset: 0; border-radius: inherit; opacity: .38;
+  background: linear-gradient(90deg, transparent, var(--bk-hair, #F2C46B) 15%, var(--bk-acc, #F2C46B) 85%, transparent); }
+.p-rsheet-in .bk-led { position: absolute; top: -1px; left: 0; width: 26%; height: 4px; border-radius: 4px; will-change: transform;
+  background: linear-gradient(90deg, transparent, var(--bk-hair, #F2C46B) 25%, #FFF6DA 50%, var(--bk-acc, #F2C46B) 75%, transparent);
+  box-shadow: 0 0 8px 1px color-mix(in srgb, var(--bk-hair, #F2C46B) 80%, transparent), 0 0 18px 4px color-mix(in srgb, var(--bk-acc, #F2C46B) 45%, transparent);
+  animation: ledRun 1.5s ease-in-out infinite alternate; animation-play-state: paused; }
+.p-wplayer.rplaying .p-rsheet-in .bk-led { animation-play-state: running; }
+@keyframes ledRun { from { transform: translateX(0); } to { transform: translateX(284.6%); } }
+.p-app.calm .p-rsheet-in .bk-led { animation: none !important; transform: translateX(142.3%); }
+@media (prefers-reduced-motion: reduce) { .p-rsheet-in .bk-led { animation: none !important; transform: translateX(142.3%); } }
+/* Thinner LED: 1px base and 1px segment, glow kept soft. */
+.p-rsheet-in .bk-hair { height: 1px !important; }
+.p-rsheet-in .bk-hair::before { opacity: .45; }
+.p-rsheet-in .bk-led { top: 0; height: 1px; border-radius: 1px;
+  box-shadow: 0 0 4px 1px color-mix(in srgb, var(--bk-hair, #F2C46B) 85%, transparent), 0 0 12px 2px color-mix(in srgb, var(--bk-acc, #F2C46B) 45%, transparent); }
+
+/* Video reels: sound toggle under the progress bar (left, clear of the close button) and a
+   compact bottom overlay (title + "more" only) so text burned into the video stays readable. */
+.p-rtoprow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.p-rsound { pointer-events: auto; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; min-width: 44px; padding: 0 14px 0 10px; border-radius: 999px;
+  color: #fff; background: rgba(12,8,28,.7); border: 1px solid rgba(255,255,255,.32); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  font: 700 13px var(--display); cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.p-rsound svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.p-rsound svg path:first-child { fill: #fff; }
+.p-rsound[aria-pressed="true"] { padding-right: 14px; }
+.p-rsound:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .p-rsound { background: rgba(12,8,28,.88); } }
+.p-reel.is-video .p-rfade { background: linear-gradient(180deg, rgba(8,5,20,.45) 0%, transparent 14%, transparent 84%, rgba(8,5,20,.8) 100%); }
+.p-reel.is-video .cap { gap: 2px; padding-bottom: 14px; }
+.p-reel.is-video .cap p { display: none; }
+.p-reel.is-video .p-rtitle { font-size: 18px !important; }
+.p-reel.is-video .p-ract span { padding: 1px 4px; border-radius: 3px; background: rgba(12,8,28,.72); box-shadow: 0 0 0 4px rgba(12,8,28,.72); }
+.p-reel.is-video .p-rtitle { align-self: start; justify-self: start; padding: 2px 6px; margin-left: -6px; border-radius: 3px; background: rgba(12,8,28,.6); box-shadow: 0 0 0 4px rgba(12,8,28,.6); }
+
+/* CC caption button (stacked with Save/Share) */
+.p-rcc svg rect { fill: none; }
+.p-rcc svg text { fill: #fff; stroke: none; font: 900 9px var(--display); letter-spacing: 0; }
+.p-rcc svg rect { stroke-width: 2.2; }
+.p-reel .side .p-rcc[aria-expanded="true"] svg { background: rgba(255,255,255,.28); }
+/* Video reels: action stack sits above text burned into the lower part of the video */
+.p-reel.is-video .side { bottom: 31%; }
+/* Resting overlay: 60% while a video plays, 100% when awake (touch/hover/focus/caption open) */
+.p-reel.is-video .cap { transition: opacity .35s ease; }
+.p-reel.is-video.playing .cap { opacity: .6; }
+#pReels.awake .p-reel.is-video .cap, .p-reel.is-video .cap:hover, .p-reel.is-video .cap:focus-within { opacity: 1; }
+.p-app.calm .p-reel.is-video .cap { transition: none; }
+@media (prefers-reduced-motion: reduce) { .p-reel.is-video .cap { transition: none; } }
+
+/* Controls (action stack + sound toggle) rest at 40% while a video plays; same wake logic as the
+   title. Opacity only: they stay tappable and the first tap still acts. Focus-visible stays 100%. */
+.p-reel.is-video :is(.side .p-ract, .p-rsound) { transition: opacity .35s ease; }
+.p-reel.is-video.playing :is(.side .p-ract, .p-rsound) { opacity: .4; }
+#pReels.awake .p-reel.is-video :is(.side .p-ract, .p-rsound), .p-reel.is-video :is(.side .p-ract, .p-rsound):focus-visible { opacity: 1; }
+.p-app.calm .p-reel.is-video :is(.side .p-ract, .p-rsound) { transition: none; }
+@media (prefers-reduced-motion: reduce) { .p-reel.is-video :is(.side .p-ract, .p-rsound) { transition: none; } }
+.p-reel.is-video.userpaused :is(.side .p-ract, .p-rsound) { opacity: 1; }
+/* The control under the pointer/finger/focus jumps to 100% instantly, even while the rest are resting. */
+.p-reel.is-video :is(.side .p-ract, .p-rsound):is(:hover, :active, :focus-visible), .p-reel.is-video :is(.side .p-ract, .p-rsound).pressed { opacity: 1 !important; transition: none !important; }
+.p-wplayer.book .bk-art > video { object-fit: cover; }
+
+/* ---------- Clear glass caption (ll-v52): the moving video reads through the sheet/page ----------
+   Light tint (set in JS: phone .24 -> .34, desktop book .40 -> .50), blur 18px + saturate(1.8) +
+   brightness(1.05). No grain/underlay. The text block alone gets a soft halo of the page colour so
+   text stays AA over the brightest frames. Solid colour only where backdrop-filter is unsupported. */
+.p-rsheet-in, .p-wplayer.book .p-rsheet-in {
+  -webkit-backdrop-filter: blur(18px) saturate(1.8) brightness(1.05) !important; backdrop-filter: blur(18px) saturate(1.8) brightness(1.05) !important;
+  background: linear-gradient(180deg, var(--bk-t1, rgba(24,16,48,.24)), var(--bk-t2, rgba(24,16,48,.34))) !important; }
+.p-wplayer.book .p-rsheet-in { background: linear-gradient(90deg, rgba(0,0,0,.16), transparent 9%), linear-gradient(170deg, var(--bk-t1), var(--bk-t2)) !important; }
+.p-rsheet-in::after { display: none !important; }
+.p-wplayer.book .bk-art { opacity: .7 !important; filter: blur(18px) saturate(1.8) brightness(1.05) !important; -webkit-mask-image: none !important; mask-image: none !important; }
+.p-rsheet-in .bk-kick::before { background: var(--bk-halo2, rgba(24,16,48,.72)) !important; box-shadow: 0 0 18px 8px var(--bk-halo2, rgba(24,16,48,.72)) !important; }
+.p-rsheet-in { box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 0 0 1px rgba(255,255,255,.14), 0 -18px 50px rgba(0,0,0,.28) !important; }
+.p-rsheet-in :is(.bk-kick, h3, p) { position: relative; z-index: 0; }
+.p-rsheet-in :is(.bk-kick, h3, p)::before { content: ""; position: absolute; inset: -6px -10px; z-index: -1; border-radius: 16px; pointer-events: none;
+  background: var(--bk-halo, rgba(24,16,48,.42)); box-shadow: 0 0 22px 10px var(--bk-halo, rgba(24,16,48,.42)); }
+.p-rsheet-in:not([data-style="light"]) :is(.bk-kick, h3, p) { text-shadow: 0 1px 2px rgba(0,0,0,.55), 0 0 14px rgba(0,0,0,.35); }
+.p-rsheet-in[data-style="light"] :is(.bk-kick, h3, p) { text-shadow: 0 0 1px rgba(255,255,255,.9), 0 0 14px rgba(255,255,255,.6); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .p-rsheet-in, .p-wplayer.book .p-rsheet-in { background: linear-gradient(180deg, var(--bk-p1, #2a1d48), var(--bk-p2, #1a1230)) !important; }
+}
+.p-rsheet-in .bk-share, .p-wplayer.book .bk-share { background: var(--bk-halo2, rgba(24,16,48,.72)) !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
