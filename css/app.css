@@ -1416,3 +1416,50 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
   .p-legal.in-side a { padding: 10px 8px 10px 0; margin-right: 6px; }
   .p-app.night .p-legal.in-side { color: #cfd6f2; }
 }
+
+/* ---------- Phone: the calligraphy wordmark above the Today circles (desktop shows it in the top bar) ----------
+   A soft golden beam behind the title (no solid block) with a thin gold hairline that fades out at both ends,
+   echoing the site's gold line and the running light. Night: cream and gold on the beam. Day: no background; crisp warm
+   cream text with a sharp, light zero-blur lift. */
+.p-rwm { display: none; }
+@media (max-width: 899px) {
+  .p-rings { flex-wrap: wrap; row-gap: 6px; }
+  .p-rwm { display: flex; flex: 0 0 100%; align-items: center; height: 30px; margin-top: -4px; text-decoration: none; position: relative; isolation: isolate; }
+  .p-rwm .wm { font-size: 21px; position: relative; padding: 0 14px 2px 10px; }
+  .p-rwm .wm::before { content: ""; position: absolute; z-index: -1; inset: -9px -40px -9px -8px; pointer-events: none;
+    background: linear-gradient(90deg, transparent 0%, var(--beam-mid) 10%, var(--beam) 24%, var(--beam) 78%, var(--beam-mid) 90%, transparent 100%);
+    -webkit-mask-image: linear-gradient(transparent, #000 22%, #000 80%, transparent); mask-image: linear-gradient(transparent, #000 22%, #000 80%, transparent); }
+  .p-rwm .wm::after { content: ""; position: absolute; left: 0; right: -24px; bottom: -1px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--hair) 30%, var(--hair) 60%, transparent); pointer-events: none; }
+  /* Layered shadow for depth: a tight offset one plus a softer, wider one. "Light" is gradient-clipped text,
+     so it gets the same layers as drop-shadow filters (a text-shadow would show through its transparent fill). */
+  .p-rwm .wm-s { text-shadow: var(--sh1), var(--sh2), var(--sh3); }
+  .p-rwm .wm-l { text-shadow: none; filter: drop-shadow(var(--sh1)) drop-shadow(var(--sh2)) drop-shadow(var(--sh3)); }
+  /* Night (and the default): cream + gold on a faint warm-gold beam, lifted by navy shadows with a hint of gold glow */
+  .p-rwm .wm { --beam: rgba(245,194,107,.26); --beam-mid: rgba(245,194,107,.10); --hair: rgba(255,224,137,.75);
+    --sh1: 0 1px 1px rgba(7,9,30,.75); --sh2: 0 3px 8px rgba(7,9,30,.5); --sh3: 0 0 10px rgba(245,194,107,.3); }
+  /* Day: no background, bright and airy, and crisp. Warm cream text with one zero-blur 1px warm shadow (no second
+     layer or white highlight, which smeared next to the thin strokes), a hair-thin cream stroke to firm up
+     Parisienne's hairlines, and 22px. "Light" drops its gradient and filter
+     by day (a filter rasterises the text softly) and uses a solid near-white cream with the same text-shadows;
+     only the small candle SVG keeps a zero-blur drop-shadow. */
+  .p-app:not(.night) .p-rwm .wm { --wm-s: #FFF9EC; --wm-g1: #FFF4DC; --wm-g2: #FFEEE0; --wm-glow: transparent; --hair: rgba(255,236,180,.85);
+    --dsh: 0 1px 0 rgba(110,50,25,.4); font-size: 22px; }
+  .p-app:not(.night) .p-rwm .wm::before { display: none; }
+  .p-app:not(.night) .p-rwm .wm-s { text-shadow: var(--dsh); -webkit-text-stroke: .2px #FFF9EC; }
+  .p-app:not(.night) .p-rwm .wm-l { background: none; color: #FFF3E2; -webkit-text-fill-color: currentColor; filter: none; text-shadow: var(--dsh); -webkit-text-stroke: .2px #FFF3E2; }
+  .p-app:not(.night) .p-rwm .wm-i { filter: drop-shadow(0 1px 0 rgba(110,50,25,.45)); }
+  .p-rwm:focus-visible { outline: none; }
+  .p-rwm:focus-visible .wm { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 6px; }
+  /* Room for the extra row (about 34px) */
+  .v-today .p-slide { padding-top: 124px; }
+  .v-today .p-slide.s1 { padding-top: 214px; }
+  .v-today .p-rail { top: 134px; }
+}
+@media (max-width: 899px) and (max-height: 650px) {
+  .v-today .p-slide.s1 { padding-top: 154px; }
+}
+@media (max-width: 370px) {
+  .p-rwm { height: 26px; }
+  .p-rwm .wm, .p-app:not(.night) .p-rwm .wm { font-size: 18px; }
+}

@@ -918,6 +918,42 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
     await ctx.close(); }
 }
 
+// Phone wordmark: "Salt and Light" sits above the Today circles on phones (compact), and only in the top bar on desktop.
+{
+  const sizes = [{ width: 412, height: 915, fs: 21, dayFs: 22 }, { width: 340, height: 700, fs: 18, dayFs: 18 }];
+  for (const v of sizes) {
+    const ctx = await browser.newContext({ viewport: { width: v.width, height: v.height }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
+    const page = await ctx.newPage(); await page.goto(base); await page.waitForSelector('#app[data-ready]');
+    for (const night of [false, true]) {
+      if ((await page.$eval('#app', (a) => a.classList.contains('night'))) !== night) { await page.click('.p-rings [data-mode]'); await page.waitForTimeout(300); }
+      const r = await page.evaluate(() => {
+        const wm = document.querySelector('.p-rings .p-rwm .wm'), ring = document.querySelector('.p-rings .p-ring');
+        const b = wm.getBoundingClientRect(), rb = ring.getBoundingClientRect(), cs = getComputedStyle(wm);
+        const k = document.querySelector('.v-today .p-slide.s1 .p-kicker');
+        return { visible: b.width > 60 && b.height > 0, fs: parseFloat(cs.fontSize), above: b.bottom <= rb.top, inView: b.left >= 0 && b.right <= innerWidth,
+          brand: getComputedStyle(document.querySelector('.p-brand')).display, kickerBelow: !k || k.getBoundingClientRect().top >= rb.bottom, bg: cs.backgroundColor, color: getComputedStyle(wm.querySelector('.wm-s')).color,
+          beam: getComputedStyle(wm, '::before').backgroundImage, hair: getComputedStyle(wm, '::after').backgroundImage, anim: getComputedStyle(wm, '::before').animationName, beamOn: getComputedStyle(wm, '::before').display !== 'none',
+          shadow: getComputedStyle(wm.querySelector('.wm-s')).textShadow, lfilter: getComputedStyle(wm.querySelector('.wm-l')).filter, lshadow: getComputedStyle(wm.querySelector('.wm-l')).textShadow, stroke: getComputedStyle(wm.querySelector('.wm-s')).webkitTextStrokeWidth };
+      });
+      const mode = night ? 'night' : 'day';
+      check(r.visible && r.above && r.inView, `phone ${v.width}px ${mode}: wordmark shows above the circles, inside the screen`);
+      check(Math.abs(r.fs - (night ? v.fs : v.dayFs)) < 0.5, `phone ${v.width}px ${mode}: wordmark is compact (${r.fs}px)`);
+      check(r.brand === 'none' && r.kickerBelow, `phone ${v.width}px ${mode}: no desktop top bar, and Today's text starts below the circles`);
+      if (night) check(r.bg === 'rgba(0, 0, 0, 0)' && r.beamOn && r.beam.includes('linear-gradient') && r.hair.includes('linear-gradient'), `phone ${v.width}px night: no solid block, a soft golden beam with a fading hairline`);
+      else check(r.bg === 'rgba(0, 0, 0, 0)' && !r.beamOn, `phone ${v.width}px day: no background behind the title`);
+      if (!night) check(r.shadow === 'rgba(110, 50, 25, 0.4) 0px 1px 0px' && r.lshadow === r.shadow && r.lfilter === 'none' && r.stroke === '0.2px', `phone ${v.width}px day: one crisp 1px warm shadow (no highlight), hair-thin cream stroke, no filter, no dark outline (${r.shadow})`);
+      check(r.color === (night ? 'rgb(246, 238, 220)' : 'rgb(255, 249, 236)'), `phone ${v.width}px ${mode}: ${night ? 'cream' : 'warm cream'} text (${r.color})`);
+      check(r.anim === 'none', `phone ${v.width}px ${mode}: the beam is static`);
+    }
+    await ctx.close();
+  }
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
+  const page = await ctx.newPage(); await page.goto(base); await page.waitForSelector('#app[data-ready]');
+  const d = await page.evaluate(() => ({ phoneRow: getComputedStyle(document.querySelector('.p-rwm')).display, brand: document.querySelector('.p-brand .wm').getBoundingClientRect().width }));
+  check(d.phoneRow === 'none' && d.brand > 60, 'desktop: the wordmark stays in the top bar and the phone row is hidden');
+  await ctx.close();
+}
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');
