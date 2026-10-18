@@ -859,6 +859,44 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
     await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.click('.p-whero'); await pg.waitForTimeout(700); await pg.click('.p-reel.on .more'); await pg.waitForTimeout(100);
     check(await pg.$eval('.p-rsheet-in', (i) => getComputedStyle(i).animationName === 'none'), 'sheet: reduced motion shows it instantly');
     await ctx.close(); }
+  // LED running light on the hairline: runs only while the reel plays; static in calm / reduced motion
+  for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    const tag = vp.width > 900 ? 'desktop' : 'phone';
+    const ctx = await browser.newContext({ viewport: vp }); const pg = await ctx.newPage();
+    await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.click('.p-whero'); await pg.waitForTimeout(800);
+    const led = () => pg.evaluate(() => { const l = document.querySelector('.p-rsheet-in .bk-led'), a = l.getAnimations()[0];
+      return { x: new DOMMatrix(getComputedStyle(l).transform).m41, state: a ? a.playState : 'none', props: a ? [...new Set(a.effect.getKeyframes().flatMap((k) => Object.keys(k)).filter((k) => !['offset', 'easing', 'composite', 'computedOffset'].includes(k)))] : [] }; });
+    await pg.click('.p-reel.on .more'); await pg.waitForTimeout(150);
+    const a1 = await led(); await pg.waitForTimeout(700); const a2 = await led();
+    check(a1.state === 'running' && Math.abs(a2.x - a1.x) > 5, `led ${tag}: the light travels while the reel plays (${a1.x.toFixed(0)} → ${a2.x.toFixed(0)}px)`);
+    check(a1.props.join() === 'transform', `led ${tag}: animates transform only (${a1.props.join()})`);
+    // the mute/sound control never covers Close: native controls are removed while the caption is open
+    const ov = await pg.evaluate(() => { const x = document.querySelector('.p-rsheet-x').getBoundingClientRect(); const top = document.elementFromPoint(x.left + x.width / 2, x.top + x.height / 2);
+      return { hit: !!(top && top.closest('.p-rsheet-x')), vids: [...document.querySelectorAll('.p-wplayer .p-reel video')].every((v) => !v.hasAttribute('controls')) }; });
+    check(ov.hit && ov.vids, `led ${tag}: nothing (sound control or video controls) sits on top of Close`);
+    await pg.keyboard.press('Escape'); await pg.waitForTimeout(100);
+    await pg.keyboard.press(' '); await pg.waitForTimeout(150); // pause the reel
+    await pg.click('.p-reel.on .more'); await pg.waitForTimeout(150);
+    const p1 = await led(); await pg.waitForTimeout(600); const p2 = await led();
+    check(p1.state === 'paused' && Math.abs(p2.x - p1.x) < 0.5, `led ${tag}: the light stops in place while the reel is paused`);
+    await ctx.close();
+  }
+  { const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } }); const pg = await ctx.newPage();
+    await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.click('.p-whero'); await pg.waitForTimeout(800);
+    await pg.evaluate(() => { const v = document.createElement('video'); v.setAttribute('controls', ''); v.muted = true; v.style.cssText = 'position:absolute;inset:0;width:100%;height:100%'; document.querySelector('.p-wplayer .p-reel.on .scene').appendChild(v); });
+    await pg.click('.p-reel.on .more'); await pg.waitForTimeout(150);
+    check(await pg.evaluate(() => [...document.querySelectorAll('.p-wplayer .p-reel video')].every((v) => !v.hasAttribute('controls'))), 'led: a video reel loses its native controls (mute pill) while the caption sheet is open');
+    await pg.keyboard.press('Escape'); await pg.waitForTimeout(100);
+    check(await pg.evaluate(() => [...document.querySelectorAll('.p-wplayer .p-reel video')].every((v) => v.hasAttribute('controls'))), 'led: video controls come back when the sheet closes');
+    await ctx.close(); }
+  for (const [label, opts, init] of [['calm', {}, true], ['reduced motion', { reducedMotion: 'reduce' }, false]]) {
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, ...opts }); if (init) await ctx.addInitScript(() => localStorage.setItem('ll.calm', '1'));
+    const pg = await ctx.newPage(); await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.click('.p-whero'); await pg.waitForTimeout(800);
+    await pg.click('.p-reel.on .more'); await pg.waitForTimeout(150);
+    const s = await pg.evaluate(() => { const l = document.querySelector('.p-rsheet-in .bk-led'); return { n: l.getAnimations().length, x: new DOMMatrix(getComputedStyle(l).transform).m41, w: l.getBoundingClientRect().width, glow: getComputedStyle(l).boxShadow }; });
+    check(s.n === 0 && s.x > s.w && /rgb/.test(s.glow), `led: ${label} shows a static centred glow, no movement`);
+    await ctx.close();
+  }
   // any picked colour: text, accent and button text pass AA on the page colour
   { const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } }); const pg = await ctx.newPage(); await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero');
     const worst = await pg.evaluate(() => { const lum = (h) => [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16) / 255).map((v) => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4).reduce((a, v, k) => a + v * [0.2126, 0.7152, 0.0722][k], 0);

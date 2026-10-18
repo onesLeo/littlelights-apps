@@ -734,7 +734,7 @@
   var rSheet = document.createElement('div');
   rSheet.className = 'p-rsheet glass glass--dark'; rSheet.id = 'pReelSheet'; rSheet.hidden = true;
   rSheet.setAttribute('role', 'dialog'); rSheet.setAttribute('aria-modal', 'true'); rSheet.setAttribute('aria-labelledby', 'pReelSheetT');
-  rSheet.innerHTML = '<div class="p-rsheet-in"><div class="bk-art" aria-hidden="true"></div><span class="bk-hair" aria-hidden="true"></span><span class="handle" aria-hidden="true"></span>' +
+  rSheet.innerHTML = '<div class="p-rsheet-in"><div class="bk-art" aria-hidden="true"></div><span class="bk-hair" aria-hidden="true"><i class="bk-led"></i></span><span class="handle" aria-hidden="true"></span>' +
     '<span class="bk-kick"></span><h3 id="pReelSheetT"></h3><i class="bk-rule" aria-hidden="true"></i><p></p>' +
     '<div class="bk-acts"><button type="button" class="bk-save" aria-pressed="false">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
     '<button type="button" class="bk-share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button></div>' +
@@ -785,6 +785,8 @@
   function applyBook() {
     var open = !rSheet.hidden && rSheetI >= 0;
     wPlayer.classList.toggle('book', open && BOOK_MQ.matches); wPlayer.classList.toggle('capopen', open);
+    // Native video controls (and their floating mute pill) must not sit on top of the caption sheet.
+    $$('.p-reel video', reelsEl).forEach(function (v) { if (open) v.removeAttribute('controls'); else v.setAttribute('controls', ''); });
     if (!open) return;
     var r = C.reels[rSheetI], base = r.pageColor || (parts[visibleReel] || r).bg || '#3B1F4A', v = pagePalette(base, bookStyle(r)), inn = rSheet.querySelector('.p-rsheet-in');
     inn.dataset.style = v.style;
@@ -845,6 +847,8 @@
     if (info.playerState === 0) clock.t = clock.dur;
   });
   function updateReels() {
+    // The caption page's running light follows playback (paused, held or ended: it stops in place).
+    if (wPlayer) wPlayer.classList.toggle('rplaying', !!isPlaying());
     $$('.p-reel', reelsEl).forEach(function (el) {
       var i = +el.dataset.i, on = watchOpen && +el.dataset.p === visibleReel;
       el.classList.toggle('on', on);
