@@ -1419,8 +1419,8 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 
 /* ---------- Phone: the calligraphy wordmark above the Today circles (desktop shows it in the top bar) ----------
    A soft golden beam behind the title (no solid block) with a thin gold hairline that fades out at both ends,
-   echoing the site's gold line and the running light. Night: cream and gold. Day: plum and rose-coral on a creamy
-   white beam, so the text keeps AA on the lit yellow sky. */
+   echoing the site's gold line and the running light. Night: cream and gold on the beam. Day: no background; cream text
+   with a thin plum outline and a stepped lift keeps AA on the bright sky. */
 .p-rwm { display: none; }
 @media (max-width: 899px) {
   .p-rings { flex-wrap: wrap; row-gap: 6px; }
@@ -1438,11 +1438,18 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
   /* Night (and the default): cream + gold on a faint warm-gold beam, lifted by navy shadows with a hint of gold glow */
   .p-rwm .wm { --beam: rgba(245,194,107,.26); --beam-mid: rgba(245,194,107,.10); --hair: rgba(255,224,137,.75);
     --sh1: 0 1px 1px rgba(7,9,30,.75); --sh2: 0 3px 8px rgba(7,9,30,.5); --sh3: 0 0 10px rgba(245,194,107,.3); }
-  /* Day: deep plum "Salt and" with a rose-to-coral "Light" (the pink and orange nav circles), on a creamy white
-     beam with the gold hairline; a soft white highlight above and a light warm shadow below read as lifted. */
-  .p-app:not(.night) .p-rwm .wm { --wm-s: #3B1A52; --wm-g1: #8C2152; --wm-g2: #922C17;
-    --beam: rgba(255,252,240,.86); --beam-mid: rgba(255,248,226,.5); --hair: rgba(196,140,30,.8);
-    --sh1: 0 -1px 0 rgba(255,255,255,.6); --sh2: 0 1px 1px rgba(90,40,10,.28); --sh3: 0 3px 8px rgba(120,60,10,.2); }
+  /* Day: no background. Cream text with a warm cream-gold "Light", readable from depth alone: a thin deep-plum
+     outline so every glyph edge sits on dark, a stepped plum extrusion for lift, and one soft wide drop shadow.
+     "Light" is gradient-clipped, so its outline and lift are chained drop-shadow filters. */
+  .p-app:not(.night) .p-rwm .wm { --wm-s: #FFF8EA; --wm-g1: #FFEFC2; --wm-g2: #FFDCC4; --wm-glow: transparent; --hair: rgba(255,228,160,.8); }
+  .p-app:not(.night) .p-rwm .wm::before { display: none; }
+  .p-app:not(.night) .p-rwm .wm-s { text-shadow:
+      .8px 0 0 rgba(42,15,31,.85), -.8px 0 0 rgba(42,15,31,.85), 0 .8px 0 rgba(42,15,31,.85), 0 -.8px 0 rgba(42,15,31,.85),
+      .6px .6px 0 rgba(42,15,31,.85), -.6px .6px 0 rgba(42,15,31,.85), .6px -.6px 0 rgba(42,15,31,.85), -.6px -.6px 0 rgba(42,15,31,.85),
+      0 1.6px 0 rgba(74,26,58,.8), 0 2.4px 0 rgba(58,20,48,.55), 0 5px 10px rgba(40,10,30,.35); }
+  .p-app:not(.night) .p-rwm .wm-l { filter:
+      drop-shadow(.8px 0 0 rgba(42,15,31,.85)) drop-shadow(-.8px 0 0 rgba(42,15,31,.85)) drop-shadow(0 .8px 0 rgba(42,15,31,.85)) drop-shadow(0 -.8px 0 rgba(42,15,31,.85))
+      drop-shadow(0 .8px 0 rgba(74,26,58,.8)) drop-shadow(0 .8px 0 rgba(58,20,48,.55)) drop-shadow(0 5px 10px rgba(40,10,30,.35)); }
   .p-rwm:focus-visible { outline: none; }
   .p-rwm:focus-visible .wm { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 6px; }
   /* Room for the extra row (about 34px) */
