@@ -17,7 +17,7 @@ for (const [name, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { 
   await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
   const page = await context.newPage();
   await page.goto(base + '#watch'); await page.waitForSelector('#app[data-ready]');
-  const at = await page.evaluate(() => window.LL_CONTENT.reels.findIndex((r) => r.src && /\.mp4$/.test(r.src)));
+  const at = await page.evaluate(() => window.LL_CONTENT.reels.findIndex((r) => r.title === 'The Whisper' && r.src && /\.mp4$/.test(r.src)));
   check(at >= 0, `${name}: a video reel exists`);
   await page.click(`[data-watch="${at}"]`); await page.waitForTimeout(500);
   const r0 = await page.evaluate(() => { const el = document.querySelector('.p-reel.on'), v = el.querySelector('video'), b = el.querySelector('.p-rsound');
@@ -119,7 +119,7 @@ for (const [name, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { 
   const r2 = await page.evaluate(() => { const v = document.querySelector('.p-reel.on video'); return { muted: v.muted, pressed: document.querySelector('.p-reel.on .p-rsound').getAttribute('aria-pressed') }; });
   check(r2.pressed === 'true', `${name}: sound stays on for the next reel in this session`);
   const only = await page.evaluate(() => ({ reels: window.LL_CONTENT.reels.map((r) => r.title), cards: document.querySelectorAll('#pWatchGal .p-wcard').length }));
-  check(only.reels.length === 1 && only.reels[0] === 'The Whisper', `${name}: only The Whisper is shipped visible (placeholders hidden by default)`);
+  check(only.reels.join('|') === 'The Last Straw|The Whisper', `${name}: only The Last Straw and The Whisper are shipped visible (placeholders hidden by default)`);
   await context.close();
 }
 {
@@ -127,7 +127,7 @@ for (const [name, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { 
   await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
   await context.addInitScript(() => localStorage.setItem('ll.calm', '1'));
   const page = await context.newPage(); await page.goto(base + '#watch'); await page.waitForSelector('#app[data-ready]');
-  check(await page.$$eval('#pWatchGal .p-whero', (h) => h.length) === 1 && await page.$$eval('#pWatchGal .p-wcard, #pWatchGal .p-wsub', (c) => c.length) === 0, 'single reel: Watch shows the hero only');
+  check(await page.$$eval('#pWatchGal .p-whero', (h) => h.length) === 1 && await page.$$eval('#pWatchGal .p-wcard', (c) => c.length) === 1 && await page.$$eval('#pWatchGal .p-wsub', (c) => c.length) === 1, 'two shipped reels: Watch shows the hero and one card under More videos');
   check(!(await page.$('#pFeed .p-slide.s3:not(.s-studio)')) && (await page.$$('[data-reel="-1"]')).length === 0, 'Today: the card for the hidden Jonathan reel is removed, no broken links');
   await page.click('.p-whero'); await page.waitForTimeout(300);
   check(await page.$eval('.p-reel.on .cap', (c) => getComputedStyle(c).transitionDuration) === '0s', 'calm mode: overlay changes instantly (no fade)');

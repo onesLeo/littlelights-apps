@@ -22,7 +22,9 @@ async function openSheet(vp, theme) {
   await context.addInitScript((t) => { localStorage.setItem('ll.theme', t); localStorage.setItem('ll.calm', '1'); }, theme);
   const page = await context.newPage();
   await page.goto(base + '#watch'); await page.waitForSelector('#app[data-ready]');
-  await page.click('.p-whero'); await page.waitForTimeout(300);
+  // The fixtures are frames of The Whisper, so open that reel (it is no longer the newest/hero).
+  const w = await page.evaluate(() => window.LL_CONTENT.reels.findIndex((r) => r.title === 'The Whisper'));
+  await page.click(`[data-watch="${w}"]`); await page.waitForTimeout(300);
   await page.click('.p-reel.on .p-rcc'); await page.waitForTimeout(500);
   return { context, page };
 }
