@@ -5,7 +5,7 @@ import shutil, pathlib, re, html
 
 ROOT = pathlib.Path(__file__).parent
 OUT = ROOT / "public"
-LAST_UPDATED = "9 October 2026"
+LAST_UPDATED = "18 October 2026"
 EMAIL = "support@littlesaltandlight.com"
 
 def ph(text):
@@ -82,7 +82,6 @@ def page(body, title, desc, current, canonical):
   <nav aria-label="Footer"><a href="/">Home</a><a href="/privacy/">Game privacy</a><a href="/privacy/web/">Web app privacy</a><a href="/parents/">Parents</a><a href="/terms/">Terms</a><a href="/support/">Support</a></nav>
   <div>Little Light · {MACROS["DEV"]} · <a href="mailto:{EMAIL}">{EMAIL}</a></div>
   <div>Last updated {LAST_UPDATED}.</div>
-  <div class="draft">Draft pending final review. Wording may change before launch.</div>
 </footer>
 </body>
 </html>
