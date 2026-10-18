@@ -818,7 +818,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
       return { book: w.classList.contains('book'), style: i.dataset.style, bf: cs.backdropFilter, bg: cs.backgroundImage, anim: cs.animationName, side: getComputedStyle(r.querySelector('.side')).visibility, focus: document.activeElement.className,
         feedR: Math.round(document.querySelector('.p-wplayer .p-feed').getBoundingClientRect().right), pageL: Math.round(i.getBoundingClientRect().left), hair: getComputedStyle(i.querySelector('.bk-hair')).display, h3: getComputedStyle(i.querySelector('h3')).fontFamily + ' ' + getComputedStyle(i.querySelector('h3')).fontStyle }; });
     check(st.book && st.style === (theme === 'night' ? 'dark' : 'light'), `book ${name} ${theme}: opens as a book spread with the ${st.style} page`);
-    check(/blur\(30px\)/.test(st.bf) && /saturate\(1\.7\)/.test(st.bf) && /rgba\(/.test(st.bg), `book ${name} ${theme}: translucent glass page (${st.bf})`);
+    check(/blur\(18px\)/.test(st.bf) && /saturate\(1\.8\)/.test(st.bf) && /rgba\(/.test(st.bg), `book ${name} ${theme}: translucent glass page (${st.bf})`);
     check(Math.abs(st.feedR - st.pageL) <= 2 && st.hair === 'block', `book ${name} ${theme}: page meets the reel at the spine, gold hairline shown`);
     check(st.side === 'hidden', `book ${name} ${theme}: the reel's own Save/Share are hidden (only the page has them)`);
     check(/Newsreader/.test(st.h3) && /italic/.test(st.h3), `book ${name} ${theme}: Newsreader italic title`);
@@ -854,7 +854,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
       return { style: i.dataset.style, bf: cs.backdropFilter, bg: cs.backgroundImage, scrim: getComputedStyle(sh).backgroundImage + ' ' + getComputedStyle(sh).backgroundColor + ' ' + getComputedStyle(sh).backdropFilter, anim: cs.animationName,
         h3: h3.fontFamily + ' ' + h3.fontStyle + ' ' + h3.fontSize, p: p.fontFamily + ' ' + p.fontSize, hair: getComputedStyle(i.querySelector('.bk-hair')).display, kick: getComputedStyle(i.querySelector('.bk-kick')).textTransform,
         acts: i.querySelectorAll('.bk-acts button').length, side: getComputedStyle(r.querySelector('.side')).visibility, focus: document.activeElement.className, xw: i.querySelector('.p-rsheet-x').getBoundingClientRect().width }; });
-    check(st.style === (theme === 'night' ? 'dark' : 'light') && /blur\(30px\)/.test(st.bf) && /saturate\(1\.7\)/.test(st.bf) && /rgba\(/.test(st.bg), `sheet ${name} ${theme}: ${st.style} reel-coloured glass (${st.bf})`);
+    check(st.style === (theme === 'night' ? 'dark' : 'light') && /blur\(18px\)/.test(st.bf) && /saturate\(1\.8\)/.test(st.bf) && /rgba\(/.test(st.bg), `sheet ${name} ${theme}: ${st.style} reel-coloured glass (${st.bf})`);
     check(/none rgba\(0, 0, 0, 0\) none/.test(st.scrim), `sheet ${name} ${theme}: no scrim behind the sheet, the reel blurs through (${st.scrim})`);
     check(/Newsreader/.test(st.h3) && /italic/.test(st.h3) && /^(28|29|30)/.test(st.h3.split(' ').pop()) && /Newsreader/.test(st.p) && /18\.5px/.test(st.p), `sheet ${name} ${theme}: Newsreader italic title and 18.5px Newsreader caption (${st.h3.split(' ').slice(-2).join(' ')})`);
     check(st.hair === 'block' && st.kick === 'uppercase' && st.acts === 2 && st.side === 'hidden' && st.xw >= 44, `sheet ${name} ${theme}: hairline, label, Save/Share in the sheet only, 44px close`);

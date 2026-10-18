@@ -1374,3 +1374,25 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 /* The control under the pointer/finger/focus jumps to 100% instantly, even while the rest are resting. */
 .p-reel.is-video :is(.side .p-ract, .p-rsound):is(:hover, :active, :focus-visible), .p-reel.is-video :is(.side .p-ract, .p-rsound).pressed { opacity: 1 !important; transition: none !important; }
 .p-wplayer.book .bk-art > video { object-fit: cover; }
+
+/* ---------- Clear glass caption (ll-v52): the moving video reads through the sheet/page ----------
+   Light tint (set in JS: phone .24 -> .34, desktop book .40 -> .50), blur 18px + saturate(1.8) +
+   brightness(1.05). No grain/underlay. The text block alone gets a soft halo of the page colour so
+   text stays AA over the brightest frames. Solid colour only where backdrop-filter is unsupported. */
+.p-rsheet-in, .p-wplayer.book .p-rsheet-in {
+  -webkit-backdrop-filter: blur(18px) saturate(1.8) brightness(1.05) !important; backdrop-filter: blur(18px) saturate(1.8) brightness(1.05) !important;
+  background: linear-gradient(180deg, var(--bk-t1, rgba(24,16,48,.24)), var(--bk-t2, rgba(24,16,48,.34))) !important; }
+.p-wplayer.book .p-rsheet-in { background: linear-gradient(90deg, rgba(0,0,0,.16), transparent 9%), linear-gradient(170deg, var(--bk-t1), var(--bk-t2)) !important; }
+.p-rsheet-in::after { display: none !important; }
+.p-wplayer.book .bk-art { opacity: .7 !important; filter: blur(18px) saturate(1.8) brightness(1.05) !important; -webkit-mask-image: none !important; mask-image: none !important; }
+.p-rsheet-in .bk-kick::before { background: var(--bk-halo2, rgba(24,16,48,.72)) !important; box-shadow: 0 0 18px 8px var(--bk-halo2, rgba(24,16,48,.72)) !important; }
+.p-rsheet-in { box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 0 0 1px rgba(255,255,255,.14), 0 -18px 50px rgba(0,0,0,.28) !important; }
+.p-rsheet-in :is(.bk-kick, h3, p) { position: relative; z-index: 0; }
+.p-rsheet-in :is(.bk-kick, h3, p)::before { content: ""; position: absolute; inset: -6px -10px; z-index: -1; border-radius: 16px; pointer-events: none;
+  background: var(--bk-halo, rgba(24,16,48,.42)); box-shadow: 0 0 22px 10px var(--bk-halo, rgba(24,16,48,.42)); }
+.p-rsheet-in:not([data-style="light"]) :is(.bk-kick, h3, p) { text-shadow: 0 1px 2px rgba(0,0,0,.55), 0 0 14px rgba(0,0,0,.35); }
+.p-rsheet-in[data-style="light"] :is(.bk-kick, h3, p) { text-shadow: 0 0 1px rgba(255,255,255,.9), 0 0 14px rgba(255,255,255,.6); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .p-rsheet-in, .p-wplayer.book .p-rsheet-in { background: linear-gradient(180deg, var(--bk-p1, #2a1d48), var(--bk-p2, #1a1230)) !important; }
+}
+.p-rsheet-in .bk-share, .p-wplayer.book .bk-share { background: var(--bk-halo2, rgba(24,16,48,.72)) !important; -webkit-backdrop-filter: none; backdrop-filter: none; }

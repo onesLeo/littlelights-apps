@@ -808,7 +808,11 @@
     var r = C.reels[rSheetI], base = r.pageColor || (parts[visibleReel] || r).bg || '#3B1F4A', v = pagePalette(base, bookStyle(r)), inn = rSheet.querySelector('.p-rsheet-in');
     inn.dataset.style = v.style;
     [['p1', v.p1], ['p2', v.p2], ['text', v.text], ['acc', v.acc], ['onacc', v.onacc], ['hair', v.hair]].forEach(function (x) { inn.style.setProperty('--bk-' + x[0], x[1]); });
-    inn.style.setProperty('--bk-t1', pg.rgba(v.p1, v.a1)); inn.style.setProperty('--bk-t2', pg.rgba(v.p2, v.a2)); inn.style.setProperty('--bk-edge', pg.rgba(v.acc, 0.6));
+    // Clear glass: a light tint so the moving reel reads through (phone sheet 0.24 -> 0.34; the
+    // desktop book page a little denser, 0.40 -> 0.50). Text gets its own soft halo (--bk-halo).
+    var gA = BOOK_MQ.matches ? [0.40, 0.50] : [0.24, 0.34];
+    inn.style.setProperty('--bk-t1', pg.rgba(v.p1, gA[0])); inn.style.setProperty('--bk-t2', pg.rgba(v.p2, gA[1]));
+    var hc = v.style === 'light' ? v.p1 : v.p2; inn.style.setProperty('--bk-halo', pg.rgba(hc, 0.55)); inn.style.setProperty('--bk-halo2', pg.rgba(hc, v.style === 'light' ? 0.86 : 0.72)); inn.style.setProperty('--bk-edge', pg.rgba(v.acc, 0.6));
     // The blurred reel art seen through the page: built-in scenes are SVG copies; a video reel shows
     // its own video (a muted twin kept in sync with playback, see syncBookArt).
     var src = reelEl(visibleReel), kb = src && src.querySelector('.p-rkb'), art = rSheet.querySelector('.bk-art'), sv0 = kb && kb.querySelector('video');
