@@ -31,9 +31,11 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     verse: ['verse', 'ref', 'translation', 'topics'],
     devotion: ['teaser', 'body', 'ref', 'family', 'prayer', 'audioId'],
     audio: ['kind', 'minutes', 'seconds', 'file', 'transcript'],
-    reel: ['caption', 'youtube', 'minutes', 'seconds', 'file', 'series', 'episode', 'series_description'],
+    reel: ['caption', 'youtube', 'minutes', 'seconds', 'file', 'series', 'episode', 'series_description', 'page_style', 'page_color'],
     game: ['text', 'button']
   };
+  // Desktop caption page (book spread) for reels: fields.page_style and fields.page_color; empty colour = from the reel.
+  var PAGE_STYLES = ['auto', 'dark', 'light', 'clear'], PAGE_STYLE_LABEL = { auto: 'Auto from reel', dark: 'Dark', light: 'Light', clear: 'Glass clear' };
   var TOPICS = ['When I’m afraid', 'Trust', 'Friendship', 'Mercy', 'God sees me', 'Light'];
   // Public-domain translations, suggested in the Translation box. Any other name can be typed.
   var TRANSLATIONS = ['WEB', 'KJV', 'ASV', 'BSB'];
@@ -98,7 +100,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   var LABEL = { title: 'Title', status: 'Status', publish_at: 'Publish time', show_on_today: 'Show on Today', media_url: 'File',
     verse: 'Verse text', ref: 'Reference', translation: 'Translation', topics: 'Topics', teaser: 'Summary', body: 'Reading',
     family: 'For families', prayer: 'Prayer', audioId: 'Audio version', kind: 'Kind', minutes: 'Length', caption: 'Caption',
-    youtube: 'YouTube link', text: 'Text', button: 'Button label', series: 'Series', episode: 'Episode', series_description: 'Series description' };
+    youtube: 'YouTube link', text: 'Text', button: 'Button label', series: 'Series', episode: 'Episode', series_description: 'Series description', page_style: 'Page style', page_color: 'Page colour' };
   // One flat list of what a reader would notice, from a stored post.
   function flat(p) {
     var out = { status: p.status, publish_at: p.publish_at, show_on_today: p.show_on_today, media_url: p.media_url };
@@ -183,6 +185,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       if (typeof v === 'string') v = v.trim();
       if (v !== undefined && v !== '' && !(Array.isArray(v) && !v.length)) p.fields[k] = v;
     });
+    if (p.fields.page_style === 'auto' || (p.fields.page_style && PAGE_STYLES.indexOf(p.fields.page_style) < 0)) delete p.fields.page_style;
+    if (p.fields.page_color != null && !/^#[0-9a-f]{6}$/i.test(p.fields.page_color)) delete p.fields.page_color;
     if (p.fields.episode != null) { var n = parseInt(p.fields.episode, 10); if (n > 0) p.fields.episode = n; else delete p.fields.episode; }
     if (status === 'scheduled') p.publish_at = new Date(e.when).toISOString();
     else if (status === 'published') p.publish_at = e.status === 'published' && e.publish_at ? e.publish_at : new Date().toISOString();
@@ -196,7 +200,9 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var hid = S.getSetting('builtins_hidden').then(function (v) { state.hiddenError = ''; return v; }, function (err) { state.hiddenError = err.message; return null; });
     var nav = S.getSetting('nav').then(function (v) { state.navError = ''; return v; }, function (err) { state.navError = err.message; return null; });
     var content = S.getSetting('content').then(function (v) { return v; }, function () { return null; });
-    return Promise.all([S.listPosts(), S.listTeam(), nav, hid, content]).then(function (r) {
+    var reelPage = S.getSetting('reel_page').then(function (v) { return v; }, function () { return null; });
+    return Promise.all([S.listPosts(), S.listTeam(), nav, hid, content, reelPage]).then(function (r) {
+      state.reelPage = { style: r[5] && PAGE_STYLES.indexOf(r[5].style) >= 0 ? r[5].style : 'auto' };
       state.content = S.normalizeContent(r[4]) || S.contentDefault();
       state.hidden = S.effectiveHidden(r[3] && S.normalizeHidden(r[3]) ? r[3] : null);
       state.posts = r[0] || []; state.team = r[1] || [];
@@ -339,7 +345,14 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
         '<div class="two">' + field('series', 'Series (optional)', p.series, { ph: 'Leave empty for a standalone reel', list: 'seriesList', help: 'Reels with the same series name are shown together.' }) +
         field('episode', 'Episode #', p.episode, { type: 'number', ph: '1' }) + '</div>' +
         '<datalist id="seriesList">' + seriesNames().map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist>' +
-        field('series_description', 'Series description (optional)', p.series_description, { textarea: true, ph: 'Shown on the series page. Leave empty to use the first episode’s caption.' });
+        field('series_description', 'Series description (optional)', p.series_description, { textarea: true, ph: 'Shown on the series page. Leave empty to use the first episode’s caption.' }) +
+        // Caption page on desktop: the reel becomes the left page of a book, the caption a tinted glass page.
+        '<div class="two"><label class="field"><span>Page style</span><select class="select" data-f="page_style" id="f_page_style">' +
+        PAGE_STYLES.map(function (st) { return '<option value="' + st + '"' + ((p.page_style || 'auto') === st ? ' selected' : '') + '>' + PAGE_STYLE_LABEL[st] + '</option>'; }).join('') +
+        '</select><small>The caption page on computers. Auto: dark at night, light by day.</small></label>' +
+        '<label class="field"><span>Page colour</span><span class="colorrow"><input type="color" id="f_page_color_pick" data-pick="page_color" value="' + esc(/^#[0-9a-f]{6}$/i.test(p.page_color || '') ? p.page_color : '#c8742e') + '" aria-label="Pick page colour">' +
+        '<input class="input" id="f_page_color" data-f="page_color" value="' + esc(p.page_color || '') + '" placeholder="Auto (from the reel)" maxlength="7" pattern="#[0-9a-fA-F]{6}"></span>' +
+        '<small>Leave empty to use the reel’s own colour. Text and buttons are adjusted so they stay easy to read.</small></label></div>';
     } else {
       f = field('title', 'Headline', p.title, { ph: 'Noah’s Ark is ready to play' }) +
         field('text', 'Text', p.text, { textarea: true, ph: 'What’s new in the game' }) +
@@ -417,7 +430,12 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       '<label class="check"><input type="checkbox" id="content_verses"' + ((state.content || {}).verses ? ' checked' : '') + (owner ? '' : ' disabled') + '> ' +
       '<span>Show verse cards on Today (Verse, Verse of the week, published verse posts, “More verses” and “Save image”)</span></label>' +
       '<small>Off by default. Nothing is deleted: switching it back on brings them back. Bible quotes inside devotions always show. The Verses menu follows its own setting above.</small>' +
-      (owner ? '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>Save content</button>' : '') + '</form>';
+      (owner ? '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>Save content</button>' : '') + '</form>' +
+      '<h3 class="sub">Reel caption page</h3>' +
+      '<form class="form" id="reelPageForm" novalidate><label class="field"><span>Default page style (computers)</span><select class="select" id="reel_page_style"' + (owner ? '' : ' disabled') + '>' +
+      PAGE_STYLES.map(function (st) { return '<option value="' + st + '"' + (((state.reelPage || {}).style || 'auto') === st ? ' selected' : '') + '>' + PAGE_STYLE_LABEL[st] + '</option>'; }).join('') + '</select>' +
+      '<small>Used for reels whose Page style is Auto. Auto here means dark at night and light by day.</small></label>' +
+      (owner ? '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>Save page style</button>' : '') + '</form>';
   }
   // Items written into the app (js/content.js). A Studio post with the same `builtin` key replaces one
   // once published; here they can be hidden altogether.
@@ -597,6 +615,15 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
         state.busy = false; state.content = S.normalizeContent(saved) || cv;
         toast(cv.verses ? 'Verse cards are on. Visitors see them next time the app loads.' : 'Verse cards are hidden. Visitors see the change next time the app loads.'); render();
       }).catch(fail);
+    } else if (id === 'reelPageForm') {
+      if (!isOwner()) return;
+      var rp = { style: document.getElementById('reel_page_style').value };
+      if (PAGE_STYLES.indexOf(rp.style) < 0) rp.style = 'auto';
+      state.busy = true; render();
+      S.saveSetting('reel_page', rp, state.email).then(function (saved) {
+        state.busy = false; state.reelPage = saved && saved.style ? saved : rp;
+        toast('Reel page style saved. Visitors see the change next time the app loads.'); render();
+      }).catch(fail);
     } else if (id === 'inviteForm') {
       var em = document.getElementById('inviteEmail').value.trim().toLowerCase(), role = document.getElementById('inviteRole').value;
       state.errors = {};
@@ -663,6 +690,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
 
   root.addEventListener('input', function (ev) {
     if (!state.editing) return;
+    if (ev.target.dataset.pick) { var tx = document.getElementById('f_' + ev.target.dataset.pick); state.editing[ev.target.dataset.pick] = ev.target.value; if (tx) tx.value = ev.target.value; refreshPreview(); return; }
     var f = ev.target.dataset.f;
     if (!f) return;
     state.editing[f] = ev.target.value;

@@ -72,7 +72,7 @@ for (const [name, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { 
     for (let k = 0; k < 6; k++) { el.classList.add('playing'); r.classList.remove('awake'); await wait(100); }
     const rest = ops(), pe = [...el.querySelectorAll('.side .p-ract, .p-rsound')].every((b) => getComputedStyle(b).pointerEvents !== 'none');
     const b = el.querySelector('.p-rsound').getBoundingClientRect(), top = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2).closest('.p-rsound') !== null;
-    r.dispatchEvent(new PointerEvent('pointermove', { bubbles: true })); await wait(450); const awake = ops();
+    r.dispatchEvent(new PointerEvent('pointermove', { bubbles: true })); await wait(800); const awake = ops();
     r.classList.remove('awake'); el.classList.add('userpaused'); await wait(450); const paused = ops(); el.classList.remove('userpaused');
     return { rest, pe, top, awake, paused, tr: getComputedStyle(el.querySelector('.p-rsound')).transitionDuration }; });
   check(ctl.rest.length >= 4 && ctl.rest.every((o) => o === '0.4'), `${name}: CC/Save/Share and the sound toggle rest at 40% while playing (${ctl.rest.join(',')})`);
@@ -93,6 +93,23 @@ for (const [name, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { 
     await page.waitForTimeout(450);
     const fv = await page.$eval('.p-reel.on .share', (b) => ({ fv: b.matches(':focus-visible'), op: getComputedStyle(b).opacity }));
     check(!fv.fv || fv.op === '1', `${name}: a focus-visible control shows at 100% (${fv.fv ? fv.op : 'focus-visible n/a'})`);
+  }
+  { // Each resting control jumps to 100% on its own hover / press / focus-visible, instantly, while the others stay at 40%.
+    const restAll = () => page.evaluate(async () => { document.querySelector('.p-reel.on .z-mid').focus({ preventScroll: true }); const r = document.querySelector('#pReels'), el = r.querySelector('.p-reel.on'); for (let k = 0; k < 6; k++) { el.classList.add('playing'); r.classList.remove('awake'); await new Promise((f) => setTimeout(f, 100)); } });
+    const read = (sel) => page.evaluate((sel) => { const el = document.querySelector('.p-reel.on'); el.classList.add('playing'); document.querySelector('#pReels').classList.remove('awake');
+      const me = el.querySelector(sel), others = [...el.querySelectorAll('.side .p-ract, .p-rsound')].filter((b) => b !== me);
+      return { me: getComputedStyle(me).opacity, tr: getComputedStyle(me).transitionDuration, others: others.map((b) => getComputedStyle(b).opacity) }; }, sel);
+    for (const sel of ['.p-rcc', '.save', '.share', '.p-rsound']) {
+      if (name === 'desktop') { await restAll(); await page.hover('.p-reel.on ' + sel); await restAll(); await page.waitForTimeout(400); const h = await read(sel); // pointer still over it after the stack goes idle
+        check(h.me === '1' && h.tr === '0s' && h.others.every((o) => o === '0.4'), `${name}: hovering ${sel} shows it at 100% instantly while the others rest (${h.me}, ${h.others})`); }
+      await restAll();
+      const box = await page.$eval('.p-reel.on ' + sel, (b) => { const r = b.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+      await page.evaluate(({ x, y }) => { const t = document.elementFromPoint(x, y); t.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x, clientY: y })); }, box);
+      const pr = await read(sel);
+      await page.evaluate(() => document.querySelector('#pReels').dispatchEvent(new PointerEvent('pointerup', { bubbles: true })));
+      check(pr.me === '1' && pr.tr === '0s', `${name}: pressing ${sel} shows it at 100% instantly (${pr.me})`);
+    }
+    await page.mouse.move(5, 5);
   }
   check(await page.evaluate(async () => { document.querySelector('#pReels').dispatchEvent(new PointerEvent('pointermove', { bubbles: true })); return document.querySelector('#pReels').classList.contains('awake'); }), `${name}: moving/touching the reel area wakes the overlay`);
   await page.waitForTimeout(3300);

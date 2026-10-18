@@ -67,12 +67,14 @@ window.LL_CONTENT = {
     // Built-in uploaded-video reel, hosted in the repo (media/reels/). Newest, so it leads Watch.
     { title: 'The Whisper', topic: 'Choosing God when you\u2019re tired', len: '0:20', bg: '#1f2a44', kind: 'sea',
       src: 'media/reels/the-whisper.mp4', poster: 'media/reels/the-whisper-poster.jpg', date: '2026-10-18T12:00:00+08:00',
+      // Caption page: warm amber from the poster's lamp-lit tones (auto-contrast picks text/accent).
+      pageStyle: 'auto', pageColor: '#b8743e',
       caption: "Tired at the end of the day? That little voice telling you to skip time with God can sound so reasonable. But you don't have to listen. 'Resist the devil, and he will flee from you.' (James 4:7, KJV). Tonight, open the Book, even for just one verse. 💛" },
-    { hidden: true, title: 'Why Jonathan gave David his robe', len: '0:48', bg: '#e46a4c', kind: 'robe', src: '',
+    { hidden: true, title: 'Why Jonathan gave David his robe', len: '0:48', bg: '#e46a4c', kind: 'robe', src: '', pageStyle: 'auto', pageColor: '#c8742e',
       caption: 'Jonathan was the king’s son. He gave David his own robe, sword and belt as a promise of friendship (1 Samuel 18:1–4). Real friends make room for each other.' },
-    { hidden: true, title: 'Noah kept building', len: '0:58', bg: '#3d7fc4', kind: 'rain', src: '',
+    { hidden: true, title: 'Noah kept building', len: '0:58', bg: '#3d7fc4', kind: 'rain', src: '', pageStyle: 'auto', pageColor: '',
       caption: 'Before the rain, there was a lot of quiet work. Noah trusted God and kept building. Genesis 6:22.' },
-    { hidden: true, title: 'Jonah and the second chance', len: '0:52', bg: '#1f3a6e', kind: 'sea', src: '',
+    { hidden: true, title: 'Jonah and the second chance', len: '0:52', bg: '#1f3a6e', kind: 'sea', src: '', pageStyle: 'auto', pageColor: '',
       caption: 'Jonah ran the other way. God gave him another chance, and showed mercy to Nineveh too. Jonah 4:2.' }
   ],
 

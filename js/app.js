@@ -136,7 +136,7 @@
           if (p.show_on_today) today.push({ type: 'devotion', i: devs.length - 1 });
         } else if (p.type === 'reel') {
           var look = reelLook.filter(function (l) { return l[1] === f.look; })[0] || reelLook[reels.length % 3];
-          reels.push({ title: p.title, len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '', date: p.publish_at || p.created_at || '', series: f.series || '', episode: +f.episode || 0, seriesDesc: f.series_description || '' });
+          reels.push({ title: p.title, len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '', date: p.publish_at || p.created_at || '', series: f.series || '', episode: +f.episode || 0, seriesDesc: f.series_description || '', pageStyle: f.page_style || '', pageColor: /^#[0-9a-f]{6}$/i.test(f.page_color || '') ? f.page_color : '' });
           if (f.builtin) copyOf[f.builtin] = reels.length - 1;
           if (p.show_on_today) today.push({ type: 'reel', i: reels.length - 1 });
         } else if (p.type === 'verse') {
@@ -489,6 +489,7 @@
   function setNight(on, save) {
     var was = app.classList.contains('night');
     app.classList.toggle('night', on);
+    if (window.LL_pagePalette) applyBook();
     if (on && !was) setTimeout(function () { if (!app.classList.contains('calm')) flyOwl(); if (window.LL_perchFit) window.LL_perchFit(); }, 0);
     document.querySelector('meta[name="theme-color"]').setAttribute('content', on ? '#070b22' : '#0f0d20');
     $$('[data-mode]').forEach(function (b) {
@@ -751,14 +752,91 @@
   var rSheet = document.createElement('div');
   rSheet.className = 'p-rsheet glass glass--dark'; rSheet.id = 'pReelSheet'; rSheet.hidden = true;
   rSheet.setAttribute('role', 'dialog'); rSheet.setAttribute('aria-modal', 'true'); rSheet.setAttribute('aria-labelledby', 'pReelSheetT');
-  rSheet.innerHTML = '<div class="p-rsheet-in"><span class="handle" aria-hidden="true"></span><h3 id="pReelSheetT"></h3><p></p><button type="button" class="p-rsheet-x" aria-label="Close caption">' + rIcon('M6 6l12 12M18 6L6 18') + '</button></div>';
+  rSheet.innerHTML = '<div class="p-rsheet-in"><div class="bk-art" aria-hidden="true"></div><span class="bk-hair" aria-hidden="true"><i class="bk-led"></i></span><span class="handle" aria-hidden="true"></span>' +
+    '<span class="bk-kick"></span><h3 id="pReelSheetT"></h3><i class="bk-rule" aria-hidden="true"></i><p></p>' +
+    '<div class="bk-acts"><button type="button" class="bk-save" aria-pressed="false">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
+    '<button type="button" class="bk-share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button></div>' +
+    '<button type="button" class="p-rsheet-x" aria-label="Close caption">' + rIcon('M6 6l12 12M18 6L6 18') + '</button></div>';
   $('#pWatchPlayer').appendChild(rSheet);
   var rSheetFrom = null;
-  function openReelSheet(i, from) {
-    rSheetFrom = from; rSheet.querySelector('h3').textContent = C.reels[i].title; rSheet.querySelector('p').textContent = C.reels[i].caption;
-    rSheet.hidden = false; if (from) from.setAttribute('aria-expanded', 'true'); wakeOverlay(); rSheet.querySelector('.p-rsheet-x').focus();
+  // ---------- Desktop book spread: the caption becomes a tinted glass page beside the reel ----------
+  // Page colours come from the reel (fields.page_color, else its theme colour); text and accent are
+  // picked with a contrast check so any colour stays readable (AA). Phones keep the bottom sheet.
+  var BOOK_MQ = matchMedia('(min-width: 900px)'), REEL_PAGE = { style: 'auto' }, rSheetI = -1;
+  try { REEL_PAGE = JSON.parse(localStorage.getItem('ll.reelPage') || 'null') || REEL_PAGE; } catch (err) { /* storage blocked */ }
+  if (window.LLStore && window.LLStore.getSetting) window.LLStore.getSetting('reel_page').then(function (v) {
+    if (v && typeof v === 'object') { REEL_PAGE = { style: /^(auto|dark|light|clear)$/.test(v.style) ? v.style : 'auto' }; try { localStorage.setItem('ll.reelPage', JSON.stringify(REEL_PAGE)); } catch (err) { /* blocked */ } }
+  }, function () {});
+  var pg = {
+    rgb: function (h) { h = h.replace('#', ''); return [0, 2, 4].map(function (k) { return parseInt(h.substr(k, 2), 16); }); },
+    hex: function (c) { return '#' + c.map(function (v) { return ('0' + Math.round(Math.max(0, Math.min(255, v))).toString(16)).slice(-2); }).join(''); },
+    hsl: function (c) { var r = c[0] / 255, g = c[1] / 255, b = c[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn, h = 0, s = 0;
+      if (d) { s = d / (1 - Math.abs(2 * l - 1)); h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; if (h < 0) h += 360; } return [h, s, l]; },
+    fromHsl: function (h, s, l) { var c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2, r = [0, 0, 0], k = Math.floor(h / 60) % 6;
+      r = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][k]; return pg.hex(r.map(function (v) { return (v + m) * 255; })); },
+    lum: function (h) { return pg.rgb(h).map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }).reduce(function (a, v, k) { return a + v * [0.2126, 0.7152, 0.0722][k]; }, 0); },
+    ratio: function (a, b) { var x = pg.lum(a), y = pg.lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); },
+    rgba: function (h, a) { return 'rgba(' + pg.rgb(h).join(',') + ',' + a + ')'; }
+  };
+  // style: 'dark' | 'light' | 'clear'. Returns CSS custom properties for the page.
+  function pagePalette(base, style) {
+    var hs = pg.hsl(pg.rgb(base)), h = hs[0], s = Math.min(Math.max(hs[1], 0.3), 0.62), v = {}, L;
+    if (style === 'light') {
+      v.p1 = pg.fromHsl(h, Math.min(s, 0.7), 0.94); v.p2 = pg.fromHsl(h, Math.min(s, 0.6), 0.88);
+      v.text = pg.fromHsl(h, 0.45, 0.14); if (pg.ratio(v.text, v.p2) < 8) v.text = '#1F1420';
+      for (L = 0.38; L > 0.12 && pg.ratio(pg.fromHsl(h, 0.65, L), v.p2) < 5.6; L -= 0.02); v.acc = pg.fromHsl(h, 0.65, L);
+      v.onacc = pg.ratio('#FFF8EE', v.acc) >= 5 ? '#FFF8EE' : '#FFFFFF'; v.hair = '#B07A1E'; v.a1 = 0.93; v.a2 = 0.96;
+    } else {
+      v.p1 = pg.fromHsl(h, s, 0.24); v.p2 = pg.fromHsl(h, s * 0.95, 0.15);
+      v.text = pg.ratio('#FBF3E6', v.p1) >= 7 ? '#FBF3E6' : '#FFFFFF';
+      for (L = 0.72; L < 0.94 && pg.ratio(pg.fromHsl(h, 0.8, L), v.p1) < 5.6; L += 0.02); v.acc = pg.fromHsl(h, 0.8, L);
+      v.onacc = pg.fromHsl(h, 0.55, 0.12); if (pg.ratio(v.onacc, v.acc) < 5) v.onacc = '#1B1020';
+      v.hair = '#F2C46B'; v.a1 = style === 'clear' ? 0.66 : 0.86; v.a2 = style === 'clear' ? 0.74 : 0.92;
+    }
+    v.style = style; return v;
   }
-  function closeReelSheet() { if (rSheet.hidden) return false; rSheet.hidden = true; if (rSheetFrom) { rSheetFrom.setAttribute('aria-expanded', 'false'); rSheetFrom.focus(); } wakeOverlay(); updateReels(); return true; }
+  window.LL_pagePalette = pagePalette;
+  function bookStyle(r) {
+    var st = r.pageStyle && r.pageStyle !== 'auto' ? r.pageStyle : REEL_PAGE.style && REEL_PAGE.style !== 'auto' ? REEL_PAGE.style : '';
+    return st || (app.classList.contains('night') ? 'dark' : 'light');
+  }
+  function applyBook() {
+    var open = !rSheet.hidden && rSheetI >= 0;
+    wPlayer.classList.toggle('book', open && BOOK_MQ.matches); wPlayer.classList.toggle('capopen', open);
+    // Native video controls (and their floating mute pill) must not sit on top of the caption sheet.
+    if (!open) return;
+    var r = C.reels[rSheetI], base = r.pageColor || (parts[visibleReel] || r).bg || '#3B1F4A', v = pagePalette(base, bookStyle(r)), inn = rSheet.querySelector('.p-rsheet-in');
+    inn.dataset.style = v.style;
+    [['p1', v.p1], ['p2', v.p2], ['text', v.text], ['acc', v.acc], ['onacc', v.onacc], ['hair', v.hair]].forEach(function (x) { inn.style.setProperty('--bk-' + x[0], x[1]); });
+    inn.style.setProperty('--bk-t1', pg.rgba(v.p1, v.a1)); inn.style.setProperty('--bk-t2', pg.rgba(v.p2, v.a2)); inn.style.setProperty('--bk-edge', pg.rgba(v.acc, 0.6));
+    // The blurred reel art seen through the page: built-in scenes are SVG copies; a video reel shows
+    // its own video (a muted twin kept in sync with playback, see syncBookArt).
+    var src = reelEl(visibleReel), kb = src && src.querySelector('.p-rkb'), art = rSheet.querySelector('.bk-art'), sv0 = kb && kb.querySelector('video');
+    if (sv0) { var tw = art.querySelector('video'); if (!tw || tw.getAttribute('src') !== sv0.getAttribute('src')) { art.innerHTML = '<video muted playsinline preload="auto" tabindex="-1" src="' + esc(sv0.getAttribute('src')) + '"' + (sv0.getAttribute('poster') ? ' poster="' + esc(sv0.getAttribute('poster')) + '"' : '') + '></video>'; } syncBookArt(); }
+    else art.innerHTML = kb && !kb.querySelector('iframe, .p-yt-slot') ? kb.innerHTML : '';
+    art.style.background = base;
+    var sv = src && src.querySelector('.save'); rSheet.querySelector('.bk-save').setAttribute('aria-pressed', String(!!(sv && sv.classList.contains('saved'))));
+  }
+  function openReelSheet(i, from) {
+    var r = C.reels[i], pt = parts[visibleReel] || r;
+    rSheetFrom = from; rSheetI = i; rSheet.querySelector('h3').textContent = r.title; rSheet.querySelector('p').textContent = r.caption;
+    rSheet.querySelector('.bk-kick').textContent = r.series ? r.series + (r.episode ? ' · Episode ' + r.episode : '') : 'Reel' + (pt.len ? ' · ' + pt.len : '');
+    rSheet.hidden = false; if (from) from.setAttribute('aria-expanded', 'true'); applyBook(); wakeOverlay(); rSheet.querySelector('.p-rsheet-x').focus();
+  }
+  function closeReelSheet() { if (rSheet.hidden) return false; rSheet.hidden = true; applyBook(); var tw = rSheet.querySelector('.bk-art video'); if (tw) tw.pause(); if (rSheetFrom) { rSheetFrom.setAttribute('aria-expanded', 'false'); rSheetFrom.focus(); } wakeOverlay(); updateReels(); return true; }
+  // Keep the blurred twin video behind the glass page in step with the reel.
+  function syncBookArt() {
+    var tw = rSheet.querySelector('.bk-art video'); if (!tw || rSheet.hidden) return;
+    var el = reelEl(visibleReel), v = el && el.querySelector('video'); if (!v) return;
+    if (Math.abs((tw.currentTime || 0) - (v.currentTime || 0)) > 0.4) try { tw.currentTime = v.currentTime; } catch (x) {}
+    if (!v.paused && tw.paused) { var q = tw.play(); if (q && q.catch) q.catch(function () {}); } else if (v.paused && !tw.paused) tw.pause();
+  }
+  if (BOOK_MQ.addEventListener) BOOK_MQ.addEventListener('change', applyBook);
+  rSheet.addEventListener('click', function (e) {
+    if (e.target.closest('.bk-save')) { var sv = reelEl(visibleReel) && reelEl(visibleReel).querySelector('.save'); if (sv) sv.click(); applyBook(); return; }
+    if (e.target.closest('.bk-share')) { var sh = reelEl(visibleReel) && reelEl(visibleReel).querySelector('.share'); if (sh) sh.click(); return; }
+    if (e.target === rSheet || e.target.closest('.p-rsheet-x')) closeReelSheet();
+  });
   // Title/topic overlay on playing video reels rests at 60% opacity and wakes to 100% on touch,
   // tap, hover, focus or an open caption; it settles again after ~3s idle (CSS does the fade).
   var wakeT = 0;
@@ -767,7 +845,9 @@
     wakeT = setTimeout(function () { if (rSheet.hidden) reelsEl.classList.remove('awake'); else wakeOverlay(); }, 3000);
   }
   ['pointerdown', 'pointermove', 'focusin', 'keydown', 'wheel'].forEach(function (ev) { reelsEl.addEventListener(ev, wakeOverlay, { passive: true }); });
-  rSheet.addEventListener('click', function (e) { if (e.target === rSheet || e.target.closest('.p-rsheet-x')) closeReelSheet(); });
+  // Press feedback: the pressed control shows at 100% at once (touch browsers apply :active late or not at all).
+  reelsEl.addEventListener('pointerdown', function (e) { var b = e.target.closest('.side .p-ract, .p-rsound'); if (b) b.classList.add('pressed'); }, { passive: true });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { reelsEl.addEventListener(ev, function () { $$('.pressed', reelsEl).forEach(function (b) { b.classList.remove('pressed'); }); }, { passive: true }); });
   // ---------- Story player ----------
   // The progress bars and taps move between the parts of the open story only; the end screen offers
   // Watch again and up to two unwatched stories instead of running into the next story by itself.
@@ -791,7 +871,7 @@
     var el = reelEl(visibleReel), v = el && el.querySelector('video'), dt = clock.last ? (now - clock.last) / 1000 : 0; clock.last = now;
     if (v && isFinite(v.duration) && v.duration > 0) { clock.real = true; clock.dur = v.duration; clock.t = v.currentTime; if (v.ended) clock.t = clock.dur; }
     else if (!clock.real && isPlaying()) clock.t += dt;  // fallback: the chip duration
-    paint();
+    paint(); syncBookArt();
     if (clock.dur && clock.t >= clock.dur - 0.05 && !ended) { nextReel(true); }
     raf = requestAnimationFrame(reelTick);
   }
@@ -805,6 +885,8 @@
     if (info.playerState === 0) clock.t = clock.dur;
   });
   function updateReels() {
+    // The caption page's running light follows playback (paused, held or ended: it stops in place).
+    if (wPlayer) wPlayer.classList.toggle('rplaying', !!isPlaying());
     $$('.p-reel', reelsEl).forEach(function (el) {
       var i = +el.dataset.i, on = watchOpen && +el.dataset.p === visibleReel;
       el.classList.toggle('on', on);
@@ -992,7 +1074,7 @@
   wGal.addEventListener('click', function (e) { var b = e.target.closest('[data-watch]'); if (b) openReel(+b.dataset.watch); var sr = e.target.closest('[data-series]'); if (sr) openSeries(sr.dataset.series); var cl = e.target.closest('[data-clear-watched]'); if (cl) { window.LL_watched.clear(); var h = wGal.querySelector('.p-whero'); if (h) h.focus(); } });
   function closeWatch() {
     if (!watchOpen) return;
-    rSheet.hidden = true; watchOpen = false; wPlayer.hidden = true; wPlayer.classList.remove('on'); updateReels();
+    rSheet.hidden = true; wPlayer.classList.remove('book', 'capopen'); watchOpen = false; wPlayer.hidden = true; wPlayer.classList.remove('on'); updateReels();
     if (watchReturn && document.contains(watchReturn)) watchReturn.focus();
   }
   window.LL_closeWatch = closeWatch;
@@ -1005,7 +1087,7 @@
   });
   // openReel(i): opens story i; its parts are the sequence.
   function openStory(i) {
-    rSheet.hidden = true; renderReelStory(i); seq = parts.map(function (_, k) { return k; });
+    rSheet.hidden = true; wPlayer.classList.remove('book', 'capopen'); renderReelStory(i); seq = parts.map(function (_, k) { return k; });
     showReel(0); $('#pWatchClose').focus();
   }
   function openReel(i) {
