@@ -933,7 +933,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
         return { visible: b.width > 60 && b.height > 0, fs: parseFloat(cs.fontSize), above: b.bottom <= rb.top, inView: b.left >= 0 && b.right <= innerWidth,
           brand: getComputedStyle(document.querySelector('.p-brand')).display, kickerBelow: !k || k.getBoundingClientRect().top >= rb.bottom, bg: cs.backgroundColor, color: getComputedStyle(wm.querySelector('.wm-s')).color,
           beam: getComputedStyle(wm, '::before').backgroundImage, hair: getComputedStyle(wm, '::after').backgroundImage, anim: getComputedStyle(wm, '::before').animationName, beamOn: getComputedStyle(wm, '::before').display !== 'none',
-          shadow: getComputedStyle(wm.querySelector('.wm-s')).textShadow, lfilter: getComputedStyle(wm.querySelector('.wm-l')).filter };
+          shadow: getComputedStyle(wm.querySelector('.wm-s')).textShadow, lfilter: getComputedStyle(wm.querySelector('.wm-l')).filter, lshadow: getComputedStyle(wm.querySelector('.wm-l')).textShadow };
       });
       const mode = night ? 'night' : 'day';
       check(r.visible && r.above && r.inView, `phone ${v.width}px ${mode}: wordmark shows above the circles, inside the screen`);
@@ -941,7 +941,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
       check(r.brand === 'none' && r.kickerBelow, `phone ${v.width}px ${mode}: no desktop top bar, and Today's text starts below the circles`);
       if (night) check(r.bg === 'rgba(0, 0, 0, 0)' && r.beamOn && r.beam.includes('linear-gradient') && r.hair.includes('linear-gradient'), `phone ${v.width}px night: no solid block, a soft golden beam with a fading hairline`);
       else check(r.bg === 'rgba(0, 0, 0, 0)' && !r.beamOn, `phone ${v.width}px day: no background behind the title`);
-      if (!night) check(/rgba\(90, 40, 20, 0\.3\)/.test(r.shadow) && /drop-shadow/.test(r.lfilter) && !/rgba\(42, 15, 31/.test(r.shadow + r.lfilter), `phone ${v.width}px day: light depth only (soft warm shadow, no dark outline) on both words`);
+      if (!night) check(/rgba\(110, 50, 25, 0\.45\) 0px 1px 0px/.test(r.shadow) && r.lshadow === r.shadow && r.lfilter === 'none' && !/\d+px \d+px [1-9]/.test(r.shadow) && !/rgba\(42, 15, 31/.test(r.shadow), `phone ${v.width}px day: crisp zero-blur light lift on both words, no filter on the text, no dark outline`);
       check(r.color === (night ? 'rgb(246, 238, 220)' : 'rgb(255, 249, 236)'), `phone ${v.width}px ${mode}: ${night ? 'cream' : 'warm cream'} text (${r.color})`);
       check(r.anim === 'none', `phone ${v.width}px ${mode}: the beam is static`);
     }

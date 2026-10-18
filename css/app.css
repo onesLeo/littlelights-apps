@@ -1419,8 +1419,8 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 
 /* ---------- Phone: the calligraphy wordmark above the Today circles (desktop shows it in the top bar) ----------
    A soft golden beam behind the title (no solid block) with a thin gold hairline that fades out at both ends,
-   echoing the site's gold line and the running light. Night: cream and gold on the beam. Day: no background; warm cream
-   text with a faint highlight and a soft warm shadow. */
+   echoing the site's gold line and the running light. Night: cream and gold on the beam. Day: no background; crisp warm
+   cream text with a sharp, light zero-blur lift. */
 .p-rwm { display: none; }
 @media (max-width: 899px) {
   .p-rings { flex-wrap: wrap; row-gap: 6px; }
@@ -1438,14 +1438,17 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
   /* Night (and the default): cream + gold on a faint warm-gold beam, lifted by navy shadows with a hint of gold glow */
   .p-rwm .wm { --beam: rgba(245,194,107,.26); --beam-mid: rgba(245,194,107,.10); --hair: rgba(255,224,137,.75);
     --sh1: 0 1px 1px rgba(7,9,30,.75); --sh2: 0 3px 8px rgba(7,9,30,.5); --sh3: 0 0 10px rgba(245,194,107,.3); }
-  /* Day: no background, bright and airy. Warm cream text (a near-white cream-gold "Light") on the sky, with a faint
-     white highlight on top and one soft, warm, low-alpha drop shadow for depth. "Light" is gradient-clipped, so its
-     shadow is a drop-shadow filter. */
-  .p-app:not(.night) .p-rwm .wm { --wm-s: #FFF9EC; --wm-g1: #FFF6DC; --wm-g2: #FFEEE2; --wm-glow: transparent; --hair: rgba(255,236,180,.85);
-    --dsh: 0 -1px 0 rgba(255,255,255,.5), 0 2px 4px rgba(90,40,20,.3); }
+  /* Day: no background, bright and airy, and crisp. Warm cream text with zero-blur shadows only (a sharp warm
+     1px + 2px lift and a crisp white highlight on top), so nothing is blurred. "Light" drops its gradient and filter
+     by day (a filter rasterises the text softly) and uses a solid near-white cream with the same text-shadows;
+     only the small candle SVG keeps a zero-blur drop-shadow. */
+  .p-app:not(.night) .p-rwm .wm { --wm-s: #FFF9EC; --wm-g1: #FFF4DC; --wm-g2: #FFEEE0; --wm-glow: transparent; --hair: rgba(255,236,180,.85);
+    --dsh: 0 -1px 0 rgba(255,255,255,.45), 0 1px 0 rgba(110,50,25,.45), 0 2px 0 rgba(110,50,25,.2);
+    -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
   .p-app:not(.night) .p-rwm .wm::before { display: none; }
   .p-app:not(.night) .p-rwm .wm-s { text-shadow: var(--dsh); }
-  .p-app:not(.night) .p-rwm .wm-l { filter: drop-shadow(0 -1px 0 rgba(255,255,255,.5)) drop-shadow(0 2px 4px rgba(90,40,20,.3)); }
+  .p-app:not(.night) .p-rwm .wm-l { background: none; color: #FFF3E2; -webkit-text-fill-color: currentColor; filter: none; text-shadow: var(--dsh); }
+  .p-app:not(.night) .p-rwm .wm-i { filter: drop-shadow(0 1px 0 rgba(110,50,25,.45)); }
   .p-rwm:focus-visible { outline: none; }
   .p-rwm:focus-visible .wm { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 6px; }
   /* Room for the extra row (about 34px) */
