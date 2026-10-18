@@ -62,9 +62,14 @@ window.LL_CONTENT = {
   ],
 
   // `src` is empty until real videos exist; the reel then shows an animated placeholder.
-  // `hidden: true` = hidden by default (Oct 2026: only The Whisper shows); Studio > Built-in content can show them again.
+  // `hidden: true` = hidden by default (Oct 2026: only The Last Straw and The Whisper show); Studio > Built-in content can show them again.
   reels: [
-    // Built-in uploaded-video reel, hosted in the repo (media/reels/). Newest, so it leads Watch.
+    // Built-in uploaded-video reels, hosted in the repo (media/reels/). Newest first, so it leads Watch.
+    { title: 'The Last Straw', topic: 'When I feel angry', len: '0:28', bg: '#1f2a44', kind: 'rain',
+      src: 'media/reels/the-last-straw.mp4', poster: 'media/reels/the-last-straw-poster.jpg', date: '2026-10-18T21:00:00+08:00',
+      // Caption page: rainy-night slate blue from the poster's sky (auto-contrast picks text/accent).
+      pageStyle: 'auto', pageColor: '#3e5a7e',
+      caption: "Ever had one of those days where everything goes wrong, one thing after another? It's okay to feel frustrated. God isn't surprised by it. But He invites us not to let anger take over. 'Be ye angry, and sin not.' (Ephesians 4:26, KJV). Tonight, take a breath, talk to Jesus, and let Him calm your heart. 💛" },
     { title: 'The Whisper', topic: 'Choosing God when you\u2019re tired', len: '0:20', bg: '#1f2a44', kind: 'sea',
       src: 'media/reels/the-whisper.mp4', poster: 'media/reels/the-whisper-poster.jpg', date: '2026-10-18T12:00:00+08:00',
       // Caption page: warm amber from the poster's lamp-lit tones (auto-contrast picks text/accent).

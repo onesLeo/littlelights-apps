@@ -1,11 +1,12 @@
 # Response headers for Cloudflare Pages (copied into dist/ by scripts/build-pages.mjs).
 # https://developers.cloudflare.com/pages/configuration/headers/
 # The Supabase address in the policy must match supabaseUrl in js/config.js (tests/build.mjs checks it).
+# Cloudflare Web Analytics (website only): beacon script from static.cloudflareinsights.com, reports to cloudflareinsights.com.
 # YouTube reels are embedded only from youtube-nocookie (frame-src) with thumbnails from i.ytimg.com.
 # style-src allows inline style="" attributes (the app sets colours and sizes with them); style-src-elem
 # still blocks inline <style> blocks in browsers that support it. No inline scripts are allowed.
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; style-src-elem 'self'; font-src 'self'; img-src 'self' data: blob: https://svlvlmyugyadmehjwudm.supabase.co https://i.ytimg.com; media-src 'self' data: blob: https://svlvlmyugyadmehjwudm.supabase.co; connect-src 'self' https://svlvlmyugyadmehjwudm.supabase.co wss://svlvlmyugyadmehjwudm.supabase.co; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; frame-src https://www.youtube-nocookie.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; style-src-elem 'self'; font-src 'self'; img-src 'self' data: blob: https://svlvlmyugyadmehjwudm.supabase.co https://i.ytimg.com; media-src 'self' data: blob: https://svlvlmyugyadmehjwudm.supabase.co; connect-src 'self' https://svlvlmyugyadmehjwudm.supabase.co wss://svlvlmyugyadmehjwudm.supabase.co https://cloudflareinsights.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; frame-src https://www.youtube-nocookie.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
   Strict-Transport-Security: max-age=31536000
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin

@@ -8,7 +8,7 @@ const server = await serve(0);
 const base = `http://localhost:${server.address().port}/`;
 mkdirSync('test-results', { recursive: true });
 const browser = await chromium.launch();
-// TEST-ONLY: the 3 placeholder reels ship hidden by default (only The Whisper shows); these UI
+// TEST-ONLY: the 3 placeholder reels ship hidden by default (only The Last Straw and The Whisper show); these UI
 // tests still need several reels, so every context gets them un-hidden. tests/reelsound.mjs
 // checks the shipped default.
 const unhide = (src) => src.replace(/\{ hidden: true, /g, '{ ');
@@ -241,8 +241,8 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(await page.$$eval('.wm-sway, .wm-flame, .wm-fo, .wm-fc, .wm-halo, .wm-ember', (f) => f.length > 20 && f.every((x) => getComputedStyle(x).animationName === 'none')), 'phone: calm mode keeps the wordmark flame still');
 
   await page.click('.p-tab[data-tab="watch"]');
-  check(await page.$$eval('.p-whero[data-watch="0"], .p-wcard[data-watch]', (e) => e.length) === 4, 'Watch: a featured hero and a thumbnail card for each other reel');
-  check(await page.$$eval('.p-wcard .p-wdur, .p-wcard .p-wplay', (e) => e.length) === 6, 'Watch: cards show a duration badge and a play icon');
+  check(await page.$$eval('.p-whero[data-watch="0"], .p-wcard[data-watch]', (e) => e.length) === 5, 'Watch: a featured hero and a thumbnail card for each other reel');
+  check(await page.$$eval('.p-wcard .p-wdur, .p-wcard .p-wplay', (e) => e.length) === 8, 'Watch: cards show a duration badge and a play icon');
   check(await page.$eval('#pWatchPlayer', (p) => p.hidden) && (await page.$$('#pWatchPlayer iframe, .p-reel.playing')).length === 0, 'Watch: nothing plays until a video is chosen');
   check(await page.$eval('.p-wcard .p-wthumb', (t) => getComputedStyle(t).transitionDuration.split(',').every((d) => parseFloat(d) === 0)) && await page.$eval('.p-wscene svg, .p-wscene *', (s) => getComputedStyle(s).animationName === 'none'), 'Watch: calm mode has no hover zoom or animation');
   await page.click('.p-wcard[data-watch="1"]'); await page.waitForTimeout(200);
@@ -441,7 +441,7 @@ const seriesStub = shippedContent
     "    { title: 'Light for the path', series: 'Test Series: Little Lamp', episode: 3, date: '2026-03-01', len: '0:10', bg: '#1f3a6e', kind: 'sea', src: '', caption: 'Fixture episode three caption.' },\n")
   .replace("{ title: 'Why Jonathan gave David his robe',", "{ date: '2026-04-01', title: 'Why Jonathan gave David his robe',")
   .replace("{ title: 'Noah kept building',", "{ date: '2026-05-01', title: 'Noah kept building',").replace("{ title: 'Jonah and the second chance',", "{ date: '2026-06-01', title: 'Jonah and the second chance',")
-  .replace("date: '2026-10-18T12:00:00+08:00',", "date: '2026-01-15',");  // keep the fixture series newest
+  .replace("date: '2026-10-18T12:00:00+08:00',", "date: '2026-01-15',").replace("date: '2026-10-18T21:00:00+08:00',", "date: '2026-01-16',");  // keep the fixture series newest
 // ---------- frosted glass cards: fallback exists, text keeps AA contrast over the real sky ----------
 {
   const css = await (await fetch(base + 'css/app.css')).text();
@@ -472,7 +472,7 @@ const seriesStub = shippedContent
     check(cards.length >= (surface ? 1 : 3) && await page.$eval(sel.split(',')[0], (c) => /blur/.test(getComputedStyle(c).backdropFilter || getComputedStyle(c).webkitBackdropFilter)), `glass ${theme}: cards are frosted (backdrop blur)`);
     let worst = { r: 99, name: '' };
     for (const card of cards) {
-      const box = await card.boundingBox(); if (!box || box.x >= vp.width || (!surface && (box.y + 60 > vp.height || box.height < 60)) || box.height < 20 || (surface && (box.x < 0 || box.x + box.width > vp.width + 1))) continue;
+      const box = await card.boundingBox(); if (!box || box.x >= vp.width || box.y >= vp.height - 20 || (!surface && (box.y + 60 > vp.height || box.height < 60)) || box.height < 20 || (surface && (box.x < 0 || box.x + box.width > vp.width + 1))) continue;
       // Text elements (not buttons) and their own colours; then hide the content and sample what is behind each one.
       const info = await card.evaluate((c, surface) => {
         const cr = c.getBoundingClientRect();
@@ -591,9 +591,9 @@ const seriesStub = shippedContent
   check(seriesStub.includes('Test Series: Little Lamp'), 'series: test fixture applied (test data only)');
   const { context, page } = await open({ width: 1440, height: 900 });
   const u = await page.evaluate(() => window.LL_series.units());
-  check(u.length === 5 && u.filter((x) => x.series).length === 1 && u.find((x) => x.series).eps.length === 3, 'series: 3 episodes group into one series; the 4 built-ins stay standalone');
+  check(u.length === 6 && u.filter((x) => x.series).length === 1 && u.find((x) => x.series).eps.length === 3, 'series: 3 episodes group into one series; the 5 built-ins stay standalone');
   check(await page.$eval('.p-whero', (h) => h.dataset.series === 'Test Series: Little Lamp' && /Series · 3 episodes/.test(h.textContent)), 'Watch: the hero is the newest series (sorted by its newest episode) with its episode count');
-  check(await page.$$eval('#pWatchGal [data-watch], #pWatchGal [data-series]', (b) => b.length) === 5, 'Watch: one cover per series plus standalone cards (no card per episode)');
+  check(await page.$$eval('#pWatchGal [data-watch], #pWatchGal [data-series]', (b) => b.length) === 6, 'Watch: one cover per series plus standalone cards (no card per episode)');
   check(!/\blikes?\b|\bcomments?\b/i.test(await page.$eval('#pWatchGal', (e) => e.textContent)), 'Watch: no like counts or comments');
   await page.click('.p-whero');
   await page.waitForTimeout(400);
@@ -643,7 +643,7 @@ const seriesStub = shippedContent
   await page.click('[data-clear-watched]'); await page.waitForTimeout(150);
   check(await page.evaluate(() => document.querySelector('.p-whero').dataset.series === 'Test Series: Little Lamp' && localStorage.getItem('ll.watched') === '{}'), 'Watch: Clear watched resets');
   await page.click('.p-filter[data-fpage="watch"] [data-fsort="old"]'); await page.waitForTimeout(150);
-  check(await page.evaluate(() => { const els = [...document.querySelectorAll('#pWatchGal [data-watch], #pWatchGal [data-series]')]; return document.querySelector('.p-whero').dataset.watch === '3' && els[els.length - 1].dataset.series === 'Test Series: Little Lamp'; }), 'filters: Oldest sorts series by their newest episode (Jul) after older standalone reels');
+  check(await page.evaluate(() => { const els = [...document.querySelectorAll('#pWatchGal [data-watch], #pWatchGal [data-series]')]; return document.querySelector('.p-whero').dataset.watch === '4' && els[els.length - 1].dataset.series === 'Test Series: Little Lamp'; }), 'filters: Oldest sorts series by their newest episode (Jul) after older standalone reels');
   await page.reload(); await page.waitForSelector('#app[data-ready]');
   check(await page.evaluate(() => JSON.parse(sessionStorage.getItem('ll.filters')).watch.sort === 'old'), 'filters: the Watch sort persists in sessionStorage');
   await page.click('.p-filter[data-fpage="watch"] [data-fsort="new"]');
