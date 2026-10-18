@@ -1,6 +1,6 @@
 // Offline support: the app shell is cached on install; fonts are cached the first time they load.
 // Bump VERSION whenever a cached file changes so visitors get the new one.
-const VERSION = 'll-v52';
+const VERSION = 'll-v53';
 const SHELL = [
   './',
   'index.html',
@@ -47,7 +47,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   // Same-site files and Google Fonts: serve from cache, refresh in the background.
-  if (url.origin === location.origin || url.host.endsWith('fonts.googleapis.com') || url.host.endsWith('fonts.gstatic.com')) {
+  if (url.origin === location.origin) {
     event.respondWith(
       caches.open(VERSION).then((cache) =>
         cache.match(req).then((hit) => {

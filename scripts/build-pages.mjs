@@ -11,7 +11,9 @@ const output = resolve(root, 'dist');
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 
-for (const file of ['index.html', 'manifest.webmanifest', 'sw.js']) {
+// _headers (security headers) and 404.html are read by Cloudflare Pages; 404.html is also what
+// Pages shows for any address that has no file (the app uses #hash addresses, so it needs no fallback).
+for (const file of ['index.html', '404.html', 'manifest.webmanifest', 'sw.js', '_headers', 'robots.txt', 'sitemap.xml', 'favicon.ico']) {
   await cp(resolve(root, file), resolve(output, file));
 }
 
