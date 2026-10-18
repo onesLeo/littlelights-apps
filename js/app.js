@@ -783,9 +783,9 @@
     return st || (app.classList.contains('night') ? 'dark' : 'light');
   }
   function applyBook() {
-    var on = !rSheet.hidden && BOOK_MQ.matches && rSheetI >= 0;
-    wPlayer.classList.toggle('book', on);
-    if (!on) return;
+    var open = !rSheet.hidden && rSheetI >= 0;
+    wPlayer.classList.toggle('book', open && BOOK_MQ.matches); wPlayer.classList.toggle('capopen', open);
+    if (!open) return;
     var r = C.reels[rSheetI], base = r.pageColor || (parts[visibleReel] || r).bg || '#3B1F4A', v = pagePalette(base, bookStyle(r)), inn = rSheet.querySelector('.p-rsheet-in');
     inn.dataset.style = v.style;
     [['p1', v.p1], ['p2', v.p2], ['text', v.text], ['acc', v.acc], ['onacc', v.onacc], ['hair', v.hair]].forEach(function (x) { inn.style.setProperty('--bk-' + x[0], x[1]); });
@@ -1027,7 +1027,7 @@
   wGal.addEventListener('click', function (e) { var b = e.target.closest('[data-watch]'); if (b) openReel(+b.dataset.watch); var sr = e.target.closest('[data-series]'); if (sr) openSeries(sr.dataset.series); var cl = e.target.closest('[data-clear-watched]'); if (cl) { window.LL_watched.clear(); var h = wGal.querySelector('.p-whero'); if (h) h.focus(); } });
   function closeWatch() {
     if (!watchOpen) return;
-    rSheet.hidden = true; wPlayer.classList.remove('book'); watchOpen = false; wPlayer.hidden = true; wPlayer.classList.remove('on'); updateReels();
+    rSheet.hidden = true; wPlayer.classList.remove('book', 'capopen'); watchOpen = false; wPlayer.hidden = true; wPlayer.classList.remove('on'); updateReels();
     if (watchReturn && document.contains(watchReturn)) watchReturn.focus();
   }
   window.LL_closeWatch = closeWatch;
@@ -1040,7 +1040,7 @@
   });
   // openReel(i): opens story i; its parts are the sequence.
   function openStory(i) {
-    rSheet.hidden = true; wPlayer.classList.remove('book'); renderReelStory(i); seq = parts.map(function (_, k) { return k; });
+    rSheet.hidden = true; wPlayer.classList.remove('book', 'capopen'); renderReelStory(i); seq = parts.map(function (_, k) { return k; });
     showReel(0); $('#pWatchClose').focus();
   }
   function openReel(i) {

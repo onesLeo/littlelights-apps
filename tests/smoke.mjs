@@ -832,7 +832,32 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
     await ctx.close(); }
   { const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } }); const pg = await ctx.newPage();
     await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.click('.p-whero'); await pg.waitForTimeout(700); await pg.click('.p-reel.on .more'); await pg.waitForTimeout(200);
-    check(await pg.evaluate(() => !document.querySelector('.p-wplayer').classList.contains('book') && getComputedStyle(document.querySelector('.bk-acts')).display === 'none' && getComputedStyle(document.querySelector('.p-rsheet-in .handle')).display !== 'none'), 'book: phones keep the bottom sheet');
+    check(await pg.evaluate(() => !document.querySelector('.p-wplayer').classList.contains('book') && getComputedStyle(document.querySelector('.bk-acts')).display === 'flex' && getComputedStyle(document.querySelector('.p-rsheet-in .handle')).display !== 'none'), 'book: phones keep the bottom sheet (with Save/Share and a grab handle)');
+    await ctx.close(); }
+  // phone sheet: same reel-coloured glass at 390px, all reels, day and night
+  for (const theme of ['night', 'day']) for (const [name, open] of [['robe', '.p-whero'], ['noah', '.p-wcard >> nth=0'], ['jonah', '.p-wcard >> nth=1']]) {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    await ctx.addInitScript((t) => { localStorage.setItem('ll.theme', t); localStorage.setItem('ll.calm', '1'); }, theme);
+    const pg = await ctx.newPage(); await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.waitForTimeout(500);
+    await pg.click(open); await pg.waitForTimeout(700); await pg.click('.p-reel.on .more'); await pg.waitForTimeout(300);
+    const st = await pg.evaluate(() => { const sh = document.getElementById('pReelSheet'), i = sh.querySelector('.p-rsheet-in'), cs = getComputedStyle(i), h3 = getComputedStyle(i.querySelector('h3')), p = getComputedStyle(i.querySelector('p')), r = document.querySelector('.p-wplayer .p-reel.on');
+      return { style: i.dataset.style, bf: cs.backdropFilter, bg: cs.backgroundImage, scrim: getComputedStyle(sh).backgroundImage + ' ' + getComputedStyle(sh).backgroundColor + ' ' + getComputedStyle(sh).backdropFilter, anim: cs.animationName,
+        h3: h3.fontFamily + ' ' + h3.fontStyle + ' ' + h3.fontSize, p: p.fontFamily + ' ' + p.fontSize, hair: getComputedStyle(i.querySelector('.bk-hair')).display, kick: getComputedStyle(i.querySelector('.bk-kick')).textTransform,
+        acts: i.querySelectorAll('.bk-acts button').length, side: getComputedStyle(r.querySelector('.side')).visibility, focus: document.activeElement.className, xw: i.querySelector('.p-rsheet-x').getBoundingClientRect().width }; });
+    check(st.style === (theme === 'night' ? 'dark' : 'light') && /blur\(30px\)/.test(st.bf) && /saturate\(1\.7\)/.test(st.bf) && /rgba\(/.test(st.bg), `sheet ${name} ${theme}: ${st.style} reel-coloured glass (${st.bf})`);
+    check(/none rgba\(0, 0, 0, 0\) none/.test(st.scrim), `sheet ${name} ${theme}: no scrim behind the sheet, the reel blurs through (${st.scrim})`);
+    check(/Newsreader/.test(st.h3) && /italic/.test(st.h3) && /^(28|29|30)/.test(st.h3.split(' ').pop()) && /Newsreader/.test(st.p) && /18\.5px/.test(st.p), `sheet ${name} ${theme}: Newsreader italic title and 18.5px Newsreader caption (${st.h3.split(' ').slice(-2).join(' ')})`);
+    check(st.hair === 'block' && st.kick === 'uppercase' && st.acts === 2 && st.side === 'hidden' && st.xw >= 44, `sheet ${name} ${theme}: hairline, label, Save/Share in the sheet only, 44px close`);
+    check(st.anim === 'none' && st.focus === 'p-rsheet-x', `sheet ${name} ${theme}: calm opens instantly, focus on Close`);
+    const r = await pixelMin(pg, TEXT);
+    check(r.min >= 4.5, `sheet ${name} ${theme}: text vs the busiest pixel behind it ${r.min.toFixed(2)}:1 (AA 4.5, worst ${r.w})`);
+    if (name === 'jonah' && theme === 'night') { await pg.keyboard.press('Escape'); await pg.waitForTimeout(100);
+      check(await pg.evaluate(() => document.getElementById('pReelSheet').hidden && document.activeElement.classList.contains('more')), 'sheet: Esc closes and returns focus to "more"'); }
+    await ctx.close();
+  }
+  { const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' }); const pg = await ctx.newPage();
+    await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.click('.p-whero'); await pg.waitForTimeout(700); await pg.click('.p-reel.on .more'); await pg.waitForTimeout(100);
+    check(await pg.$eval('.p-rsheet-in', (i) => getComputedStyle(i).animationName === 'none'), 'sheet: reduced motion shows it instantly');
     await ctx.close(); }
   // any picked colour: text, accent and button text pass AA on the page colour
   { const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } }); const pg = await ctx.newPage(); await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero');
