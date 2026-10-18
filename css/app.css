@@ -1252,7 +1252,8 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 
 /* CC caption button (stacked with Save/Share) */
 .p-rcc svg rect { fill: none; }
-.p-rcc svg text { fill: #fff; stroke: none; font: 800 7.5px var(--display); letter-spacing: .02em; }
+.p-rcc svg text { fill: #fff; stroke: none; font: 900 9px var(--display); letter-spacing: 0; }
+.p-rcc svg rect { stroke-width: 2.2; }
 .p-reel .side .p-rcc[aria-expanded="true"] svg { background: rgba(255,255,255,.28); }
 /* Video reels: action stack sits above text burned into the lower part of the video */
 .p-reel.is-video .side { bottom: 31%; }
@@ -1262,3 +1263,12 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 #pReels.awake .p-reel.is-video .cap, .p-reel.is-video .cap:hover, .p-reel.is-video .cap:focus-within { opacity: 1; }
 .p-app.calm .p-reel.is-video .cap { transition: none; }
 @media (prefers-reduced-motion: reduce) { .p-reel.is-video .cap { transition: none; } }
+
+/* Controls (action stack + sound toggle) rest at 40% while a video plays; same wake logic as the
+   title. Opacity only: they stay tappable and the first tap still acts. Focus-visible stays 100%. */
+.p-reel.is-video :is(.side .p-ract, .p-rsound) { transition: opacity .35s ease; }
+.p-reel.is-video.playing :is(.side .p-ract, .p-rsound) { opacity: .4; }
+#pReels.awake .p-reel.is-video :is(.side .p-ract, .p-rsound), .p-reel.is-video :is(.side .p-ract, .p-rsound):focus-visible { opacity: 1; }
+.p-app.calm .p-reel.is-video :is(.side .p-ract, .p-rsound) { transition: none; }
+@media (prefers-reduced-motion: reduce) { .p-reel.is-video :is(.side .p-ract, .p-rsound) { transition: none; } }
+.p-reel.is-video.userpaused :is(.side .p-ract, .p-rsound) { opacity: 1; }

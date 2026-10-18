@@ -542,6 +542,8 @@ const seriesStub = shippedContent
       await page.evaluate((i) => window.LL_reel.open(i), i); await page.waitForTimeout(300);
       const reel = await page.$('.p-reel.on');
       const box = await reel.boundingBox();
+      // AA is required at full opacity: wake the resting video overlay/controls first (they rest at 60%/40% while playing).
+      await page.evaluate(() => document.querySelector('#pReels').dispatchEvent(new PointerEvent('pointermove', { bubbles: true }))); await page.waitForTimeout(450);
       const texts = await reel.evaluate((c) => { const cr = c.getBoundingClientRect();
         const t = [...c.querySelectorAll('.p-rtitle, .cap p, .p-rchip, .p-ract span')].map((e) => { const r = e.getBoundingClientRect(); return { sel: e.className || e.tagName, x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height, color: getComputedStyle(e).color }; });
         c.querySelectorAll('.p-rtitle, .cap p, .p-rchip, .p-ract span').forEach((e) => { e.dataset.css = e.style.cssText; e.style.setProperty('color', 'transparent', 'important'); e.style.setProperty('text-shadow', 'none', 'important'); e.style.setProperty('text-decoration-color', 'transparent', 'important'); });

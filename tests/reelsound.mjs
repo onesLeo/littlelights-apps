@@ -66,6 +66,34 @@ for (const [name, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { 
     for (let k = 0; k < 6; k++) { el.classList.add('playing'); r.classList.remove('awake'); await new Promise((f) => setTimeout(f, 100)); }
     return getComputedStyle(cap).opacity; });
   check(rest === '0.6', `${name}: overlay rests at 60% while the video plays (${rest})`);
+  // Controls rest at 40% while playing (still tappable), 100% when awake, paused or focus-visible.
+  const ctl = await page.evaluate(async () => { const r = document.querySelector('#pReels'), el = r.querySelector('.p-reel.on'), wait = (ms) => new Promise((f) => setTimeout(f, ms));
+    const ops = () => [...el.querySelectorAll('.side .p-ract, .p-rsound')].map((b) => getComputedStyle(b).opacity);
+    for (let k = 0; k < 6; k++) { el.classList.add('playing'); r.classList.remove('awake'); await wait(100); }
+    const rest = ops(), pe = [...el.querySelectorAll('.side .p-ract, .p-rsound')].every((b) => getComputedStyle(b).pointerEvents !== 'none');
+    const b = el.querySelector('.p-rsound').getBoundingClientRect(), top = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2).closest('.p-rsound') !== null;
+    r.dispatchEvent(new PointerEvent('pointermove', { bubbles: true })); await wait(450); const awake = ops();
+    r.classList.remove('awake'); el.classList.add('userpaused'); await wait(450); const paused = ops(); el.classList.remove('userpaused');
+    return { rest, pe, top, awake, paused, tr: getComputedStyle(el.querySelector('.p-rsound')).transitionDuration }; });
+  check(ctl.rest.length >= 4 && ctl.rest.every((o) => o === '0.4'), `${name}: CC/Save/Share and the sound toggle rest at 40% while playing (${ctl.rest.join(',')})`);
+  check(ctl.pe && ctl.top, `${name}: resting controls stay tappable (not covered, pointer events on)`);
+  check(ctl.awake.every((o) => +o > 0.99) && ctl.paused.every((o) => +o > 0.99), `${name}: controls are 100% when awake and when paused (${ctl.awake},${ctl.paused})`);
+  { // first tap on a resting control acts (not swallowed)
+    await page.evaluate(async () => { const r = document.querySelector('#pReels'), el = r.querySelector('.p-reel.on'); for (let k = 0; k < 6; k++) { el.classList.add('playing'); r.classList.remove('awake'); await new Promise((f) => setTimeout(f, 100)); } });
+    const was = await page.evaluate(() => window.LL_reel.sound());
+    if (name === 'phone') await page.tap('.p-reel.on .p-rsound'); else await page.click('.p-reel.on .p-rsound');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.LL_reel.sound()) === !was, `${name}: the first tap on a resting sound toggle still toggles sound`);
+    if (name === 'phone') await page.tap('.p-reel.on .p-rsound'); else await page.click('.p-reel.on .p-rsound');
+    await page.waitForTimeout(150);
+  }
+  { // focus-visible keeps a resting control at 100%
+    await page.evaluate(async () => { const r = document.querySelector('#pReels'), el = r.querySelector('.p-reel.on'); el.classList.add('playing'); r.classList.remove('awake'); });
+    await page.focus('.p-reel.on .share'); await page.keyboard.press('Shift'); await page.evaluate(() => { clearTimeout(window.__x); document.querySelector('#pReels').classList.remove('awake'); document.querySelector('.p-reel.on').classList.add('playing'); });
+    await page.waitForTimeout(450);
+    const fv = await page.$eval('.p-reel.on .share', (b) => ({ fv: b.matches(':focus-visible'), op: getComputedStyle(b).opacity }));
+    check(!fv.fv || fv.op === '1', `${name}: a focus-visible control shows at 100% (${fv.fv ? fv.op : 'focus-visible n/a'})`);
+  }
   check(await page.evaluate(async () => { document.querySelector('#pReels').dispatchEvent(new PointerEvent('pointermove', { bubbles: true })); return document.querySelector('#pReels').classList.contains('awake'); }), `${name}: moving/touching the reel area wakes the overlay`);
   await page.waitForTimeout(3300);
   check(await page.evaluate(() => !document.querySelector('#pReels').classList.contains('awake')), `${name}: overlay settles again after ~3s idle`);
@@ -86,11 +114,13 @@ for (const [name, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { 
   check(!(await page.$('#pFeed .p-slide.s3:not(.s-studio)')) && (await page.$$('[data-reel="-1"]')).length === 0, 'Today: the card for the hidden Jonathan reel is removed, no broken links');
   await page.click('.p-whero'); await page.waitForTimeout(300);
   check(await page.$eval('.p-reel.on .cap', (c) => getComputedStyle(c).transitionDuration) === '0s', 'calm mode: overlay changes instantly (no fade)');
+  check(await page.$$eval('.p-reel.on .side .p-ract, .p-reel.on .p-rsound', (b) => b.every((x) => getComputedStyle(x).transitionDuration === '0s')), 'calm mode: controls change instantly (no fade)');
   await context.close();
   const rm = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block', reducedMotion: 'reduce' });
   await rm.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
   const p2 = await rm.newPage(); await p2.goto(base + '#watch'); await p2.waitForSelector('#app[data-ready]'); await p2.click('.p-whero'); await p2.waitForTimeout(300);
   check(await p2.$eval('.p-reel.on .cap', (c) => getComputedStyle(c).transitionDuration) === '0s', 'reduced motion: overlay changes instantly (no fade)');
+  check(await p2.$$eval('.p-reel.on .side .p-ract, .p-reel.on .p-rsound', (b) => b.every((x) => getComputedStyle(x).transitionDuration === '0s')), 'reduced motion: controls change instantly (no fade)');
   await rm.close();
 }
 await browser.close(); server.close();
