@@ -939,7 +939,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
       check(Math.abs(r.fs - v.fs) < 0.5, `phone ${v.width}px ${mode}: wordmark is compact (${r.fs}px)`);
       check(r.brand === 'none' && r.kickerBelow, `phone ${v.width}px ${mode}: no desktop top bar, and Today's text starts below the circles`);
       check(r.bg === 'rgba(0, 0, 0, 0)' && r.beam.includes('linear-gradient') && r.hair.includes('linear-gradient'), `phone ${v.width}px ${mode}: no solid block, a soft golden beam with a fading hairline`);
-      check(r.color === (night ? 'rgb(246, 238, 220)' : 'rgb(51, 21, 5)'), `phone ${v.width}px ${mode}: ${night ? 'cream' : 'deep brown'} text (${r.color})`);
+      check(r.color === (night ? 'rgb(246, 238, 220)' : 'rgb(59, 26, 82)'), `phone ${v.width}px ${mode}: ${night ? 'cream' : 'deep plum'} text (${r.color})`);
       check(r.anim === 'none', `phone ${v.width}px ${mode}: the beam is static`);
     }
     await ctx.close();

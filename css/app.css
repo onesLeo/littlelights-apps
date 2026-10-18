@@ -1419,24 +1419,30 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 
 /* ---------- Phone: the calligraphy wordmark above the Today circles (desktop shows it in the top bar) ----------
    A soft golden beam behind the title (no solid block) with a thin gold hairline that fades out at both ends,
-   echoing the site's gold line and the running light. Night: cream and gold. Day: deep brown and amber on a lighter
-   warm beam, so the text keeps AA on the lit yellow sky. */
+   echoing the site's gold line and the running light. Night: cream and gold. Day: plum and rose-coral on a creamy
+   white beam, so the text keeps AA on the lit yellow sky. */
 .p-rwm { display: none; }
 @media (max-width: 899px) {
   .p-rings { flex-wrap: wrap; row-gap: 6px; }
   .p-rwm { display: flex; flex: 0 0 100%; align-items: center; height: 30px; margin-top: -4px; text-decoration: none; position: relative; isolation: isolate; }
   .p-rwm .wm { font-size: 21px; position: relative; padding: 0 14px 2px 10px; }
-  .p-rwm .wm::before { content: ""; position: absolute; z-index: -1; inset: -5px -40px -5px -22px; pointer-events: none;
-    background: linear-gradient(90deg, transparent 0%, var(--beam-mid) 8%, var(--beam) 20%, var(--beam) 80%, var(--beam-mid) 90%, transparent 100%);
-    -webkit-mask-image: linear-gradient(transparent, #000 28%, #000 72%, transparent); mask-image: linear-gradient(transparent, #000 28%, #000 72%, transparent); }
-  .p-rwm .wm::after { content: ""; position: absolute; left: -8px; right: -24px; bottom: -1px; height: 1px;
+  .p-rwm .wm::before { content: ""; position: absolute; z-index: -1; inset: -9px -40px -9px -8px; pointer-events: none;
+    background: linear-gradient(90deg, transparent 0%, var(--beam-mid) 10%, var(--beam) 24%, var(--beam) 78%, var(--beam-mid) 90%, transparent 100%);
+    -webkit-mask-image: linear-gradient(transparent, #000 22%, #000 80%, transparent); mask-image: linear-gradient(transparent, #000 22%, #000 80%, transparent); }
+  .p-rwm .wm::after { content: ""; position: absolute; left: 0; right: -24px; bottom: -1px; height: 1px;
     background: linear-gradient(90deg, transparent, var(--hair) 30%, var(--hair) 60%, transparent); pointer-events: none; }
-  /* Night (and the default): cream + gold on a faint warm-gold beam */
+  /* Layered shadow for depth: a tight offset one plus a softer, wider one. "Light" is gradient-clipped text,
+     so it gets the same layers as drop-shadow filters (a text-shadow would show through its transparent fill). */
+  .p-rwm .wm-s { text-shadow: var(--sh1), var(--sh2), var(--sh3); }
+  .p-rwm .wm-l { text-shadow: none; filter: drop-shadow(var(--sh1)) drop-shadow(var(--sh2)) drop-shadow(var(--sh3)); }
+  /* Night (and the default): cream + gold on a faint warm-gold beam, lifted by navy shadows with a hint of gold glow */
   .p-rwm .wm { --beam: rgba(245,194,107,.26); --beam-mid: rgba(245,194,107,.10); --hair: rgba(255,224,137,.75);
-    text-shadow: 0 0 10px rgba(245,194,107,.35); }
-  /* Day: deep warm brown and amber text, on a lighter cream-gold beam that lifts the dimmed sky behind it */
-  .p-app:not(.night) .p-rwm .wm { --wm-s: #331505; --wm-g1: #5E2C00; --wm-g2: #6E200C; --wm-glow: rgba(255,214,120,.55);
-    --beam: rgba(255,240,196,.74); --beam-mid: rgba(255,234,176,.40); --hair: rgba(160,98,10,.7); text-shadow: 0 0 8px rgba(255,240,200,.6); }
+    --sh1: 0 1px 1px rgba(7,9,30,.75); --sh2: 0 3px 8px rgba(7,9,30,.5); --sh3: 0 0 10px rgba(245,194,107,.3); }
+  /* Day: deep plum "Salt and" with a rose-to-coral "Light" (the pink and orange nav circles), on a creamy white
+     beam with the gold hairline; a soft white highlight above and a light warm shadow below read as lifted. */
+  .p-app:not(.night) .p-rwm .wm { --wm-s: #3B1A52; --wm-g1: #8C2152; --wm-g2: #922C17;
+    --beam: rgba(255,252,240,.86); --beam-mid: rgba(255,248,226,.5); --hair: rgba(196,140,30,.8);
+    --sh1: 0 -1px 0 rgba(255,255,255,.6); --sh2: 0 1px 1px rgba(90,40,10,.28); --sh3: 0 3px 8px rgba(120,60,10,.2); }
   .p-rwm:focus-visible { outline: none; }
   .p-rwm:focus-visible .wm { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 6px; }
   /* Room for the extra row (about 34px) */
