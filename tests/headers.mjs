@@ -63,15 +63,21 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1366, height: 820 
   const page = await context.newPage();
   await page.goto(base);
   await page.waitForSelector('#app[data-ready]');
-  check((await page.$eval('#pFeed', (f) => f.textContent)).includes('In peace I will'), `${viewport.width}px: posts load from the database under the policy`);
+  check((await page.$eval('#app', (f) => f.textContent)).includes('In peace I will'), `${viewport.width}px: posts load from the database under the policy`);
   for (const tab of ['verses', 'read', 'play', 'listen', 'watch', 'today']) {
     await page.goto(base + '#' + tab);
     await page.waitForTimeout(150);
   }
-  await page.goto(base + '#verses');
-  await page.click('#pGrid .p-tile');
-  await page.click('#pStory [data-save-verse]');
-  await page.keyboard.press('Escape');
+  // The Verses tab is hidden on main (.no-verses); open a verse story only when it is shown.
+  if (!(await page.$eval('#app', (a) => a.classList.contains('no-verses')))) {
+    await page.goto(base + '#verses');
+    await page.click('#pGrid .p-tile');
+    await page.click('#pStory [data-save-verse]');
+    await page.keyboard.press('Escape');
+  }
+  // Watch: the built-in reel (self-hosted mp4 and poster) under the policy.
+  await page.goto(base + '#watch');
+  await page.waitForTimeout(800);
   await page.goto(base + '#read/brave');
   await page.waitForTimeout(200);
   await page.evaluate(() => document.querySelector('[data-mode]').click());
