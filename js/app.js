@@ -700,6 +700,23 @@
   function epLabel(i) { var r = C.reels[i]; return r.series && r.episode ? 'Ep ' + r.episode + ' · ' : ''; }
   function storyKey(r) { return 'reel:' + String(r.title || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   var curStory = -1, parts = [];
+  // Video reels start muted (autoplay rules); the sound toggle unmutes inside the tap itself
+  // (required by iOS Safari) and the choice lasts for this session across reels.
+  var reelSound = false; try { reelSound = sessionStorage.getItem('ll.reelSound') === '1'; } catch (x) {}
+  function soundIcon(on) { return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/>' + (on ? '<path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/>' : '<path d="M16 9l5 6M21 9l-5 6"/>') + '</svg>'; }
+  function paintSound() {
+    $$('.p-rsound', reelsEl).forEach(function (b) {
+      b.setAttribute('aria-pressed', String(reelSound)); b.setAttribute('aria-label', reelSound ? 'Turn sound off' : 'Turn sound on');
+      b.innerHTML = soundIcon(reelSound) + '<span class="p-rsound-t">' + (reelSound ? 'Sound on' : 'Tap for sound') + '</span>';
+    });
+  }
+  function setSound(on) {
+    reelSound = on; try { sessionStorage.setItem('ll.reelSound', on ? '1' : '0'); } catch (x) {}
+    $$('.p-reel video', reelsEl).forEach(function (v) { v.muted = !on; if (on) v.volume = 1; });
+    var el = reelEl(visibleReel), v = el && el.querySelector('video');
+    if (v && on && v.paused && isPlaying()) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+    paintSound();
+  }
   function renderReelStory(i) {
     var r = C.reels[i]; curStory = i; parts = partsOf(r);
     // Read / Listen only appear when the reel post links a devotion (fields.devotion = slug) or audio (fields.audio = title).
@@ -711,12 +728,13 @@
     reelsEl.innerHTML = parts.map(function (pt, k) {
       var yid = ytId(pt.youtube);
       var scene = pt.src
-        ? '<video src="' + esc(pt.src) + '"' + (pt.poster ? ' poster="' + esc(pt.poster) + '"' : '') + ' playsinline muted controls preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
+        ? '<video src="' + esc(pt.src) + '"' + (pt.poster ? ' poster="' + esc(pt.poster) + '"' : '') + ' playsinline muted preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
         : yid ? '<div class="p-yt-slot" data-yt="' + yid + '" style="position:absolute;inset:0;background:#000"></div>'
         : reelScene(pt.kind);
-      return '<article class="p-reel" data-i="' + i + '" data-p="' + k + '" style="--rc:' + esc(pt.bg) + ';background:' + esc(pt.bg) + '" aria-label="' + esc(r.title) + (many ? ', part ' + (k + 1) + ' of ' + parts.length : '') + '">' +
+      return '<article class="p-reel' + (pt.src ? ' is-video' : '') + '" data-i="' + i + '" data-p="' + k + '" style="--rc:' + esc(pt.bg) + ';background:' + esc(pt.bg) + '" aria-label="' + esc(r.title) + (many ? ', part ' + (k + 1) + ' of ' + parts.length : '') + '">' +
         '<div class="scene"><div class="p-rkb">' + scene + '</div></div><div class="p-rfade" aria-hidden="true"></div>' +
-        '<div class="p-rtop"><div class="p-rsegs" aria-hidden="true"></div><span class="p-rchip">Reel' + (many ? ' · ' + (k + 1) + '/' + parts.length : '') + (pt.len ? ' · ' + esc(pt.len) : '') + '</span></div>' +
+        '<div class="p-rtop"><div class="p-rsegs" aria-hidden="true"></div><div class="p-rtoprow"><span class="p-rchip">Reel' + (many ? ' · ' + (k + 1) + '/' + parts.length : '') + (pt.len ? ' · ' + esc(pt.len) : '') + '</span>' +
+          (pt.src ? '<button type="button" class="p-rsound" aria-pressed="' + reelSound + '" aria-label="' + (reelSound ? 'Turn sound off' : 'Turn sound on') + '">' + soundIcon(reelSound) + '<span class="p-rsound-t">' + (reelSound ? 'Sound on' : 'Tap for sound') + '</span></button>' : '') + '</div></div>' +
         '<div class="tapzone p-rzones"><button type="button" class="z-prev" aria-label="Previous part"><span aria-hidden="true">‹</span></button><button type="button" class="z-mid" aria-label="Pause or play"></button><button type="button" class="z-next" aria-label="Next part"><span aria-hidden="true">›</span></button></div>' +
         '<div class="p-rend" hidden></div><div class="paused" aria-hidden="true"><span class="ic-pause"></span><span class="ic-play"></span></div>' +
         '<div class="side">' + acts + '</div>' +
@@ -793,7 +811,10 @@
         else slot.innerHTML = '';
       }
       var v = el.querySelector('video');
-      if (v) { if (playing) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } else v.pause(); }
+      if (v) {
+        v.muted = !reelSound;
+        if (playing) { var p = v.play(); if (p && p.catch) p.catch(function (err) { if (!v.muted && err && err.name === 'NotAllowedError') { v.muted = true; reelSound = false; paintSound(); var q = v.play(); if (q && q.catch) q.catch(function () {}); } }); } else v.pause();
+      }
     });
     if (watchOpen && !raf) { clock.last = 0; raf = requestAnimationFrame(reelTick); }
   }
@@ -832,7 +853,7 @@
   }
   function prevReel() { if (clock.t > 3 || pos === 0) restartReel(); else showReel(pos - 1); }
   function togglePause(el) { el.classList.toggle('userpaused'); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); updateReels(); }
-  window.LL_reel = { next: function () { nextReel(); }, prev: prevReel, show: showReel, seek: function (t) { clock.t = t; paint(); }, open: function (i) { openStory(i); }, state: function () { return { story: curStory, parts: parts.length, pos: pos, reel: visibleReel, seq: seq.slice(), t: clock.t, dur: clock.dur, real: clock.real, ended: ended, playing: !!isPlaying() }; } };
+  window.LL_reel = { sound: function () { return reelSound; }, next: function () { nextReel(); }, prev: prevReel, show: showReel, seek: function (t) { clock.t = t; paint(); }, open: function (i) { openStory(i); }, state: function () { return { story: curStory, parts: parts.length, pos: pos, reel: visibleReel, seq: seq.slice(), t: clock.t, dur: clock.dur, real: clock.real, ended: ended, playing: !!isPlaying() }; } };
   // Tap zones (left third: previous/restart, centre: pause, right third: next), press-and-hold pauses, swipe navigates.
   var down = null;
   reelsEl.addEventListener('pointerdown', function (e) {
@@ -854,6 +875,7 @@
     var reel = e.target.closest('.p-reel');
     if (!reel) return;
     var i = +reel.dataset.i;
+    if (e.target.closest('.p-rsound')) { e.stopPropagation(); e.preventDefault(); setSound(!reelSound); return; }
     if (e.target.closest('.p-rzones') && !e.target.closest('.p-rend')) {
       if (reelsEl._suppress && Date.now() - reelsEl._suppress < 400) { reelsEl._suppress = 0; return; }
       if (e.target.closest('.z-next')) nextReel(); else if (e.target.closest('.z-prev')) prevReel(); else togglePause(reel);
