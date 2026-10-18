@@ -234,8 +234,8 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(await page.$$eval('.wm-sway, .wm-flame, .wm-fo, .wm-fc, .wm-halo, .wm-ember', (f) => f.length > 20 && f.every((x) => getComputedStyle(x).animationName === 'none')), 'phone: calm mode keeps the wordmark flame still');
 
   await page.click('.p-tab[data-tab="watch"]');
-  check(await page.$$eval('.p-whero[data-watch="0"], .p-wcard[data-watch]', (e) => e.length) === 3, 'Watch: a featured hero and a thumbnail card for each other reel');
-  check(await page.$$eval('.p-wcard .p-wdur, .p-wcard .p-wplay', (e) => e.length) === 4, 'Watch: cards show a duration badge and a play icon');
+  check(await page.$$eval('.p-whero[data-watch="0"], .p-wcard[data-watch]', (e) => e.length) === 4, 'Watch: a featured hero and a thumbnail card for each other reel');
+  check(await page.$$eval('.p-wcard .p-wdur, .p-wcard .p-wplay', (e) => e.length) === 6, 'Watch: cards show a duration badge and a play icon');
   check(await page.$eval('#pWatchPlayer', (p) => p.hidden) && (await page.$$('#pWatchPlayer iframe, .p-reel.playing')).length === 0, 'Watch: nothing plays until a video is chosen');
   check(await page.$eval('.p-wcard .p-wthumb', (t) => getComputedStyle(t).transitionDuration.split(',').every((d) => parseFloat(d) === 0)) && await page.$eval('.p-wscene svg, .p-wscene *', (s) => getComputedStyle(s).animationName === 'none'), 'Watch: calm mode has no hover zoom or animation');
   await page.click('.p-wcard[data-watch="1"]'); await page.waitForTimeout(200);
@@ -433,7 +433,8 @@ const seriesStub = (await (await fetch(base + 'js/content.js')).text())
     "    { title: 'Oil for the lamp', series: 'Test Series: Little Lamp', episode: 2, date: '2026-07-01', len: '0:15', bg: '#3d7fc4', kind: 'rain', src: '', caption: 'Fixture episode two caption.', series_description: 'Fixture series description used only in tests.' },\n" +
     "    { title: 'Light for the path', series: 'Test Series: Little Lamp', episode: 3, date: '2026-03-01', len: '0:10', bg: '#1f3a6e', kind: 'sea', src: '', caption: 'Fixture episode three caption.' },\n")
   .replace("{ title: 'Why Jonathan gave David his robe',", "{ date: '2026-04-01', title: 'Why Jonathan gave David his robe',")
-  .replace("{ title: 'Noah kept building',", "{ date: '2026-05-01', title: 'Noah kept building',").replace("{ title: 'Jonah and the second chance',", "{ date: '2026-06-01', title: 'Jonah and the second chance',");
+  .replace("{ title: 'Noah kept building',", "{ date: '2026-05-01', title: 'Noah kept building',").replace("{ title: 'Jonah and the second chance',", "{ date: '2026-06-01', title: 'Jonah and the second chance',")
+  .replace("date: '2026-10-18T12:00:00+08:00',", "date: '2026-01-15',");  // keep the fixture series newest
 // ---------- frosted glass cards: fallback exists, text keeps AA contrast over the real sky ----------
 {
   const css = await (await fetch(base + 'css/app.css')).text();
@@ -464,12 +465,12 @@ const seriesStub = (await (await fetch(base + 'js/content.js')).text())
     check(cards.length >= (surface ? 1 : 3) && await page.$eval(sel.split(',')[0], (c) => /blur/.test(getComputedStyle(c).backdropFilter || getComputedStyle(c).webkitBackdropFilter)), `glass ${theme}: cards are frosted (backdrop blur)`);
     let worst = { r: 99, name: '' };
     for (const card of cards) {
-      const box = await card.boundingBox(); if (!box || (!surface && (box.y + 60 > vp.height || box.height < 60)) || box.height < 20 || (surface && (box.x < 0 || box.x + box.width > vp.width + 1))) continue;
+      const box = await card.boundingBox(); if (!box || box.x >= vp.width || (!surface && (box.y + 60 > vp.height || box.height < 60)) || box.height < 20 || (surface && (box.x < 0 || box.x + box.width > vp.width + 1))) continue;
       // Text elements (not buttons) and their own colours; then hide the content and sample what is behind each one.
       const info = await card.evaluate((c, surface) => {
         const cr = c.getBoundingClientRect();
         const texts = [...c.querySelectorAll(surface ? 'h1, h2, h3, h4, p, b, span, small, .p-kicker, label, .p-filter button' : '.p-kicker, .big, p, b, .verse, .ref, span, small')].filter((e) => (surface ? !e.closest('.p-btn, .p-mini button, .p-full button') && !e.children.length : !e.closest('.p-btn, button')) && e.textContent.trim() && e.getClientRects().length)
-          .map((e) => { let r = e.getBoundingClientRect(); if (e.matches('button')) { const g = document.createRange(); g.selectNodeContents(e); r = g.getBoundingClientRect(); } const cs = getComputedStyle(e); let op = 1; for (let x = e; x && x !== c.parentElement; x = x.parentElement) op *= +getComputedStyle(x).opacity; return { sel: e.tagName + '.' + e.className, x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height, color: cs.color, op }; });
+          .map((e) => { let r = e.getBoundingClientRect(); if (e.matches('button, .p-wdur')) { const g = document.createRange(); g.selectNodeContents(e); r = g.getBoundingClientRect(); } const cs = getComputedStyle(e); let op = 1; for (let x = e; x && x !== c.parentElement; x = x.parentElement) op *= +getComputedStyle(x).opacity; return { sel: e.tagName + '.' + e.className, x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height, color: cs.color, op }; });
         (surface ? c.querySelectorAll('*') : c.querySelectorAll('*')).forEach((e) => { e.dataset.vis = e.style.visibility;
           if (!c.matches('.p-whero, .p-wcard, .p-filter, .p-series-in') || ((e.matches('svg, .p-wplay') || e.closest('.p-wplay')) && !e.closest('.p-wscene'))) { e.style.visibility = 'hidden'; return; }
           e.dataset.col = e.style.cssText; e.style.setProperty('color', 'transparent', 'important'); e.style.setProperty('-webkit-text-fill-color', 'transparent', 'important'); e.style.setProperty('text-shadow', 'none', 'important'); e.style.setProperty('transition', 'none', 'important'); });
@@ -581,9 +582,9 @@ const seriesStub = (await (await fetch(base + 'js/content.js')).text())
   check(seriesStub.includes('Test Series: Little Lamp'), 'series: test fixture applied (test data only)');
   const { context, page } = await open({ width: 1440, height: 900 });
   const u = await page.evaluate(() => window.LL_series.units());
-  check(u.length === 4 && u.filter((x) => x.series).length === 1 && u.find((x) => x.series).eps.length === 3, 'series: 3 episodes group into one series; the 3 built-ins stay standalone');
+  check(u.length === 5 && u.filter((x) => x.series).length === 1 && u.find((x) => x.series).eps.length === 3, 'series: 3 episodes group into one series; the 4 built-ins stay standalone');
   check(await page.$eval('.p-whero', (h) => h.dataset.series === 'Test Series: Little Lamp' && /Series · 3 episodes/.test(h.textContent)), 'Watch: the hero is the newest series (sorted by its newest episode) with its episode count');
-  check(await page.$$eval('#pWatchGal [data-watch], #pWatchGal [data-series]', (b) => b.length) === 4, 'Watch: one cover per series plus standalone cards (no card per episode)');
+  check(await page.$$eval('#pWatchGal [data-watch], #pWatchGal [data-series]', (b) => b.length) === 5, 'Watch: one cover per series plus standalone cards (no card per episode)');
   check(!/\blikes?\b|\bcomments?\b/i.test(await page.$eval('#pWatchGal', (e) => e.textContent)), 'Watch: no like counts or comments');
   await page.click('.p-whero');
   await page.waitForTimeout(400);

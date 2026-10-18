@@ -63,6 +63,10 @@ window.LL_CONTENT = {
 
   // `src` is empty until real videos exist; the reel then shows an animated placeholder.
   reels: [
+    // Built-in uploaded-video reel, hosted in the repo (media/reels/). Newest, so it leads Watch.
+    { title: 'The Whisper', topic: 'Choosing God when you\u2019re tired', len: '0:20', bg: '#1f2a44', kind: 'sea',
+      src: 'media/reels/the-whisper.mp4', poster: 'media/reels/the-whisper-poster.jpg', date: '2026-10-18T12:00:00+08:00',
+      caption: "Tired at the end of the day? That little voice telling you to skip time with God can sound so reasonable. But you don't have to listen. 'Resist the devil, and he will flee from you.' (James 4:7, KJV). Tonight, open the Book, even for just one verse. 💛" },
     { title: 'Why Jonathan gave David his robe', len: '0:48', bg: '#e46a4c', kind: 'robe', src: '',
       caption: 'Jonathan was the king’s son. He gave David his own robe, sword and belt as a promise of friendship (1 Samuel 18:1–4). Real friends make room for each other.' },
     { title: 'Noah kept building', len: '0:58', bg: '#3d7fc4', kind: 'rain', src: '',
