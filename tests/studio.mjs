@@ -88,7 +88,7 @@ await page.selectOption('#f_page_style', 'light');
 await page.$eval('#f_page_color_pick', (i) => { i.value = '#2a7f62'; i.dispatchEvent(new Event('input', { bubbles: true })); });
 check(await page.$eval('#f_page_color', (i) => i.value) === '#2a7f62', 'reel: the colour picker fills the Page colour box');
 await page.locator('#f_page_style').evaluate((s) => s.closest('.two').scrollIntoView({ block: 'center' }));
-await page.locator('.two:has(#f_page_style)').screenshot({ path: '/workspace/bk-studio.png' });
+await page.locator('.two:has(#f_page_style)').screenshot({ path: 'test-results/studio-page-style.png' });
 await page.click('#postForm button[type=submit]');
 await page.waitForSelector('.list .row');
 const saved = await page.evaluate(async () => (await window.LLStore.publishedPosts()).filter((p) => p.title === 'Test episode one')[0]);
