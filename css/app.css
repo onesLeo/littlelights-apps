@@ -1325,3 +1325,8 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 @keyframes ledRun { from { transform: translateX(0); } to { transform: translateX(284.6%); } }
 .p-app.calm .p-rsheet-in .bk-led { animation: none !important; transform: translateX(142.3%); }
 @media (prefers-reduced-motion: reduce) { .p-rsheet-in .bk-led { animation: none !important; transform: translateX(142.3%); } }
+/* Thinner LED: 1px base and 1px segment, glow kept soft. */
+.p-rsheet-in .bk-hair { height: 1px !important; }
+.p-rsheet-in .bk-hair::before { opacity: .45; }
+.p-rsheet-in .bk-led { top: 0; height: 1px; border-radius: 1px;
+  box-shadow: 0 0 4px 1px color-mix(in srgb, var(--bk-hair, #F2C46B) 85%, transparent), 0 0 12px 2px color-mix(in srgb, var(--bk-acc, #F2C46B) 45%, transparent); }
