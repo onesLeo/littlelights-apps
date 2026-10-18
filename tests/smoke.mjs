@@ -920,7 +920,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
 
 // Phone wordmark: "Salt and Light" sits above the Today circles on phones (compact), and only in the top bar on desktop.
 {
-  const sizes = [{ width: 412, height: 915, fs: 21 }, { width: 340, height: 700, fs: 18 }];
+  const sizes = [{ width: 412, height: 915, fs: 21, dayFs: 22 }, { width: 340, height: 700, fs: 18, dayFs: 18 }];
   for (const v of sizes) {
     const ctx = await browser.newContext({ viewport: { width: v.width, height: v.height }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
     const page = await ctx.newPage(); await page.goto(base); await page.waitForSelector('#app[data-ready]');
@@ -933,15 +933,15 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
         return { visible: b.width > 60 && b.height > 0, fs: parseFloat(cs.fontSize), above: b.bottom <= rb.top, inView: b.left >= 0 && b.right <= innerWidth,
           brand: getComputedStyle(document.querySelector('.p-brand')).display, kickerBelow: !k || k.getBoundingClientRect().top >= rb.bottom, bg: cs.backgroundColor, color: getComputedStyle(wm.querySelector('.wm-s')).color,
           beam: getComputedStyle(wm, '::before').backgroundImage, hair: getComputedStyle(wm, '::after').backgroundImage, anim: getComputedStyle(wm, '::before').animationName, beamOn: getComputedStyle(wm, '::before').display !== 'none',
-          shadow: getComputedStyle(wm.querySelector('.wm-s')).textShadow, lfilter: getComputedStyle(wm.querySelector('.wm-l')).filter, lshadow: getComputedStyle(wm.querySelector('.wm-l')).textShadow };
+          shadow: getComputedStyle(wm.querySelector('.wm-s')).textShadow, lfilter: getComputedStyle(wm.querySelector('.wm-l')).filter, lshadow: getComputedStyle(wm.querySelector('.wm-l')).textShadow, stroke: getComputedStyle(wm.querySelector('.wm-s')).webkitTextStrokeWidth };
       });
       const mode = night ? 'night' : 'day';
       check(r.visible && r.above && r.inView, `phone ${v.width}px ${mode}: wordmark shows above the circles, inside the screen`);
-      check(Math.abs(r.fs - v.fs) < 0.5, `phone ${v.width}px ${mode}: wordmark is compact (${r.fs}px)`);
+      check(Math.abs(r.fs - (night ? v.fs : v.dayFs)) < 0.5, `phone ${v.width}px ${mode}: wordmark is compact (${r.fs}px)`);
       check(r.brand === 'none' && r.kickerBelow, `phone ${v.width}px ${mode}: no desktop top bar, and Today's text starts below the circles`);
       if (night) check(r.bg === 'rgba(0, 0, 0, 0)' && r.beamOn && r.beam.includes('linear-gradient') && r.hair.includes('linear-gradient'), `phone ${v.width}px night: no solid block, a soft golden beam with a fading hairline`);
       else check(r.bg === 'rgba(0, 0, 0, 0)' && !r.beamOn, `phone ${v.width}px day: no background behind the title`);
-      if (!night) check(/rgba\(110, 50, 25, 0\.45\) 0px 1px 0px/.test(r.shadow) && r.lshadow === r.shadow && r.lfilter === 'none' && !/\d+px \d+px [1-9]/.test(r.shadow) && !/rgba\(42, 15, 31/.test(r.shadow), `phone ${v.width}px day: crisp zero-blur light lift on both words, no filter on the text, no dark outline`);
+      if (!night) check(r.shadow === 'rgba(110, 50, 25, 0.4) 0px 1px 0px' && r.lshadow === r.shadow && r.lfilter === 'none' && r.stroke === '0.2px', `phone ${v.width}px day: one crisp 1px warm shadow (no highlight), hair-thin cream stroke, no filter, no dark outline (${r.shadow})`);
       check(r.color === (night ? 'rgb(246, 238, 220)' : 'rgb(255, 249, 236)'), `phone ${v.width}px ${mode}: ${night ? 'cream' : 'warm cream'} text (${r.color})`);
       check(r.anim === 'none', `phone ${v.width}px ${mode}: the beam is static`);
     }

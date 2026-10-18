@@ -1438,16 +1438,16 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
   /* Night (and the default): cream + gold on a faint warm-gold beam, lifted by navy shadows with a hint of gold glow */
   .p-rwm .wm { --beam: rgba(245,194,107,.26); --beam-mid: rgba(245,194,107,.10); --hair: rgba(255,224,137,.75);
     --sh1: 0 1px 1px rgba(7,9,30,.75); --sh2: 0 3px 8px rgba(7,9,30,.5); --sh3: 0 0 10px rgba(245,194,107,.3); }
-  /* Day: no background, bright and airy, and crisp. Warm cream text with zero-blur shadows only (a sharp warm
-     1px + 2px lift and a crisp white highlight on top), so nothing is blurred. "Light" drops its gradient and filter
+  /* Day: no background, bright and airy, and crisp. Warm cream text with one zero-blur 1px warm shadow (no second
+     layer or white highlight, which smeared next to the thin strokes), a hair-thin cream stroke to firm up
+     Parisienne's hairlines, and 22px. "Light" drops its gradient and filter
      by day (a filter rasterises the text softly) and uses a solid near-white cream with the same text-shadows;
      only the small candle SVG keeps a zero-blur drop-shadow. */
   .p-app:not(.night) .p-rwm .wm { --wm-s: #FFF9EC; --wm-g1: #FFF4DC; --wm-g2: #FFEEE0; --wm-glow: transparent; --hair: rgba(255,236,180,.85);
-    --dsh: 0 -1px 0 rgba(255,255,255,.45), 0 1px 0 rgba(110,50,25,.45), 0 2px 0 rgba(110,50,25,.2);
-    -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    --dsh: 0 1px 0 rgba(110,50,25,.4); font-size: 22px; }
   .p-app:not(.night) .p-rwm .wm::before { display: none; }
-  .p-app:not(.night) .p-rwm .wm-s { text-shadow: var(--dsh); }
-  .p-app:not(.night) .p-rwm .wm-l { background: none; color: #FFF3E2; -webkit-text-fill-color: currentColor; filter: none; text-shadow: var(--dsh); }
+  .p-app:not(.night) .p-rwm .wm-s { text-shadow: var(--dsh); -webkit-text-stroke: .2px #FFF9EC; }
+  .p-app:not(.night) .p-rwm .wm-l { background: none; color: #FFF3E2; -webkit-text-fill-color: currentColor; filter: none; text-shadow: var(--dsh); -webkit-text-stroke: .2px #FFF3E2; }
   .p-app:not(.night) .p-rwm .wm-i { filter: drop-shadow(0 1px 0 rgba(110,50,25,.45)); }
   .p-rwm:focus-visible { outline: none; }
   .p-rwm:focus-visible .wm { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 6px; }
@@ -1461,5 +1461,5 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 }
 @media (max-width: 370px) {
   .p-rwm { height: 26px; }
-  .p-rwm .wm { font-size: 18px; }
+  .p-rwm .wm, .p-app:not(.night) .p-rwm .wm { font-size: 18px; }
 }
