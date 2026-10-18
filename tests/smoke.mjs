@@ -931,13 +931,16 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
         const b = wm.getBoundingClientRect(), rb = ring.getBoundingClientRect(), cs = getComputedStyle(wm);
         const k = document.querySelector('.v-today .p-slide.s1 .p-kicker');
         return { visible: b.width > 60 && b.height > 0, fs: parseFloat(cs.fontSize), above: b.bottom <= rb.top, inView: b.left >= 0 && b.right <= innerWidth,
-          brand: getComputedStyle(document.querySelector('.p-brand')).display, kickerBelow: !k || k.getBoundingClientRect().top >= rb.bottom, bg: cs.backgroundColor, color: getComputedStyle(wm.querySelector('.wm-s')).color };
+          brand: getComputedStyle(document.querySelector('.p-brand')).display, kickerBelow: !k || k.getBoundingClientRect().top >= rb.bottom, bg: cs.backgroundColor, color: getComputedStyle(wm.querySelector('.wm-s')).color,
+          beam: getComputedStyle(wm, '::before').backgroundImage, hair: getComputedStyle(wm, '::after').backgroundImage, anim: getComputedStyle(wm, '::before').animationName };
       });
       const mode = night ? 'night' : 'day';
       check(r.visible && r.above && r.inView, `phone ${v.width}px ${mode}: wordmark shows above the circles, inside the screen`);
       check(Math.abs(r.fs - v.fs) < 0.5, `phone ${v.width}px ${mode}: wordmark is compact (${r.fs}px)`);
       check(r.brand === 'none' && r.kickerBelow, `phone ${v.width}px ${mode}: no desktop top bar, and Today's text starts below the circles`);
-      check(/rgba\(15, 13, 32, 0\.8/.test(r.bg) && r.color === 'rgb(246, 238, 220)', `phone ${v.width}px ${mode}: cream wordmark on the navy pill (AA on the day sky) ${r.bg} ${r.color}`);
+      check(r.bg === 'rgba(0, 0, 0, 0)' && r.beam.includes('linear-gradient') && r.hair.includes('linear-gradient'), `phone ${v.width}px ${mode}: no solid block, a soft golden beam with a fading hairline`);
+      check(r.color === (night ? 'rgb(246, 238, 220)' : 'rgb(51, 21, 5)'), `phone ${v.width}px ${mode}: ${night ? 'cream' : 'deep brown'} text (${r.color})`);
+      check(r.anim === 'none', `phone ${v.width}px ${mode}: the beam is static`);
     }
     await ctx.close();
   }

@@ -1417,16 +1417,28 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
   .p-app.night .p-legal.in-side { color: #cfd6f2; }
 }
 
-/* ---------- Phone: the calligraphy wordmark above the Today circles (desktop shows it in the top bar) ---------- */
+/* ---------- Phone: the calligraphy wordmark above the Today circles (desktop shows it in the top bar) ----------
+   A soft golden beam behind the title (no solid block) with a thin gold hairline that fades out at both ends,
+   echoing the site's gold line and the running light. Night: cream and gold. Day: deep brown and amber on a lighter
+   warm beam, so the text keeps AA on the lit yellow sky. */
 .p-rwm { display: none; }
 @media (max-width: 899px) {
   .p-rings { flex-wrap: wrap; row-gap: 6px; }
-  .p-rwm { display: flex; flex: 0 0 100%; align-items: center; height: 30px; margin-top: -4px; text-decoration: none; }
-  /* Same colours as the desktop top bar: cream and gold on deep navy, so it reads (AA) on the bright day sky too */
-  .p-rwm .wm { font-size: 21px; padding: 1px 12px 2px; border-radius: 999px; background: rgba(15,13,32,.82);
-    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); box-shadow: 0 2px 10px rgba(15,13,32,.25); }
+  .p-rwm { display: flex; flex: 0 0 100%; align-items: center; height: 30px; margin-top: -4px; text-decoration: none; position: relative; isolation: isolate; }
+  .p-rwm .wm { font-size: 21px; position: relative; padding: 0 14px 2px 10px; }
+  .p-rwm .wm::before { content: ""; position: absolute; z-index: -1; inset: -5px -40px -5px -22px; pointer-events: none;
+    background: linear-gradient(90deg, transparent 0%, var(--beam-mid) 8%, var(--beam) 20%, var(--beam) 80%, var(--beam-mid) 90%, transparent 100%);
+    -webkit-mask-image: linear-gradient(transparent, #000 28%, #000 72%, transparent); mask-image: linear-gradient(transparent, #000 28%, #000 72%, transparent); }
+  .p-rwm .wm::after { content: ""; position: absolute; left: -8px; right: -24px; bottom: -1px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--hair) 30%, var(--hair) 60%, transparent); pointer-events: none; }
+  /* Night (and the default): cream + gold on a faint warm-gold beam */
+  .p-rwm .wm { --beam: rgba(245,194,107,.26); --beam-mid: rgba(245,194,107,.10); --hair: rgba(255,224,137,.75);
+    text-shadow: 0 0 10px rgba(245,194,107,.35); }
+  /* Day: deep warm brown and amber text, on a lighter cream-gold beam that lifts the dimmed sky behind it */
+  .p-app:not(.night) .p-rwm .wm { --wm-s: #331505; --wm-g1: #5E2C00; --wm-g2: #6E200C; --wm-glow: rgba(255,214,120,.55);
+    --beam: rgba(255,240,196,.74); --beam-mid: rgba(255,234,176,.40); --hair: rgba(160,98,10,.7); text-shadow: 0 0 8px rgba(255,240,200,.6); }
   .p-rwm:focus-visible { outline: none; }
-  .p-rwm:focus-visible .wm { outline: 2px solid #fff; outline-offset: 2px; }
+  .p-rwm:focus-visible .wm { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 6px; }
   /* Room for the extra row (about 34px) */
   .v-today .p-slide { padding-top: 124px; }
   .v-today .p-slide.s1 { padding-top: 214px; }
@@ -1437,5 +1449,5 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 }
 @media (max-width: 370px) {
   .p-rwm { height: 26px; }
-  .p-rwm .wm { font-size: 18px; padding-inline: 10px; }
+  .p-rwm .wm { font-size: 18px; }
 }
