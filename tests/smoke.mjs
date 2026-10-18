@@ -8,6 +8,13 @@ const server = await serve(0);
 const base = `http://localhost:${server.address().port}/`;
 mkdirSync('test-results', { recursive: true });
 const browser = await chromium.launch();
+// TEST-ONLY: the 3 placeholder reels ship hidden by default (only The Whisper shows); these UI
+// tests still need several reels, so every context gets them un-hidden. tests/reelsound.mjs
+// checks the shipped default.
+const unhide = (src) => src.replace(/\{ hidden: true, /g, '{ ');
+const shippedContent = unhide(await (await fetch(base + 'js/content.js')).text());
+const newContext0 = browser.newContext.bind(browser);
+browser.newContext = async (...a) => { const c = await newContext0(...a); await c.route('**/js/content.js', (r) => r.fulfill({ contentType: 'text/javascript', body: shippedContent })); return c; };
 let failures = 0;
 
 function check(ok, label) {
@@ -427,7 +434,7 @@ for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { wi
   await c2.context.close();
 }
 // ---------- TEST-ONLY series fixture (never shipped): 3 episodes of a made-up series + dated built-ins ----------
-const seriesStub = (await (await fetch(base + 'js/content.js')).text())
+const seriesStub = shippedContent
   .replace("  reels: [\n", "  reels: [\n" +
     "    { title: 'The lamp is lit', series: 'Test Series: Little Lamp', episode: 1, date: '2026-02-01', len: '0:20', bg: '#e46a4c', kind: 'robe', src: '', caption: 'Fixture episode one caption for tests.' },\n" +
     "    { title: 'Oil for the lamp', series: 'Test Series: Little Lamp', episode: 2, date: '2026-07-01', len: '0:15', bg: '#3d7fc4', kind: 'rain', src: '', caption: 'Fixture episode two caption.', series_description: 'Fixture series description used only in tests.' },\n" +
@@ -517,7 +524,7 @@ const seriesStub = (await (await fetch(base + 'js/content.js')).text())
       check(await page.$$eval('.p-reel', (rs) => rs.length === 1 && rs[0].querySelectorAll('.p-rsegs i').length === 1 && rs[0].querySelector('.p-rsegs i').classList.contains('cur')), `reel ${tag}: a 1-part story has one progress segment`);
       check(await page.$eval('.p-reel .p-rchip', (e) => /^Reel · \d+:\d\d$/.test(e.textContent)), `reel ${tag}: "Reel · 0:48" chip`);
       check(await page.$eval('.p-reel .p-rtitle', (e) => getComputedStyle(e).fontWeight === '800' && /Bricolage/.test(getComputedStyle(e).fontFamily)), `reel ${tag}: bold display title (self-hosted Bricolage 800)`);
-      check(await page.$$eval('.p-reel .side', (s) => s.every((x) => [...x.querySelectorAll('.p-ract span')].map((e) => e.textContent).join() === 'Save,Share')), `reel ${tag}: only Save and Share when no devotion or audio is linked`);
+      check(await page.$$eval('.p-reel .side', (s) => s.every((x) => [...x.querySelectorAll('.p-ract span')].map((e) => e.textContent).join() === 'Save,Share,Caption')), `reel ${tag}: only Save, Share and the CC caption button when no devotion or audio is linked`);
       check(await page.$eval('.p-reel .p-ract svg', (s) => { const r = s.getBoundingClientRect(); return r.width >= 44 && getComputedStyle(s).borderRadius === '50%'; }), `reel ${tag}: round action buttons at least 44px`);
       check(!/\blikes?\b|\bcomments?\b/i.test(await page.$eval('#pReels', (e) => e.textContent)), `reel ${tag}: no like counts or comments`);
       check(await page.$eval('.p-reel .p-rkb', (e) => getComputedStyle(e).animationName === 'kenburns'), `reel ${tag}: slow Ken Burns on the art while playing`);
@@ -536,8 +543,8 @@ const seriesStub = (await (await fetch(base + 'js/content.js')).text())
       const reel = await page.$('.p-reel.on');
       const box = await reel.boundingBox();
       const texts = await reel.evaluate((c) => { const cr = c.getBoundingClientRect();
-        const t = [...c.querySelectorAll('.p-rtitle, .cap p, .more, .p-rchip, .p-ract span')].map((e) => { const r = e.getBoundingClientRect(); return { sel: e.className || e.tagName, x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height, color: getComputedStyle(e).color }; });
-        c.querySelectorAll('.p-rtitle, .cap p, .more, .p-rchip, .p-ract span').forEach((e) => { e.dataset.css = e.style.cssText; e.style.setProperty('color', 'transparent', 'important'); e.style.setProperty('text-shadow', 'none', 'important'); e.style.setProperty('text-decoration-color', 'transparent', 'important'); });
+        const t = [...c.querySelectorAll('.p-rtitle, .cap p, .p-rchip, .p-ract span')].map((e) => { const r = e.getBoundingClientRect(); return { sel: e.className || e.tagName, x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height, color: getComputedStyle(e).color }; });
+        c.querySelectorAll('.p-rtitle, .cap p, .p-rchip, .p-ract span').forEach((e) => { e.dataset.css = e.style.cssText; e.style.setProperty('color', 'transparent', 'important'); e.style.setProperty('text-shadow', 'none', 'important'); e.style.setProperty('text-decoration-color', 'transparent', 'important'); });
         c.querySelectorAll('.p-rkb, .p-rkb *').forEach((e) => e.style.setProperty('animation-play-state', 'paused', 'important'));
         return t; });
       const png = (await page.screenshot({ clip: { x: box.x, y: box.y, width: box.width, height: Math.min(box.height, vp.height - box.y) } })).toString('base64');

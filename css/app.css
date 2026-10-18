@@ -1249,3 +1249,16 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .p-reel.is-video .p-rtitle { font-size: 18px !important; }
 .p-reel.is-video .p-ract span { padding: 1px 4px; border-radius: 3px; background: rgba(12,8,28,.72); box-shadow: 0 0 0 4px rgba(12,8,28,.72); }
 .p-reel.is-video .p-rtitle { align-self: start; justify-self: start; padding: 2px 6px; margin-left: -6px; border-radius: 3px; background: rgba(12,8,28,.6); box-shadow: 0 0 0 4px rgba(12,8,28,.6); }
+
+/* CC caption button (stacked with Save/Share) */
+.p-rcc svg rect { fill: none; }
+.p-rcc svg text { fill: #fff; stroke: none; font: 800 7.5px var(--display); letter-spacing: .02em; }
+.p-reel .side .p-rcc[aria-expanded="true"] svg { background: rgba(255,255,255,.28); }
+/* Video reels: action stack sits above text burned into the lower part of the video */
+.p-reel.is-video .side { bottom: 31%; }
+/* Resting overlay: 60% while a video plays, 100% when awake (touch/hover/focus/caption open) */
+.p-reel.is-video .cap { transition: opacity .35s ease; }
+.p-reel.is-video.playing .cap { opacity: .6; }
+#pReels.awake .p-reel.is-video .cap, .p-reel.is-video .cap:hover, .p-reel.is-video .cap:focus-within { opacity: 1; }
+.p-app.calm .p-reel.is-video .cap { transition: none; }
+@media (prefers-reduced-motion: reduce) { .p-reel.is-video .cap { transition: none; } }

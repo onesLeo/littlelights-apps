@@ -65,8 +65,9 @@ const sheet = await C(page, () => window.LL_CONTENT.devotions[+document.querySel
 check(sheet === 'brave', 'Today: the devotion Read button still opens "brave"');
 const bedtime = await C(page, () => window.LL_CONTENT.episodes[+document.querySelector('.p-slide.s4 [data-ep]').dataset.ep].title);
 check(bedtime === 'When I Am Afraid — Psalm 56:3', 'Today: the audio Play button plays the Psalm 56:3 devotion (built-in index still mapped)');
-const reel = await C(page, () => window.LL_CONTENT.reels[+document.querySelector('.p-slide.s3 [data-reel]').dataset.reel].title);
-check(reel.startsWith('Why Jonathan'), 'Today: the reel Watch button still opens the Jonathan reel');
+// The Jonathan reel ships hidden by default, so its Today card is removed (no button points nowhere).
+const reel = await C(page, () => ({ card: !!document.querySelector('.p-slide.s3:not(.s-studio)'), broken: document.querySelectorAll('[data-reel="-1"]').length, jon: window.LL_CONTENT.reels.some((r) => r.title.startsWith('Why Jonathan')) }));
+check(!reel.card && !reel.broken && !reel.jon, 'Today: the hidden-by-default Jonathan reel card is removed, no broken Watch button');
 await page.context().close();
 
 page = await open('#read/brave', posts);

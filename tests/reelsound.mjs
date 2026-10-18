@@ -38,16 +38,60 @@ for (const [name, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { 
   check(!r1.muted && r1.vol === 1 && r1.pressed === 'true' && /Sound on/.test(r1.text), `${name}: tapping the toggle unmutes (muted=false, volume=1)`);
   check(r1.story === before.story && r1.reel === before.reel && !r1.userpaused, `${name}: tapping the toggle never pauses or navigates`);
   check(r1.ss === '1', `${name}: the sound choice is kept for the session`);
-  const cap = await page.evaluate(() => { const el = document.querySelector('.p-reel.on'), p = el.querySelector('.cap p'), m = el.querySelector('.cap .more'); return { pHidden: !p || !p.getClientRects().length, more: !!(m && m.getClientRects().length), top: el.querySelector('.cap').getBoundingClientRect().top / el.getBoundingClientRect().height }; });
-  check(cap.pHidden && cap.more, `${name}: video reel overlay is compact (caption behind "more")`);
+  const cap = await page.evaluate(() => { const el = document.querySelector('.p-reel.on'), p = el.querySelector('.cap p'), m = el.querySelector('.cap .more'); return { pHidden: !p || !p.getClientRects().length, noMore: !m, top: el.querySelector('.cap').getBoundingClientRect().top / el.getBoundingClientRect().height }; });
+  check(cap.pHidden && cap.noMore, `${name}: video reel overlay is compact (title only, no "more" link)`);
   check(cap.top > 0.85, `${name}: the overlay stays in the bottom 15% (${cap.top.toFixed(2)}) so burned-in text is readable`);
+  // CC caption button: round glass, 44px+, stacked with Save/Share, opens the caption sheet without pausing or navigating.
+  const cc = await page.evaluate(() => { const el = document.querySelector('.p-reel.on'), b = el.querySelector('.side .p-rcc'), s = b && b.querySelector('svg').getBoundingClientRect(); return b && { label: b.getAttribute('aria-label'), exp: b.getAttribute('aria-expanded'), w: s.width, h: s.height, radius: getComputedStyle(b.querySelector('svg')).borderRadius, inSide: !!b.closest('.side'), sideBottom: el.querySelector('.side').getBoundingClientRect().bottom / el.getBoundingClientRect().height }; });
+  check(cc && cc.label === 'Show caption' && cc.exp === 'false' && cc.inSide, `${name}: CC button labelled "Show caption" with aria-expanded, stacked with Save/Share`);
+  check(cc && cc.w >= 44 && cc.h >= 44 && cc.radius === '50%', `${name}: CC button is round and at least 44px`);
+  check(cc && cc.sideBottom < 0.72, `${name}: action stack sits above the burned-in text (${cc && cc.sideBottom.toFixed(2)})`);
+  const b4 = await page.evaluate(() => window.LL_reel.state());
+  if (name === 'phone') await page.tap('.p-reel.on .p-rcc'); else await page.click('.p-reel.on .p-rcc');
+  await page.waitForTimeout(250);
+  const o = await page.evaluate(() => ({ open: !document.querySelector('#pReelSheet').hidden, exp: document.querySelector('.p-reel.on .p-rcc').getAttribute('aria-expanded'), text: document.querySelector('#pReelSheet p').textContent, st: window.LL_reel.state(), paused: document.querySelector('.p-reel.on').classList.contains('userpaused'), awake: document.querySelector('#pReels').classList.contains('awake') }));
+  check(o.open && o.exp === 'true' && /James 4:7/.test(o.text), `${name}: tapping CC opens the caption sheet (aria-expanded=true)`);
+  check(o.st.story === b4.story && o.st.reel === b4.reel && !o.paused, `${name}: tapping CC never pauses or navigates`);
+  check(o.awake, `${name}: the overlay is fully shown while the caption is open`);
+  await page.click('#pReelSheet .p-rsheet-x'); await page.waitForTimeout(200);
+  check(await page.$eval('.p-reel.on .p-rcc', (b) => b.getAttribute('aria-expanded')) === 'false', `${name}: closing the caption sets aria-expanded=false`);
+  // Resting opacity: 60% while playing and idle, 100% when awake; instant in calm mode.
+  const op = await page.evaluate(async () => { const r = document.querySelector('#pReels'), el = r.querySelector('.p-reel.on'), cap = el.querySelector('.cap');
+    el.classList.add('playing'); r.classList.remove('awake'); await new Promise((f) => setTimeout(f, 50));
+    const rest = getComputedStyle(cap).opacity; r.classList.add('awake'); await new Promise((f) => setTimeout(f, 450)); const awakeOp = getComputedStyle(cap).opacity, tr = getComputedStyle(cap).transitionDuration;
+    return { rest, awakeOp, tr, calm: document.querySelector('#app').classList.contains('calm') }; });
+  check(op.awakeOp === '1', `${name}: overlay goes to 100% when awake`);
+  check(op.calm ? op.tr === '0s' : /0\.35s/.test(op.tr), `${name}: overlay fade is ${op.calm ? 'instant in calm mode' : 'a short transition'} (${op.tr})`);
+  const rest = await page.evaluate(async () => { const r = document.querySelector('#pReels'), el = r.querySelector('.p-reel.on'), cap = el.querySelector('.cap');
+    for (let k = 0; k < 6; k++) { el.classList.add('playing'); r.classList.remove('awake'); await new Promise((f) => setTimeout(f, 100)); }
+    return getComputedStyle(cap).opacity; });
+  check(rest === '0.6', `${name}: overlay rests at 60% while the video plays (${rest})`);
+  check(await page.evaluate(async () => { document.querySelector('#pReels').dispatchEvent(new PointerEvent('pointermove', { bubbles: true })); return document.querySelector('#pReels').classList.contains('awake'); }), `${name}: moving/touching the reel area wakes the overlay`);
+  await page.waitForTimeout(3300);
+  check(await page.evaluate(() => !document.querySelector('#pReels').classList.contains('awake')), `${name}: overlay settles again after ~3s idle`);
   // Close and open again (a new tap): the choice persists across reels in this session.
   await page.keyboard.press('Escape'); await page.waitForTimeout(400); await page.click(`[data-watch="${at}"]`); await page.waitForTimeout(400);
   const r2 = await page.evaluate(() => { const v = document.querySelector('.p-reel.on video'); return { muted: v.muted, pressed: document.querySelector('.p-reel.on .p-rsound').getAttribute('aria-pressed') }; });
   check(r2.pressed === 'true', `${name}: sound stays on for the next reel in this session`);
-  const ph = await page.evaluate(() => !document.querySelector('.p-reel:not(.is-video) .p-rsound'));
-  check(ph, `${name}: placeholder reels have no sound toggle`);
+  const only = await page.evaluate(() => ({ reels: window.LL_CONTENT.reels.map((r) => r.title), cards: document.querySelectorAll('#pWatchGal .p-wcard').length }));
+  check(only.reels.length === 1 && only.reels[0] === 'The Whisper', `${name}: only The Whisper is shipped visible (placeholders hidden by default)`);
   await context.close();
+}
+{
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  await context.addInitScript(() => localStorage.setItem('ll.calm', '1'));
+  const page = await context.newPage(); await page.goto(base + '#watch'); await page.waitForSelector('#app[data-ready]');
+  check(await page.$$eval('#pWatchGal .p-whero', (h) => h.length) === 1 && await page.$$eval('#pWatchGal .p-wcard, #pWatchGal .p-wsub', (c) => c.length) === 0, 'single reel: Watch shows the hero only');
+  check(!(await page.$('#pFeed .p-slide.s3:not(.s-studio)')) && (await page.$$('[data-reel="-1"]')).length === 0, 'Today: the card for the hidden Jonathan reel is removed, no broken links');
+  await page.click('.p-whero'); await page.waitForTimeout(300);
+  check(await page.$eval('.p-reel.on .cap', (c) => getComputedStyle(c).transitionDuration) === '0s', 'calm mode: overlay changes instantly (no fade)');
+  await context.close();
+  const rm = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block', reducedMotion: 'reduce' });
+  await rm.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  const p2 = await rm.newPage(); await p2.goto(base + '#watch'); await p2.waitForSelector('#app[data-ready]'); await p2.click('.p-whero'); await p2.waitForTimeout(300);
+  check(await p2.$eval('.p-reel.on .cap', (c) => getComputedStyle(c).transitionDuration) === '0s', 'reduced motion: overlay changes instantly (no fade)');
+  await rm.close();
 }
 await browser.close(); server.close();
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll reel sound checks passed');

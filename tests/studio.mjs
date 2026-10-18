@@ -246,19 +246,19 @@ await page.waitForSelector('#builtinList .row');
 const bRows = await page.$$eval('#builtinList .row', (r) => r.map((x) => x.dataset.key));
 check(bRows.includes('audio:keep-building') && bRows.includes('devotion:brave') && bRows.includes('reel:why-jonathan-gave-david-his-robe') && bRows.includes('verse:joshua-1-9'),
   'built-ins: audio, devotions, reels and verses are all listed');
-check(!(await page.$$eval('#builtinList .pill', (p) => p.some((x) => x.textContent === 'Hidden'))), 'built-ins: everything is visible by default');
+check((await page.$$eval('#builtinList .row', (r) => r.filter((x) => x.querySelector('.pill').textContent === 'Hidden').map((x) => x.dataset.key))).join() === 'reel:why-jonathan-gave-david-his-robe,reel:noah-kept-building,reel:jonah-and-the-second-chance', 'built-ins: everything is visible by default except the 3 placeholder reels (hidden: true)');
 await page.click('[data-bhide="devotion:brave"]');
-await page.click('[data-bhide="reel:why-jonathan-gave-david-his-robe"]');
+await page.click('[data-bhide="reel:noah-kept-building"]');
 await page.click('#saveHidden');
 await page.waitForTimeout(200);
-check(await page.evaluate(() => JSON.parse(localStorage.getItem('ll.settings.v1')).builtins_hidden.hidden.join(',')) === 'devotion:brave,reel:why-jonathan-gave-david-his-robe',
-  'built-ins: Save stores the hidden list (builtins_hidden)');
+check(await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('ll.settings.v1')).builtins_hidden)) === JSON.stringify({ hidden: ['devotion:brave'], shown: ['reel:noah-kept-building'] }),
+  'built-ins: Save stores the hidden list and the default-hidden items shown again (builtins_hidden)');
 check(await page.$eval('[data-key="devotion:brave"] .pill', (p) => p.textContent) === 'Hidden', 'built-ins: the item shows as Hidden after saving');
 const app3 = await context.newPage();
 app3.on('pageerror', (e) => errors.push(e.message));
 await app3.goto(base);
 await app3.waitForSelector('#app[data-ready]');
-check(await app3.evaluate(() => !window.LL_CONTENT.devotions.some((d) => d.slug === 'brave') && !window.LL_CONTENT.reels.some((r) => r.title.startsWith('Why Jonathan'))), 'app: hidden built-ins are left out');
+check(await app3.evaluate(() => !window.LL_CONTENT.devotions.some((d) => d.slug === 'brave') && !window.LL_CONTENT.reels.some((r) => r.title.startsWith('Why Jonathan')) && window.LL_CONTENT.reels.some((r) => r.title === 'Noah kept building')), 'app: hidden built-ins are left out; a default-hidden reel shown in the Studio comes back');
 check((await app3.$$('[data-sheet="-1"], [data-reel="-1"], [data-ep="-1"]')).length === 0, 'app: no buttons point at hidden items');
 check(!(await app3.$('#pFeed .p-slide.s2:not(.s-studio)')) && !(await app3.$('#pFeed .p-slide.s3:not(.s-studio)')), 'app: Today cards built around hidden items are removed');
 const row = await app3.evaluate(() => {
@@ -271,7 +271,7 @@ const row = await app3.evaluate(() => {
 check(/mid-[12]/.test(row.cls) && row.gapRight < 4, `app: the Today row is filled to the edge, no row ends early (${row.cls}, ${row.gapRight}px)`);
 await app3.close();
 await page.click('[data-bhide="devotion:brave"]');
-await page.click('[data-bhide="reel:why-jonathan-gave-david-his-robe"]');
+await page.click('[data-bhide="reel:noah-kept-building"]');
 await page.click('#saveHidden');
 await page.waitForTimeout(200);
 

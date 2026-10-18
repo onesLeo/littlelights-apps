@@ -72,12 +72,11 @@
   function loadHidden() {
     var S = window.LLStore;
     if (!S || !S.getSetting) return Promise.resolve();
-    try { HIDDEN = S.normalizeHidden(JSON.parse(localStorage.getItem(HIDDEN_KEY) || 'null')) || []; } catch (err) { HIDDEN = []; }
+    try { HIDDEN = S.effectiveHidden(JSON.parse(localStorage.getItem(HIDDEN_KEY) || 'null')); } catch (err) { HIDDEN = S.effectiveHidden(null); }
     var fresh = S.getSetting('builtins_hidden').then(function (v) {
-      var h = v == null ? [] : S.normalizeHidden(v);
-      if (!h) return;
-      HIDDEN = h;
-      try { localStorage.setItem(HIDDEN_KEY, JSON.stringify({ hidden: h })); } catch (err) { /* storage blocked */ }
+      if (v != null && !S.normalizeHidden(v)) return;
+      HIDDEN = S.effectiveHidden(v);
+      try { localStorage.setItem(HIDDEN_KEY, JSON.stringify(v == null ? { hidden: [] } : v)); } catch (err) { /* storage blocked */ }
     });
     var slow = new Promise(function (resolve) { setTimeout(resolve, 4000); });
     return Promise.race([fresh, slow]).catch(function () {});
@@ -722,6 +721,7 @@
     // Read / Listen only appear when the reel post links a devotion (fields.devotion = slug) or audio (fields.audio = title).
     var acts = '<button type="button" class="save p-ract' + (savedReels[i] ? ' saved' : '') + '" aria-label="Save">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
       '<button type="button" class="share p-ract" aria-label="Share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button>' +
+      (r.caption ? '<button type="button" class="more p-ract p-rcc" aria-label="Show caption" aria-expanded="false" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6" width="17" height="12" rx="3"/><text x="12" y="14.6" text-anchor="middle">CC</text></svg><span>Caption</span></button>' : '') +
       (r.read ? '<button type="button" class="p-ract" data-read-slug="' + esc(r.read) + '" aria-label="Read the devotion">' + rIcon('M3 5h7a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H3zM21 5h-7a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h7z') + '<span>Read</span></button>' : '') +
       (r.listen ? '<button type="button" class="p-ract" data-listen-title="' + esc(r.listen) + '" aria-label="Listen">' + rIcon('M4 14v-2a8 8 0 0 1 16 0v2M4 14h3v6H4zM17 14h3v6h-3z') + '<span>Listen</span></button>' : '');
     var many = parts.length > 1;
@@ -738,7 +738,7 @@
         '<div class="tapzone p-rzones"><button type="button" class="z-prev" aria-label="Previous part"><span aria-hidden="true">‹</span></button><button type="button" class="z-mid" aria-label="Pause or play"></button><button type="button" class="z-next" aria-label="Next part"><span aria-hidden="true">›</span></button></div>' +
         '<div class="p-rend" hidden></div><div class="paused" aria-hidden="true"><span class="ic-pause"></span><span class="ic-play"></span></div>' +
         '<div class="side">' + acts + '</div>' +
-        '<div class="cap">' + (r.series ? '<span class="p-rseries">' + esc(r.series) + (r.episode ? ' · Episode ' + r.episode : '') + '</span>' : r.topic ? '<span class="p-rseries">' + esc(r.topic) + '</span>' : '') + '<b class="p-rtitle">' + esc(r.title) + '</b>' + (r.caption ? '<p>' + esc(r.caption) + '</p><button type="button" class="more" aria-haspopup="dialog">more</button>' : '') +
+        '<div class="cap">' + (r.series ? '<span class="p-rseries">' + esc(r.series) + (r.episode ? ' · Episode ' + r.episode : '') + '</span>' : r.topic ? '<span class="p-rseries">' + esc(r.topic) + '</span>' : '') + '<b class="p-rtitle">' + esc(r.title) + '</b>' + (r.caption ? '<p>' + esc(r.caption) + '</p>' : '') +
         (pt.youtube && !yid ? '<a class="p-yt" href="' + esc(pt.youtube) + '" target="_blank" rel="noopener">Watch on YouTube</a>' : '') + '</div>' +
         '</article>';
     }).join('');
@@ -756,9 +756,17 @@
   var rSheetFrom = null;
   function openReelSheet(i, from) {
     rSheetFrom = from; rSheet.querySelector('h3').textContent = C.reels[i].title; rSheet.querySelector('p').textContent = C.reels[i].caption;
-    rSheet.hidden = false; rSheet.querySelector('.p-rsheet-x').focus();
+    rSheet.hidden = false; if (from) from.setAttribute('aria-expanded', 'true'); wakeOverlay(); rSheet.querySelector('.p-rsheet-x').focus();
   }
-  function closeReelSheet() { if (rSheet.hidden) return false; rSheet.hidden = true; if (rSheetFrom) rSheetFrom.focus(); updateReels(); return true; }
+  function closeReelSheet() { if (rSheet.hidden) return false; rSheet.hidden = true; if (rSheetFrom) { rSheetFrom.setAttribute('aria-expanded', 'false'); rSheetFrom.focus(); } wakeOverlay(); updateReels(); return true; }
+  // Title/topic overlay on playing video reels rests at 60% opacity and wakes to 100% on touch,
+  // tap, hover, focus or an open caption; it settles again after ~3s idle (CSS does the fade).
+  var wakeT = 0;
+  function wakeOverlay() {
+    if (!reelsEl) return; reelsEl.classList.add('awake'); clearTimeout(wakeT);
+    wakeT = setTimeout(function () { if (rSheet.hidden) reelsEl.classList.remove('awake'); else wakeOverlay(); }, 3000);
+  }
+  ['pointerdown', 'pointermove', 'focusin', 'keydown', 'wheel'].forEach(function (ev) { reelsEl.addEventListener(ev, wakeOverlay, { passive: true }); });
   rSheet.addEventListener('click', function (e) { if (e.target === rSheet || e.target.closest('.p-rsheet-x')) closeReelSheet(); });
   // ---------- Story player ----------
   // The progress bars and taps move between the parts of the open story only; the end screen offers

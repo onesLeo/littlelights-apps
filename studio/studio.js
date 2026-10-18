@@ -198,7 +198,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var content = S.getSetting('content').then(function (v) { return v; }, function () { return null; });
     return Promise.all([S.listPosts(), S.listTeam(), nav, hid, content]).then(function (r) {
       state.content = S.normalizeContent(r[4]) || S.contentDefault();
-      state.hidden = S.normalizeHidden(r[3]) || [];
+      state.hidden = S.effectiveHidden(r[3] && S.normalizeHidden(r[3]) ? r[3] : null);
       state.posts = r[0] || []; state.team = r[1] || [];
       state.nav = S.normalizeNav(r[2]) || S.navDefault();
     });
@@ -426,7 +426,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     [['episodes', 'audio', 'Audio', function (e) { return e.title; }], ['devotions', 'devotion', 'Devotion', function (d) { return d.slug; }, function (d) { return d.title; }],
       ['reels', 'reel', 'Reel', function (r) { return r.title; }], ['verses', 'verse', 'Verse', function (v) { return v.ref; }]].forEach(function (t) {
       (C[t[0]] || []).forEach(function (item) {
-        out.push({ key: t[1] + ':' + S.slugify(t[3](item)), type: t[2], title: (t[4] || t[3])(item), silent: t[1] === 'audio' && !item.src });
+        out.push({ key: t[1] + ':' + S.slugify(t[3](item)), type: t[2], title: (t[4] || t[3])(item), silent: t[1] === 'audio' && !item.src, byDefault: item.hidden === true });
       });
     });
     return out;
@@ -439,7 +439,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       '<div class="list" id="builtinList">' + builtinItems().map(function (it) {
         var off = hidden.indexOf(it.key) >= 0;
         return '<div class="row" data-key="' + esc(it.key) + '"><span><b>' + esc(it.title) + '</b><small>' + esc(it.type) + (it.silent ? ' · no recording yet, not shown in the app' : '') + '</small></span>' +
-          '<span style="display:flex;gap:8px;align-items:center"><span class="pill ' + (off ? 'draft' : 'published') + '">' + (off ? 'Hidden' : 'Visible') + '</span>' +
+          '<span style="display:flex;gap:8px;align-items:center"><span class="pill ' + (off ? 'draft' : 'published') + '">' + (off ? 'Hidden' : 'Visible') + '</span>' + (it.byDefault ? '<small>hidden by default</small>' : '') +
           (owner ? '<button class="btn ghost small" type="button" data-bhide="' + esc(it.key) + '" aria-pressed="' + off + '">' + (off ? 'Show' : 'Hide') + '</button>' : '') + '</span></div>';
       }).join('') + '</div>' +
       (owner ? '<div style="margin-top:16px"><button class="btn primary" type="button" id="saveHidden"' + (state.busy ? ' disabled' : '') + '>Save</button></div>' : '');
@@ -651,10 +651,10 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     }
     else if (b.id === 'saveHidden') {
       if (!isOwner()) return;
-      var value = { hidden: S.normalizeHidden({ hidden: state.hidden || [] }) };
+      var value = S.hiddenValue(state.hidden || []);
       state.busy = true; render();
       S.saveSetting('builtins_hidden', value, state.email).then(function (saved) {
-        state.busy = false; state.hiddenError = ''; state.hidden = S.normalizeHidden(saved) || value.hidden;
+        state.busy = false; state.hiddenError = ''; state.hidden = S.effectiveHidden(saved && S.normalizeHidden(saved) ? saved : value);
         toast('Saved. Visitors see the change next time the app loads.'); render();
       }).catch(fail);
     }
