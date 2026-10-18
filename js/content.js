@@ -63,11 +63,11 @@ window.LL_CONTENT = {
 
   // `src` is empty until real videos exist; the reel then shows an animated placeholder.
   reels: [
-    { title: 'Why Jonathan gave David his robe', len: '0:48', bg: '#e46a4c', kind: 'robe', src: '',
+    { title: 'Why Jonathan gave David his robe', len: '0:48', bg: '#e46a4c', kind: 'robe', src: '', pageStyle: 'auto', pageColor: '#c8742e',
       caption: 'Jonathan was the king’s son. He gave David his own robe, sword and belt as a promise of friendship (1 Samuel 18:1–4). Real friends make room for each other.' },
-    { title: 'Noah kept building', len: '0:58', bg: '#3d7fc4', kind: 'rain', src: '',
+    { title: 'Noah kept building', len: '0:58', bg: '#3d7fc4', kind: 'rain', src: '', pageStyle: 'auto', pageColor: '',
       caption: 'Before the rain, there was a lot of quiet work. Noah trusted God and kept building. Genesis 6:22.' },
-    { title: 'Jonah and the second chance', len: '0:52', bg: '#1f3a6e', kind: 'sea', src: '',
+    { title: 'Jonah and the second chance', len: '0:52', bg: '#1f3a6e', kind: 'sea', src: '', pageStyle: 'auto', pageColor: '',
       caption: 'Jonah ran the other way. God gave him another chance, and showed mercy to Nineveh too. Jonah 4:2.' }
   ],
 

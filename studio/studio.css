@@ -275,3 +275,6 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .sub { margin: 28px 0 8px; font-size: 17px; }
 .check { display: flex; gap: 10px; align-items: flex-start; font-weight: 600; }
 .check input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--focus, #7b5cd6); }
+.colorrow { display: flex; gap: 8px; align-items: center; }
+.colorrow input[type="color"] { width: 48px; height: 44px; padding: 2px; border-radius: 10px; border: 1px solid var(--line, #d9d2e6); background: #fff; cursor: pointer; flex: none; }
+.colorrow .input { flex: 1; min-width: 0; }

@@ -787,6 +787,63 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
   await ctx.close();
 }
 
+// ---------- Reel caption: desktop book spread ----------
+{
+  const pixelMin = async (pg, sel) => {
+    const texts = await pg.evaluate((sel) => { const els = [...document.querySelectorAll(sel)]; const t = els.map((e) => { const g = document.createRange(); g.selectNodeContents(e); return { s: e.className || e.tagName, rs: [...g.getClientRects()].map((r) => ({ x: r.left, y: r.top, w: r.width, h: r.height })), color: getComputedStyle(e).color }; });
+      const st = document.createElement('style'); st.id = 'tx'; st.textContent = '.p-rsheet-in .bk-kick,.p-rsheet-in h3,.p-rsheet-in p,.p-rsheet-in p::first-letter,.p-rsheet-in .bk-acts span{color:transparent!important}'; document.head.appendChild(st); return t; }, sel);
+    await pg.waitForTimeout(80); const png = (await pg.screenshot()).toString('base64'); await pg.evaluate(() => document.getElementById('tx').remove());
+    return pg.evaluate(async ({ png, texts }) => { const img = new Image(); img.src = 'data:image/png;base64,' + png; await img.decode(); const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const g = cv.getContext('2d'); g.drawImage(img, 0, 0);
+      const lum = (c) => { const v = c.map((n) => { n /= 255; return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; }; const parse = (s) => s.match(/[\d.]+/g).map(Number).slice(0, 3);
+      let min = 99, w = ''; for (const t of texts) { const A = lum(parse(t.color)); for (const q of t.rs) { if (q.w < 1) continue; const d = g.getImageData(Math.floor(q.x), Math.floor(q.y), Math.max(1, Math.floor(q.w)), Math.max(1, Math.floor(q.h))).data;
+        for (let i = 0; i < d.length; i += 8) { const B = lum([d[i], d[i + 1], d[i + 2]]); const c = (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05); if (c < min) { min = c; w = t.s; } } } } return { min, w }; }, { png, texts });
+  };
+  const TEXT = '.p-rsheet-in .bk-kick, .p-rsheet-in h3, .p-rsheet-in p, .p-rsheet-in .bk-acts span';
+  for (const theme of ['night', 'day']) for (const [name, open] of [['robe', '.p-whero'], ['noah', '.p-wcard >> nth=0'], ['jonah', '.p-wcard >> nth=1']]) {
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await ctx.addInitScript((t) => { localStorage.setItem('ll.theme', t); localStorage.setItem('ll.calm', '1'); }, theme);
+    const pg = await ctx.newPage(); await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.waitForTimeout(500);
+    await pg.click(open); await pg.waitForTimeout(700); await pg.click('.p-reel.on .more'); await pg.waitForTimeout(300);
+    const st = await pg.evaluate(() => { const w = document.querySelector('.p-wplayer'), i = document.querySelector('.p-rsheet-in'), cs = getComputedStyle(i), r = document.querySelector('.p-reel.on');
+      return { book: w.classList.contains('book'), style: i.dataset.style, bf: cs.backdropFilter, bg: cs.backgroundImage, anim: cs.animationName, side: getComputedStyle(r.querySelector('.side')).visibility, focus: document.activeElement.className,
+        feedR: Math.round(document.querySelector('.p-wplayer .p-feed').getBoundingClientRect().right), pageL: Math.round(i.getBoundingClientRect().left), hair: getComputedStyle(i.querySelector('.bk-hair')).display, h3: getComputedStyle(i.querySelector('h3')).fontFamily + ' ' + getComputedStyle(i.querySelector('h3')).fontStyle }; });
+    check(st.book && st.style === (theme === 'night' ? 'dark' : 'light'), `book ${name} ${theme}: opens as a book spread with the ${st.style} page`);
+    check(/blur\(30px\)/.test(st.bf) && /saturate\(1\.7\)/.test(st.bf) && /rgba\(/.test(st.bg), `book ${name} ${theme}: translucent glass page (${st.bf})`);
+    check(Math.abs(st.feedR - st.pageL) <= 2 && st.hair === 'block', `book ${name} ${theme}: page meets the reel at the spine, gold hairline shown`);
+    check(st.side === 'hidden', `book ${name} ${theme}: the reel's own Save/Share are hidden (only the page has them)`);
+    check(/Newsreader/.test(st.h3) && /italic/.test(st.h3), `book ${name} ${theme}: Newsreader italic title`);
+    check(st.anim === 'none', `book ${name} ${theme}: calm mode opens instantly`);
+    check(st.focus === 'p-rsheet-x', `book ${name} ${theme}: focus moves to Close`);
+    const r = await pixelMin(pg, TEXT);
+    check(r.min >= 4.5, `book ${name} ${theme}: page text vs the busiest pixel behind it ${r.min.toFixed(2)}:1 (AA 4.5, worst ${r.w})`);
+    if (name === 'robe' && theme === 'night') {
+      await pg.click('.bk-save'); await pg.waitForTimeout(100);
+      check(await pg.$eval('.bk-save', (b) => b.getAttribute('aria-pressed')) === 'true' && await pg.$eval('.p-reel.on .save', (b) => b.classList.contains('saved')), 'book: Save on the page saves the reel');
+      await pg.click('.bk-save');
+      await pg.keyboard.press('Escape'); await pg.waitForTimeout(100);
+      check(await pg.evaluate(() => document.getElementById('pReelSheet').hidden && !document.querySelector('.p-wplayer').classList.contains('book') && document.activeElement.classList.contains('more')), 'book: Esc closes the page and returns focus to "more"');
+    }
+    await ctx.close();
+  }
+  // reduced motion (no calm): instant; phone keeps the bottom sheet
+  { const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 }, reducedMotion: 'reduce' }); const pg = await ctx.newPage();
+    await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.click('.p-whero'); await pg.waitForTimeout(700); await pg.click('.p-reel.on .more'); await pg.waitForTimeout(100);
+    check(await pg.evaluate(() => { const i = document.querySelector('.p-rsheet-in'), f = document.querySelector('.p-wplayer .p-feed'); return getComputedStyle(i).animationName === 'none' && /^0s/.test(getComputedStyle(f).transitionDuration); }), 'book: reduced motion opens instantly (no slide)');
+    await ctx.close(); }
+  { const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } }); const pg = await ctx.newPage();
+    await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.click('.p-whero'); await pg.waitForTimeout(700); await pg.click('.p-reel.on .more'); await pg.waitForTimeout(200);
+    check(await pg.evaluate(() => !document.querySelector('.p-wplayer').classList.contains('book') && getComputedStyle(document.querySelector('.bk-acts')).display === 'none' && getComputedStyle(document.querySelector('.p-rsheet-in .handle')).display !== 'none'), 'book: phones keep the bottom sheet');
+    await ctx.close(); }
+  // any picked colour: text, accent and button text pass AA on the page colour
+  { const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } }); const pg = await ctx.newPage(); await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero');
+    const worst = await pg.evaluate(() => { const lum = (h) => [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16) / 255).map((v) => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4).reduce((a, v, k) => a + v * [0.2126, 0.7152, 0.0722][k], 0);
+      const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+      let w = 99, at = ''; for (let n = 0; n < 400; n++) { const c = '#' + [0, 0, 0].map(() => ('0' + Math.floor(Math.random() * 256).toString(16)).slice(-2)).join('');
+        for (const st of ['dark', 'light', 'clear']) { const v = window.LL_pagePalette(c, st); const m = Math.min(ratio(v.text, v.p1), ratio(v.text, v.p2), ratio(v.acc, v.p1), ratio(v.acc, v.p2), ratio(v.onacc, v.acc)); if (m < w) { w = m; at = c + ' ' + st; } } } return { w, at }; });
+    check(worst.w >= 4.5, `book: 400 random page colours x 3 styles keep text/accent/button AA on the page colour (worst ${worst.w.toFixed(2)} at ${worst.at})`);
+    await ctx.close(); }
+}
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');
