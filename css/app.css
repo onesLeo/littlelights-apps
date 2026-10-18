@@ -62,6 +62,12 @@ img, svg { max-width: 100%; }
 .wm-wick { stroke: var(--wm-g2); stroke-width: 1.4; stroke-linecap: round; fill: none; }
 /* Light backgrounds: plum (#3B1F4A) and a deeper gold so both parts pass WCAG AA. */
 .wm-onlight { --wm-s: #3B1F4A; --wm-g1: #9A5410; --wm-g2: #A63D2F; --wm-g0: #E9A23B; --wm-glow: rgba(245,194,107,.35); }
+/* Page-header wordmarks (Listen, Read, Verses, Play) sit on cream glass by day: always use the on-light ink.
+   Listen keeps its dark header by day, so it keeps the cream ink. The Today phone row (.p-rwm) keeps its own
+   cream styling and is not a .p-logo. By day the desktop top bar turns translucent over the cream pages, so its
+   "Light" gradient is lifted to keep at least 3:1 (27px script counts as large text). */
+.p-app:not(.night) .p-brand .wm { --wm-s: #FFF8EA; --wm-g1: #FFD58C; --wm-g2: #FFC4AE; }
+.p-app:not(.night) .p-view:not(.v-listen) .p-logo .wm { --wm-s: #3B1F4A; --wm-g1: #9A5410; --wm-g2: #A63D2F; --wm-g0: #E9A23B; --wm-glow: rgba(245,194,107,.35); }
 .p-app.night .wm-onlight { --wm-s: #F6EEDC; --wm-g1: #F5C26B; --wm-g2: #F4A38C; --wm-g0: #FFF6D8; --wm-glow: rgba(245,194,107,.45); }
 /* Living flame: nested layers with prime-length, irregular keyframes so the motion never visibly repeats.
    Transform/opacity only; origins at the flame base so the candle stays anchored. --wm-d puts each instance out of phase. */
