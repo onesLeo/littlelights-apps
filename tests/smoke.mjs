@@ -60,8 +60,14 @@ async function openApp(viewport, sw = true, versesOn = true) {
   const onView = () => page.$eval('.p-view.on', (v) => v.dataset.view);
   const soonOpen = () => page.$eval('#pSoon', (s) => s.classList.contains('on'));
 
-  // Built-in default (no setting saved): Verses is "coming soon", every way in shows the message.
+  // Built-in default (no setting saved): Verses is hidden from the menus (SWA audit, Oct 2026).
+  check(!(await page.isVisible('.p-tab[data-tab="verses"]')) && !(await page.isVisible('.p-ring[data-go="verses"]')), 'nav: Verses is hidden by default');
+  // Set to "coming soon" in the Studio: the tab shows, marked Soon, and every way in shows the message.
+  await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'coming_soon' } } })));
+  await page.reload();
+  await page.waitForSelector('#app[data-ready]');
   check(await page.isVisible('.p-tab[data-tab="verses"]'), 'nav: Verses tab stays visible while coming soon');
+  check(await page.$eval('.p-tab[data-tab="verses"]', (t) => t.getAttribute('aria-label') === 'Verses, coming soon' && getComputedStyle(t, '::after').content.includes('Soon')), 'nav: a coming-soon tab is marked Soon (and says so to screen readers)');
   await page.click('.p-tab[data-tab="verses"]');
   await page.waitForTimeout(150);
   check(await soonOpen(), 'nav: tapping Verses shows the coming-soon message');
@@ -95,7 +101,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
 
   // Approved copy (Oct 2026): free game, Android closed test, no dead sign-up form, no audio-less Listen button.
   const html = await page.content();
-  check(html.includes('Little Light: Bible Journeys is completely free. No ads, no purchases, nothing to unlock.'), 'copy: Play subhead says the game is free');
+  check(html.includes('Little Light: Bible Journeys is completely free.</h2>') && html.includes('No ads, no purchases, nothing to unlock.'), 'copy: Play headline says the game is free, details in the text below');
   check(!html.includes('App Store') && !html.includes('Play the free preview') && !html.includes('Free preview'), 'copy: no App Store badge, preview button or Free preview status');
   check(html.includes('14-day closed test') && !!(await page.$('.p-stores a[href$="/join"]')), 'copy: store line explains the closed test and links to /join');
   check(new Set(await page.$$eval('#pMap .st', (s) => s.map((x) => x.textContent))).size === 1, 'copy: all journey statuses are the same');
@@ -702,7 +708,7 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
   });
   const tag = vp.width >= 900 ? 'desktop' : 'phone';
   check(r.verseText === 0 && r.buttons === 0, `verses off ${tag}: no verse cards, More verses or Save image on Today`);
-  check(r.navVerses, `verses off ${tag}: the Verses menu entry stays (coming soon)`);
+  check(!r.navVerses, `verses off ${tag}: the Verses menu entry is hidden by default (Studio > Menus can show it)`);
   check(tag === 'desktop' ? (r.welcome && !r.hello && r.firstTopGap < 2 && r.rowGap < 2) : r.hello, `verses off ${tag}: Today still opens with a welcome and the cards close up (gap ${Math.round(r.firstTopGap)}/${Math.round(r.rowGap)}px)`);
   check(r.devotionQuote, `verses off ${tag}: Bible quotes inside devotions are kept`);
   // Owner switches them back on: everything returns, nothing was deleted.
@@ -788,7 +794,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
   await ctx.addInitScript((t) => { localStorage.setItem('ll.theme', t); }, theme);
   const pg = await ctx.newPage(); await pg.goto(base + '#read'); await pg.waitForSelector('#pCards .p-card'); await pg.waitForTimeout(600);
   const r = await pg.evaluate(() => { const R = (e) => e.getBoundingClientRect(); const h = document.querySelector('.v-read .p-head'); const c = document.querySelector('#pCards .p-card.feat'); const f = document.querySelector('.v-read .p-filter');
-    const t = h.querySelector('h3') || h; const tr = document.createRange(); tr.selectNodeContents(t);
+    const t = h.querySelector('h1, h3') || h; const tr = document.createRange(); tr.selectNodeContents(t);
     return { title: Math.round(tr.getBoundingClientRect().left), card: Math.round(R(c).left), filt: f ? Math.round(R(f).left) : null, headBg: getComputedStyle(h).backgroundColor, gap: R(c.querySelector('.p-kicker')).top - R(c).top,
       hair: [...document.querySelectorAll('#pCards .p-card')].every((x) => { const a = getComputedStyle(x, '::after'); return parseFloat(a.height) >= 1.5 && parseFloat(a.height) <= 2 && /gradient/.test(a.backgroundImage); }) }; });
   check(Math.abs(r.title - r.card) <= 2 && (r.filt === null || Math.abs(r.filt - r.card) <= 2), `read ${w} ${theme}: title/filter aligned with cards (${r.title}/${r.filt}/${r.card})`);

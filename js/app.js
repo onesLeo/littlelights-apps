@@ -419,6 +419,10 @@
       $$('.p-tab[data-tab="' + tab + '"], [data-go="' + tab + '"]').forEach(function (el) {
         el.hidden = st === 'hidden';
         if (st === 'coming_soon') el.setAttribute('data-soon', ''); else el.removeAttribute('data-soon');
+        if (el.classList.contains('p-tab')) {
+          if (st === 'coming_soon') { el.setAttribute('aria-label', (TAB_NAME[tab] || tab) + ', coming soon'); el.title = 'Coming soon'; }
+          else { el.removeAttribute('aria-label'); el.removeAttribute('title'); }
+        }
       });
     });
   }
@@ -568,15 +572,16 @@
     if (on && !was) setTimeout(function () { if (!app.classList.contains('calm')) flyOwl(); if (window.LL_perchFit) window.LL_perchFit(); }, 0);
     document.querySelector('meta[name="theme-color"]').setAttribute('content', on ? '#070b22' : '#0f0d20');
     $$('[data-mode]').forEach(function (b) {
-      b.innerHTML = on ? ICON_SUN : ICON_MOON;
+      b.innerHTML = (on ? ICON_SUN : ICON_MOON) + '<span class="p-mlabel" aria-hidden="true">' + (on ? 'Day' : 'Night') + '</span>';
       b.setAttribute('aria-label', on ? 'Switch to day mode' : 'Switch to night mode');
+      b.title = on ? 'Switch to day mode' : 'Switch to night mode';
     });
     if (save) store('theme', on ? 'night' : 'day');
   }
   function setCalm(on, save) {
     app.classList.toggle('calm', on);
     $$('[data-calm]').forEach(function (b) {
-      b.innerHTML = ICON_LEAF;
+      b.innerHTML = ICON_LEAF + '<span class="p-mlabel" aria-hidden="true">Calm</span>';
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
       b.title = on ? 'Calm mode is on' : 'Calm mode: less movement';
     });
@@ -1104,19 +1109,20 @@
   function watchOrder() { return [].concat.apply([], unitOrder().map(function (u) { return u.eps; })); }
   function tickHtml(on) { return on ? '<span class="p-wwatched"><span aria-hidden="true">✓</span> Watched</span>' : ''; }
   function unitAttrs(u) { return u.series ? 'data-series="' + esc(u.series) + '"' : 'data-watch="' + u.eps[0] + '"'; }
-  function unitLabel(u) { var r = u.cover; return u.series ? 'Open series ' + u.title + ', ' + u.eps.length + ' episodes' + (unitWatched(u) ? ', watched' : '') : 'Play ' + r.title + (r.len ? ', ' + r.len : '') + (unitWatched(u) ? ', watched' : ''); }
+  // The name starts with the title the card shows (WCAG 2.5.3, label in name), then what tapping does.
+  function unitLabel(u) { var r = u.cover; return u.series ? u.title + ', series of ' + u.eps.length + ' episodes' + (unitWatched(u) ? ', watched' : '') + ', open' : r.title + (r.len ? ', ' + r.len : '') + (unitWatched(u) ? ', watched' : '') + ', play'; }
   function renderWatch() {
     wGal.removeAttribute('aria-busy');
     if (!C.reels.length) { wGal.innerHTML = '<div class="p-wempty glass glass--dark"><b>No videos yet</b><p>New Bible story videos are on their way. Check back soon.</p></div>'; return; }
     var order = unitOrder(), h = order[0], hr = h.cover, anyW = C.reels.some(function (_, k) { return isWatched(k); });
     var focusWas = document.activeElement && wGal.contains(document.activeElement) ? (document.activeElement.dataset.watch || document.activeElement.dataset.series) : null;
     var badge = function (u) { return u.series ? '<span class="p-weps">' + u.eps.length + ' episode' + (u.eps.length === 1 ? '' : 's') + '</span>' : (u.cover.len ? '<span class="p-wdur">' + esc(u.cover.len) + '</span>' : ''); };
-    wGal.innerHTML = '<div class="p-wtop"><h2 class="p-wtitle">Watch</h2>' + (anyW ? '<button type="button" class="p-wclear" data-clear-watched>Clear watched</button>' : '') + '</div>' +
+    wGal.innerHTML = '<div class="p-wtop"><h1 class="p-wtitle">Watch</h1>' + (anyW ? '<button type="button" class="p-wclear" data-clear-watched>Clear watched</button>' : '') + '</div>' +
       filterBar('watch', order.length, []) +
       '<button type="button" class="p-whero glass glass--dark' + (unitWatched(h) ? ' watched' : '') + (h.series ? ' is-series' : '') + '" ' + unitAttrs(h) + ' style="--bg:' + esc(hr.bg) + '" aria-label="' + esc(unitLabel(h)) + '">' +
       '<span class="p-wthumb">' + thumb(hr, true) + '</span><span class="p-wshade"></span>' + playIcon() +
       '<span class="p-winfo"><span class="p-kicker">' + (h.series ? 'Series · ' + h.eps.length + ' episode' + (h.eps.length === 1 ? '' : 's') : (unitWatched(h) ? 'Watched' : 'Featured') + (hr.len ? ' · ' + esc(hr.len) : '')) + '</span><b>' + esc(h.title) + '</b>' + (h.desc ? '<small>' + esc(h.desc) + '</small>' : '') + '</span>' + tickHtml(unitWatched(h)) + '</button>' +
-      (order.length > 1 ? '<h3 class="p-wsub">More videos</h3><div class="p-wgrid">' + order.slice(1).map(function (u) {
+      (order.length > 1 ? '<h2 class="p-wsub">More videos</h2><div class="p-wgrid">' + order.slice(1).map(function (u) {
         var r = u.cover;
         return '<button type="button" class="p-wcard' + (unitWatched(u) ? ' watched' : '') + (u.series ? ' is-series' : '') + '" ' + unitAttrs(u) + ' style="--bg:' + esc(r.bg) + '" aria-label="' + esc(unitLabel(u)) + '">' +
           '<span class="p-wthumb">' + thumb(r) + (u.series ? '' : playIcon()) + badge(u) + tickHtml(unitWatched(u)) + '</span>' +

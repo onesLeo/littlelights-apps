@@ -311,7 +311,7 @@
   // 'hidden'. Today is always on. Used when the setting is missing or can't be loaded.
   var NAV_MENUS = ['watch', 'listen', 'read', 'verses', 'play'];
   var NAV_STATES = ['on', 'coming_soon', 'hidden'];
-  var NAV_DEFAULT = { menus: { watch: 'on', listen: 'on', read: 'on', verses: 'coming_soon', play: 'on' },
+  var NAV_DEFAULT = { menus: { watch: 'on', listen: 'on', read: 'on', verses: 'hidden', play: 'on' },
     message: 'This feature is coming soon! We’re still getting it ready for you.' };
   // Returns a clean copy, or null when `v` doesn't look like a nav setting.
   function normalizeNav(v) {

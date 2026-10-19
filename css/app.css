@@ -47,7 +47,7 @@ img, svg { max-width: 100%; }
 
 /* shared header for list pages */
 .p-head { position: sticky; top: 0; z-index: 3; padding: 22px 18px 12px; display: flex; align-items: center; justify-content: space-between; background: inherit; }
-.p-head h3 { font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
+.p-head :is(h1, h3) { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
 .p-logo { display: flex; align-items: center; gap: 7px; font-weight: 800; font-size: 14px; }
 
 /* Calligraphy wordmark: "Salt and" + "Light" with a candle for the i.
@@ -317,7 +317,11 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .p-gamehero { margin: 0 14px; border-radius: 22px 30px 18px 34px / 30px 18px 34px 22px; background: var(--t-play); overflow: hidden; position: relative; }
 .p-gamehero svg { display: block; width: 100%; height: auto; }
 .p-gameinfo { padding: 16px 18px 6px; display: grid; gap: 8px; }
-.p-gameinfo h4 { margin: 0; font-size: 24px; line-height: 1.05; font-weight: 800; }
+.p-gameinfo :is(h4, .p-gametitle) { margin: 0; font-size: 24px; line-height: 1.05; font-weight: 800; }
+.p-gameinfo .p-gamelead { font-size: 16px; line-height: 1.45; margin: 0; }
+/* 5.5:1 on the cream card (#fbf3dd); a lighter green in night mode. */
+.p-gamekick { color: #2f6e43; opacity: 1; }
+.p-app.night .p-gamekick { color: #9ad6a8; }
 .p-gameinfo p { font-size: 14px; line-height: 1.5; }
 .p-cta { border: 0; border-radius: 14px; padding: 13px 16px; background: #3b2412; color: #fbf3dd; font-size: 14px; font-weight: 800; cursor: pointer; }
 .p-trust { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 14px; }
@@ -510,6 +514,13 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .p-btn:focus-visible, .p-tab:focus-visible, .p-brand:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .p-mode[aria-pressed="true"] { background: #fff1b8; color: #1a1330; }
 .p-mode[hidden] { display: none; }
+/* Night/day and calm buttons: a visible word under the icon on Today's sky (like the rings next to
+   them); elsewhere the name shows as a tooltip. */
+.p-mode .p-mlabel { display: none; }
+.p-rings .p-mode { position: relative; }
+.p-rings .p-mode .p-mlabel { display: block; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 3px; font-size: 10px; font-weight: 600; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.55); white-space: nowrap; pointer-events: none; }
+/* Menus marked "coming soon" in the Studio say so on the tab. */
+.p-tab[data-soon]::after { content: 'Soon'; display: block; margin: 2px auto 0; width: max-content; padding: 0 5px; border-radius: 6px; font-size: 9px; font-weight: 800; letter-spacing: .04em; line-height: 14px; background: #fff1b8; color: #1a1330; }
 .p-story .acts { position: absolute; left: 24px; bottom: 28px; z-index: 2; display: flex; gap: 8px; }
 .p-story .acts .p-btn.ghost { background: rgba(0,0,0,.12); }
 .p-story.dark .acts .p-btn { background: #fbe6a6; color: #1b1638; }
@@ -998,7 +1009,7 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .v-watch { overflow-y: auto; overflow-x: hidden; background: radial-gradient(60% 40% at 15% 10%, rgba(228,106,76,.35), transparent 70%), radial-gradient(50% 40% at 90% 60%, rgba(61,127,196,.35), transparent 70%), linear-gradient(180deg, #21183f, #120d26); color: #f6f1ff; }
 .p-wgal { max-width: 1100px; margin: 0 auto; padding: 20px 16px calc(var(--navh, 64px) + var(--minih, 0px) + 24px); display: grid; gap: 14px; }
 .p-wtitle { font: 800 26px var(--display); margin: 4px 2px 0; }
-.p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-transform: uppercase; color: #d9d0f2; margin: 10px 2px 0; }
+h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-transform: uppercase; color: #d9d0f2; margin: 10px 2px 0; }
 .p-whero { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 24px; overflow: hidden; padding: 0; border: 1px solid rgba(255,255,255,.22); background: var(--bg, #2a2050); color: #fff; text-align: left; cursor: pointer; font: inherit; }
 .p-wthumb { position: absolute; inset: 0; display: block; overflow: hidden; background: var(--bg, #2a2050); }
 .p-wthumb > picture { display: contents; }
@@ -1144,7 +1155,9 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .v-watch .p-filter { margin: 0; }
 .v-today .p-filter { margin: 0 0 16px; }
 .v-today .p-slide.s1 .p-filter { margin: 18px 0 0; position: relative; z-index: 3; }
-@media (max-width: 899px) { .p-filter { border-radius: 22px; } .p-filter button { min-height: 36px; } }
+@media (max-width: 899px) { .p-filter { border-radius: 22px; } }
+/* Filter chips: at least 44 x 44 px to tap. */
+.p-filter button { min-height: 44px; min-width: 44px; }
 /* ---------- Watched stories ---------- */
 .p-wtop { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .p-wclear { background: none; border: 0; color: #f1ebff; font: 700 14px var(--display); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 36px; padding: 0 4px; }
