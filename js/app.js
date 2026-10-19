@@ -280,14 +280,19 @@
   // Files named in js/content.js ('media/...') are relative to the site root; pages also live at
   // deeper addresses now (/read/brave), so make them root-relative.
   function fromRoot(u) { return u && !/^(?:[a-z][a-z0-9+.-]*:|\/|#)/i.test(u) ? '/' + u : u; }
+  // On the public pages the full stylesheet is loaded after the first screen (see scripts/build-pages.mjs).
+  Array.prototype.forEach.call(document.querySelectorAll('link[data-late]'), function (l) {
+    l.media = 'all';
+  });
   function startApp() {
   dropLeftOut();
   C.episodes.forEach(function (e) { e.src = fromRoot(e.src); });
-  C.reels.forEach(function (r) { r.src = fromRoot(r.src); r.poster = fromRoot(r.poster); });
+  C.reels.forEach(function (r) { r.src = fromRoot(r.src); r.poster = fromRoot(r.poster); r.thumb = fromRoot(r.thumb); });
   // Verses switched off: no verse cards on Today (built-in or Studio) and no verse buttons.
   // Bible quotes inside devotions are untouched. The Verses menu keeps its own nav state.
+  // index.html starts with .no-verses (the default), so the welcome card paints before any data arrives.
+  app.classList.toggle('no-verses', !CONTENT.verses);
   if (!CONTENT.verses) {
-    app.classList.add('no-verses');
     if (C.today) C.today = C.today.filter(function (t) { return t.type !== 'verse'; });
     Array.prototype.forEach.call(document.querySelectorAll('#pFeed .p-slide.s1 > :is(.p-kicker, .verse, .ref, .p-btns)'), function (el) { el.remove(); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-save-verse], [data-share-verse], [data-open-verse], #pFeed [data-go="verses"]'), function (el) {
@@ -392,6 +397,10 @@
   function show(tab) {
     closeOverlays();
     current = tab;
+    // The first screen is written into the page already visible (.p-boot, no fade-in), so it paints
+    // straight away; switching to another screen fades in as before.
+    var was = $('.p-view.on');
+    if (!was || was.dataset.view !== tab) app.classList.remove('p-boot');
     $$('.p-view').forEach(function (v) { v.classList.toggle('on', v.dataset.view === tab); });
     $$('.p-tab').forEach(function (a) {
       var on = a.dataset.tab === tab;
@@ -1067,11 +1076,21 @@
   });
   // ---------- Watch gallery: featured hero + thumbnail grid; the feed opens in a glass player ----------
   var watchOpen = false, watchReturn = null, wPlayer = $('#pWatchPlayer'), wGal = $('#pWatchGal');
-  function thumb(r) {
+  // Built-in reels have 16:9 thumbnails (scripts/make-thumbs.py) at 360 and 720 px in AVIF and WebP;
+  // the first (featured) one is not lazy-loaded and is fetched first, because it is the biggest picture.
+  var THUMB_SIZES = { hero: '(min-width: 1100px) 720px, (min-width: 900px) 60vw, 100vw', card: '(min-width: 900px) 260px, 50vw' };
+  function thumb(r, first) {
     var yid = ytId(r.youtube);
-    if (r.src && r.poster) return '<img src="' + esc(r.poster) + '" alt="" loading="lazy">';
+    var load = first ? 'fetchpriority="high"' : 'loading="lazy" decoding="async"';
+    if (r.src && r.poster && r.thumb) {
+      var set = function (ext) { return esc(r.thumb) + '-360.' + ext + ' 360w, ' + esc(r.thumb) + '-720.' + ext + ' 720w'; };
+      var sizes = first ? THUMB_SIZES.hero : THUMB_SIZES.card;
+      return '<picture><source type="image/avif" srcset="' + set('avif') + '" sizes="' + sizes + '"><source type="image/webp" srcset="' + set('webp') + '" sizes="' + sizes + '">' +
+        '<img src="' + esc(r.thumb) + '-720.webp" alt="" width="720" height="405" ' + load + '></picture>';
+    }
+    if (r.src && r.poster) return '<img src="' + esc(r.poster) + '" alt="" ' + load + '>';
     if (r.src) return '<video src="' + esc(r.src) + '#t=0.5" muted playsinline preload="metadata" tabindex="-1" aria-hidden="true"></video>';
-    if (yid) return '<img src="https://i.ytimg.com/vi/' + yid + '/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">';
+    if (yid) return '<img src="https://i.ytimg.com/vi/' + yid + '/hqdefault.jpg" alt="" ' + load + ' referrerpolicy="no-referrer">';
     return '<div class="p-wscene" aria-hidden="true">' + reelScene(r.kind) + '</div>';
   }
   function playIcon() { return '<span class="p-wplay" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>'; }
@@ -1095,7 +1114,7 @@
     wGal.innerHTML = '<div class="p-wtop"><h2 class="p-wtitle">Watch</h2>' + (anyW ? '<button type="button" class="p-wclear" data-clear-watched>Clear watched</button>' : '') + '</div>' +
       filterBar('watch', order.length, []) +
       '<button type="button" class="p-whero glass glass--dark' + (unitWatched(h) ? ' watched' : '') + (h.series ? ' is-series' : '') + '" ' + unitAttrs(h) + ' style="--bg:' + esc(hr.bg) + '" aria-label="' + esc(unitLabel(h)) + '">' +
-      '<span class="p-wthumb">' + thumb(hr) + '</span><span class="p-wshade"></span>' + playIcon() +
+      '<span class="p-wthumb">' + thumb(hr, true) + '</span><span class="p-wshade"></span>' + playIcon() +
       '<span class="p-winfo"><span class="p-kicker">' + (h.series ? 'Series · ' + h.eps.length + ' episode' + (h.eps.length === 1 ? '' : 's') : (unitWatched(h) ? 'Watched' : 'Featured') + (hr.len ? ' · ' + esc(hr.len) : '')) + '</span><b>' + esc(h.title) + '</b>' + (h.desc ? '<small>' + esc(h.desc) + '</small>' : '') + '</span>' + tickHtml(unitWatched(h)) + '</button>' +
       (order.length > 1 ? '<h3 class="p-wsub">More videos</h3><div class="p-wgrid">' + order.slice(1).map(function (u) {
         var r = u.cover;

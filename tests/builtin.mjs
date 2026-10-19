@@ -34,7 +34,7 @@ async function open(hash, list) {
     body: "window.LL_CONFIG = { supabaseUrl: 'https://fake-project.supabase.co', supabaseAnonKey: 'sb_publishable_test' };" }));
   await context.route('https://fake-project.supabase.co/**', (r) => {
     // These checks cover the verse cards, so the 'content' setting switches verses on.
-    if (/site_settings.*key=eq\.content/.test(r.request().url())) return r.fulfill({ contentType: 'application/json', body: JSON.stringify([{ value: { verses: true } }]) });
+    if (/site_settings/.test(r.request().url())) return r.fulfill({ contentType: 'application/json', body: JSON.stringify([{ key: 'content', value: { verses: true } }]) });
     return r.fulfill({ contentType: 'application/json', body: JSON.stringify(list) });
   });
   const page = await context.newPage();

@@ -1,8 +1,9 @@
 // Packages the public site into dist/ for hosting (GitHub Pages, Cloudflare Pages).
 // Only what visitors and the Studio need is copied: no docs, tests or database setup.
 // tests/build.mjs checks that nothing the app loads is left out.
-import { access, cp, mkdir, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import { access, cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prerender } from './prerender.mjs';
 
@@ -35,3 +36,57 @@ await cp(resolve(root, '_redirects'), resolve(output, '_redirects'));
 
 // index.html, one page per address, and sitemap.xml.
 await prerender(root, output);
+
+// Fingerprinted copies of the app's CSS and scripts, for the public pages only. A copy's name holds a
+// hash of its contents (/assets/app.3f2a9c1b.js), so _headers lets browsers keep it for a year: a
+// changed file gets a new name, the pages (served fresh every time) point at the new name, and sw.js
+// lists the new names too, so the browser sees a new service worker and updates. The plain files
+// (/js/app.js and so on) stay for the Studio and local development.
+export const FINGERPRINTED = ['css/app.css', 'fonts/fonts.css', 'js/config.js', 'js/store.js', 'js/content.js', 'js/seo.js', 'js/app.js'];
+await mkdir(resolve(output, 'assets'), { recursive: true });
+const renamed = {};
+for (const file of FINGERPRINTED) {
+  let body = await readFile(resolve(root, file), 'utf8');
+  // fonts.css names its fonts relative to /fonts/.
+  if (file === 'fonts/fonts.css') body = body.replace(/url\((?![a-z]+:|\/)([^)]+)\)/g, 'url(/fonts/$1)');
+  const hash = createHash('sha256').update(body).digest('hex').slice(0, 10);
+  const name = file.split('/').pop().replace(/\.(\w+)$/, `.${hash}.$1`);
+  await writeFile(resolve(output, 'assets', name), body);
+  renamed[file] = `assets/${name}`;
+}
+async function htmlFiles(dir) {
+  const out = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) { if (entry.name !== 'studio') out.push(...(await htmlFiles(path))); }
+    else if (entry.name.endsWith('.html') && entry.name !== '404.html') out.push(path);
+  }
+  return out;
+}
+// Critical CSS (css/critical.css, made by scripts/critical-css.mjs) and the font faces go into the page
+// itself, so the first screen paints without waiting for the stylesheet; the full stylesheet loads
+// right after (media="print" until js/app.js switches it on, with a <noscript> copy). The browser only
+// accepts an inline <style> if the policy lists its hash, so the hash goes into _headers.
+const fontsCss = (await readFile(resolve(output, 'assets', renamed['fonts/fonts.css'].split('/').pop()), 'utf8')).replace(/\/\*[\s\S]*?\*\//g, '').trim();
+const critical = (await readFile(resolve(root, 'css/critical.css'), 'utf8')).replace(/^\/\*[\s\S]*?\*\/\n/, '');
+export const inlineCss = fontsCss + '\n' + critical;
+const inlineHash = 'sha256-' + createHash('sha256').update(inlineCss).digest('base64');
+for (const path of await htmlFiles(output)) {
+  let html = await readFile(path, 'utf8');
+  for (const [file, name] of Object.entries(renamed)) html = html.split(`"/${file}"`).join(`"/${name}"`);
+  const fontsLink = `<link rel="stylesheet" href="/${renamed['fonts/fonts.css']}">`;
+  const appLink = `<link rel="stylesheet" href="/${renamed['css/app.css']}">`;
+  if (!html.includes(fontsLink) || !html.includes(appLink)) throw new Error(`${path}: stylesheet links not found`);
+  html = html.replace(fontsLink, `<style>${inlineCss}</style>`)
+    .replace(appLink, `<link rel="stylesheet" href="/${renamed['css/app.css']}" media="print" data-late>\n  <noscript>${appLink}</noscript>`);
+  await writeFile(path, html);
+}
+{
+  const headersPath = resolve(output, '_headers');
+  const text = await readFile(headersPath, 'utf8');
+  if (!text.includes("style-src-elem 'self'")) throw new Error("_headers: style-src-elem 'self' not found");
+  await writeFile(headersPath, text.replace("style-src-elem 'self'", `style-src-elem 'self' '${inlineHash}'`));
+}
+let sw = await readFile(resolve(output, 'sw.js'), 'utf8');
+for (const [file, name] of Object.entries(renamed)) sw = sw.split(`'${file}'`).join(`'${name}'`);
+await writeFile(resolve(output, 'sw.js'), sw);

@@ -76,7 +76,13 @@ export function pageList(site) {
   for (const tab of SEO.TABS) {
     const meta = SEO.meta('page', tab);
     // Screens that are switched off or "coming soon" still answer (old links), but stay out of search.
-    pages.push({ tab, meta, file: fileFor(meta.path), noindex: !on(tab), episodes: site.episodes, reels: site.reels.filter((r) => !r.series), devotions: site.devotions });
+    const page = { tab, meta, file: fileFor(meta.path), noindex: !on(tab), episodes: site.episodes, reels: site.reels.filter((r) => !r.series), devotions: site.devotions };
+    // Watch opens on its newest video, the biggest picture on the page: start loading it with the HTML.
+    if (tab === 'watch') {
+      const newest = [...site.reels].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))[0];
+      if (newest && newest.thumb && newest.src) page.heroImage = '/' + String(newest.thumb).replace(/^\//, '');
+    }
+    pages.push(page);
   }
   pages.push({ tab: 'today', meta: { ...SEO.meta('page', 'today') }, file: 'today.html', alias: true });
   if (on('read')) for (const d of site.devotions) { const meta = SEO.meta('devotion', d); pages.push({ tab: 'read', kind: 'devotion', item: d, meta, file: fileFor(meta.path) }); }

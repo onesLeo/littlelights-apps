@@ -33,12 +33,16 @@
   <meta name="application-name" content="Salt and Light">
   <meta name="apple-mobile-web-app-title" content="Salt and Light">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="preload" href="/fonts/newsreader-italic-400.woff2" as="font" type="font/woff2" crossorigin>
+  <!-- The posts and settings come from Supabase: open the connection while the page loads.
+       Only the first screen's text font and the wordmark's font are preloaded. -->
+  <link rel="preconnect" href="https://svlvlmyugyadmehjwudm.supabase.co" crossorigin>
+  <link rel="preload" href="/fonts/bricolage-normal-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/parisienne-normal-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/fonts/fonts.css">
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
-<div class="p-app" id="app">
+<div class="p-app p-boot no-verses" id="app">
   <noscript><p class="p-noscript">Salt and Light needs JavaScript turned on to show this week’s posts.</p></noscript>
 
   <!-- TODAY -->
@@ -295,10 +299,10 @@
   <div class="p-toast glass glass--light glass--strong" id="pToast" role="status"></div>
 </div>
 
-<script src="/js/config.js"></script>
-<script src="/js/store.js"></script>
-<script src="/js/content.js"></script>
-<script src="/js/seo.js"></script>
-<script src="/js/app.js"></script>
+<script defer src="/js/config.js"></script>
+<script defer src="/js/store.js"></script>
+<script defer src="/js/content.js"></script>
+<script defer src="/js/seo.js"></script>
+<script defer src="/js/app.js"></script>
 </body>
 </html>

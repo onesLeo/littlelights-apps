@@ -57,11 +57,12 @@ check(directive('frame-ancestors').join(' ') === "'none'", '_headers: the site c
 for (const h of ['Strict-Transport-Security', 'X-Content-Type-Options: nosniff', 'Referrer-Policy: strict-origin-when-cross-origin', 'Permissions-Policy', 'X-Frame-Options: DENY', 'Cross-Origin-Opener-Policy: same-origin', '! Access-Control-Allow-Origin']) {
   check(headers.includes(h), `_headers: ${h}`);
 }
-// No inline <script> or <style> blocks (the policy would block them).
+// No inline <script> or <style> blocks (the policy would block them), except the one critical-CSS block on
+// the public pages, which the policy allows by its hash (checked below).
 for (const page of ['index.html', '404.html', 'studio/index.html']) {
   const html = readFileSync(join(dist, page), 'utf8');
   // JSON-LD (type="application/ld+json") is data, not a script, so the policy doesn't apply to it.
-  check(!/<script(?![^>]*\ssrc=)(?![^>]*type="application\/ld\+json")[^>]*>/i.test(html) && !/<style[\s>]/i.test(html) && !/\son[a-z]+="/i.test(html), `${page}: no inline scripts, style blocks or event handlers`);
+  check(!/<script(?![^>]*\ssrc=)(?![^>]*type="application\/ld\+json")[^>]*>/i.test(html) && !/<style[\s>]/i.test(html.replace(/<style>[\s\S]*?<\/style>/, '')) && !/\son[a-z]+="/i.test(html), `${page}: no inline scripts, style blocks or event handlers`);
 }
 // Nothing is loaded from Google Fonts or other font services.
 for (const page of ['index.html', '404.html', 'studio/index.html', 'sw.js', 'css/app.css', 'studio/studio.css']) {
@@ -107,5 +108,34 @@ check(!locs.some((l) => /\/(verses|studio|today)/.test(l)), 'sitemap.xml leaves 
 check(!existsSync(join(dist, 'read', 'nope.html')) && !existsSync(join(dist, 'index', 'html')), 'no catch-all page: unknown addresses stay a 404');
 check(existsSync(join(root, 'functions', 'read', '[slug].js')) && existsSync(join(root, 'functions', 'watch', '[slug].js')), 'Pages Functions cover posts published after the build (/read/<slug>, /watch/<slug>)');
 
+// Performance: fingerprinted assets are what the pages load, cached for a year; pages and sw.js are not.
+{
+  const { readFile: rf, readdir: rd } = await import('node:fs/promises');
+  const assets = await rd(join(dist, 'assets'));
+  const page = await rf(join(dist, 'watch.html'), 'utf8');
+  const hashed = assets.every((f) => /\.[0-9a-f]{10}\.(js|css)$/.test(f));
+  const used = ['app', 'store', 'content', 'seo', 'config'].every((n) => new RegExp(`/assets/${n}\\.[0-9a-f]{10}\\.(js|css)`).test(page));
+  const headers = await rf(join(dist, '_headers'), 'utf8');
+  check(hashed && used && !/"\/js\/app\.js"/.test(page), 'build: public pages load fingerprinted /assets/ files');
+  check(/\/assets\/\*\s+Cache-Control: public, max-age=31536000, immutable/.test(headers) && !/^\/\*\n(?:\s+.*\n)*?\s+Cache-Control/m.test(headers), 'build: /assets/ is cached for a year, pages are not');
+  const sw = await rf(join(dist, 'sw.js'), 'utf8');
+  check(assets.every((f) => f.endsWith('.map') || sw.includes(f)), 'build: sw.js lists the fingerprinted files (so a change updates the service worker)');
+}
+
+// Critical CSS: inlined on every public page, allowed by its hash in the policy, and current.
+{
+  const { createHash } = await import('node:crypto');
+  const { sourceHash } = await import('../scripts/critical-css.mjs');
+  const headers = readFileSync(join(dist, '_headers'), 'utf8');
+  const pages = ['index.html', 'watch.html', 'read/brave.html', 'listen.html', 'play.html'];
+  const okPages = pages.every((f) => {
+    const html = readFileSync(join(dist, f), 'utf8');
+    const styles = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
+    return styles.length === 1 && headers.includes(`'sha256-${createHash('sha256').update(styles[0]).digest('base64')}'`) && /media="print" data-late/.test(html) && /<noscript><link rel="stylesheet" href="\/assets\/app\./.test(html);
+  });
+  check(okPages, 'build: each page inlines the critical CSS, its hash is in the policy, the full stylesheet follows');
+  const crit = readFileSync(join(root, 'css', 'critical.css'), 'utf8');
+  check(crit.includes(`(${sourceHash()})`), 'css/critical.css matches css/app.css (run npm run critical after changing app.css)');
+}
 console.log(failures ? `\n${failures} build check(s) failed` : '\nAll build checks passed');
 process.exit(failures ? 1 : 0);

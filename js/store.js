@@ -12,7 +12,8 @@
   var cfg = window.LL_CONFIG || {};
   var remote = !!(cfg.supabaseUrl && cfg.supabaseAnonKey);
   // Bundled copy of supabase-js (MIT), so the Studio does not depend on a CDN.
-  var SUPABASE_JS = (document.currentScript && document.currentScript.src ? new URL('vendor/supabase-2.117.2.js', document.currentScript.src).href : 'js/vendor/supabase-2.117.2.js');
+  // The public pages load a fingerprinted copy of this file from /assets/ (scripts/build-pages.mjs); the library stays in /js/vendor/.
+  var SUPABASE_JS = (document.currentScript && document.currentScript.src ? new URL('vendor/supabase-2.117.2.js', document.currentScript.src.replace(/\/assets\/[^\/]*$/, '/js/')).href : 'js/vendor/supabase-2.117.2.js');
   var SETTINGS_KEY = 'll.settings.v1';
   var POSTS_KEY = 'll.posts.v1', SESSION_KEY = 'll.studio.session', TEAM_KEY = 'll.studio.team', HISTORY_KEY = 'll.history.v1';
 
@@ -192,6 +193,26 @@
     return msg;
   }
   function must(res) { if (res.error) throw new Error(friendly(res.error.message)); return res.data; }
+  // Public reads (published posts, site settings) go straight to the REST API with fetch(), so a
+  // visitor's browser never loads the 55 KB Supabase library; the Studio still uses it for sign-in and writes.
+  function restGet(query) {
+    return fetch(cfg.supabaseUrl + '/rest/v1/' + query, { headers: { apikey: cfg.supabaseAnonKey, Accept: 'application/json' } }).then(function (res) {
+      if (res.ok) return res.json();
+      return res.json().catch(function () { return {}; }).then(function (b) { throw new Error(friendly(b.message || 'The database answered ' + res.status + '.')); });
+    }, function (err) { throw new Error(friendly(err && err.message || 'Failed to fetch')); });
+  }
+  // All public settings in one request; the app asks for three of them at start-up.
+  var settingsReq = null, settingsAt = 0;
+  function publicSettings() {
+    if (!settingsReq || Date.now() - settingsAt > 5000) {
+      settingsAt = Date.now();
+      settingsReq = restGet('site_settings?select=key,value').then(function (rows) {
+        var out = {}; (rows || []).forEach(function (r) { out[r.key] = r.value; }); return out;
+      });
+      settingsReq.catch(function () { settingsReq = null; });
+    }
+    return settingsReq;
+  }
   var redirectTo = function () { return location.origin + location.pathname; };
 
   var supa = {
@@ -251,13 +272,13 @@
         .then(must).then(function () { return client.storage.from('media').getPublicUrl(path).data.publicUrl; });
     },
     getSetting: function (key) {
-      return loadClient().then(function (c) { return c.from('site_settings').select('value').eq('key', key).maybeSingle(); })
-        .then(must).then(function (row) { return row && !Array.isArray(row) ? row.value : null; });
+      return publicSettings().then(function (all) { return Object.prototype.hasOwnProperty.call(all, key) ? all[key] : null; });
     },
     // Only owners may write (row-level security in supabase/schema.sql).
     saveSetting: function (key, value) {
+      settingsReq = null;
       return loadClient().then(function (c) { return c.from('site_settings').upsert({ key: key, value: value }).select('value').single(); })
-        .then(must).then(function (row) { return row.value; });
+        .then(must).then(function (row) { settingsReq = null; return row.value; });
     },
     listTeam: function () { return loadClient().then(function (c) { return c.from('team_members').select('*').order('invited_at'); }).then(must); },
     invite: function (email, role) {
@@ -265,10 +286,9 @@
     },
     removeMember: function (email) { return loadClient().then(function (c) { return c.from('team_members').delete().eq('email', email); }).then(must); },
     publishedPosts: function () {
-      return loadClient().then(function (c) {
-        // Visitors may read every column except author_email (column grants in the database), so `*` is refused.
-        return c.from('posts').select('id,type,status,publish_at,title,slug,show_on_today,fields,media_url,created_at,updated_at').in('status', ['published', 'scheduled']).lte('publish_at', nowIso()).order('publish_at', { ascending: false });
-      }).then(must);
+      // Visitors may read every column except author_email (column grants in the database), so `*` is refused.
+      return restGet('posts?select=id,type,status,publish_at,title,slug,show_on_today,fields,media_url,created_at,updated_at' +
+        '&status=in.(published,scheduled)&publish_at=lte.' + encodeURIComponent(nowIso()) + '&order=publish_at.desc');
     }
   };
 

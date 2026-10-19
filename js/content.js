@@ -66,18 +66,18 @@ window.LL_CONTENT = {
   reels: [
     // Built-in uploaded-video reels, hosted in the repo (media/reels/). Newest first, so it leads Watch.
     { title: 'First Day Jitters', topic: 'When I\u2019m nervous', len: '0:39', bg: '#1f2a44', kind: 'sea',
-      src: 'media/reels/first-day-jitters.mp4', poster: 'media/reels/first-day-jitters-poster.jpg', date: '2026-10-19T19:00:00+08:00',
+      src: 'media/reels/first-day-jitters.mp4', poster: 'media/reels/first-day-jitters-poster.jpg', thumb: 'media/reels/first-day-jitters-thumb', date: '2026-10-19T19:00:00+08:00',
       // Caption page: golden-hour amber from the poster's sunrise over the school gate (auto-contrast picks text/accent).
       pageStyle: 'auto', pageColor: '#c27d4a',
       // Blank lines (\n\n) become separate paragraphs in the caption sheet.
       caption: "First days can feel scary, for kids and grown-ups too. 💛 Mia was nervous about her new school, so she and Hana prayed together, and Mia asked Jesus for strength. God helped her be brave enough to say hello and make a new friend.\n\n\"What time I am afraid, I will trust in thee.\" Psalm 56:3 (KJV)\n\nWill you pray with your little one before their next big day?" },
     { title: 'The Last Straw', topic: 'When I feel angry', len: '0:28', bg: '#1f2a44', kind: 'rain',
-      src: 'media/reels/the-last-straw.mp4', poster: 'media/reels/the-last-straw-poster.jpg', date: '2026-10-18T21:00:00+08:00',
+      src: 'media/reels/the-last-straw.mp4', poster: 'media/reels/the-last-straw-poster.jpg', thumb: 'media/reels/the-last-straw-thumb', date: '2026-10-18T21:00:00+08:00',
       // Caption page: rainy-night slate blue from the poster's sky (auto-contrast picks text/accent).
       pageStyle: 'auto', pageColor: '#3e5a7e',
       caption: "Ever had one of those days where everything goes wrong, one thing after another? It's okay to feel frustrated. God isn't surprised by it. But He invites us not to let anger take over. 'Be ye angry, and sin not.' (Ephesians 4:26, KJV). Tonight, take a breath, talk to Jesus, and let Him calm your heart. 💛" },
     { title: 'The Whisper', topic: 'Choosing God when you\u2019re tired', len: '0:20', bg: '#1f2a44', kind: 'sea',
-      src: 'media/reels/the-whisper.mp4', poster: 'media/reels/the-whisper-poster.jpg', date: '2026-10-18T12:00:00+08:00',
+      src: 'media/reels/the-whisper.mp4', poster: 'media/reels/the-whisper-poster.jpg', thumb: 'media/reels/the-whisper-thumb', date: '2026-10-18T12:00:00+08:00',
       // Caption page: warm amber from the poster's lamp-lit tones (auto-contrast picks text/accent).
       pageStyle: 'auto', pageColor: '#b8743e',
       caption: "Tired at the end of the day? That little voice telling you to skip time with God can sound so reasonable. But you don't have to listen. 'Resist the devil, and he will flee from you.' (James 4:7, KJV). Tonight, open the Book, even for just one verse. 💛" },
