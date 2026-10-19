@@ -1361,11 +1361,20 @@
   function openArticle(i, fromRoute) {
     if (!fromRoute) { navigate(SEO ? SEO.path('read', C.devotions[i].slug) : '#read/' + C.devotions[i].slug); return; }
     var d = C.devotions[i], a = $('#pArticle');
-    a.innerHTML = '<button class="back" type="button" data-close>← Back</button>' +
+    // Opened from its own address: the page already holds this devotion (scripts/prerender.mjs), so
+    // keep the text that is on screen and add only the buttons, instead of redrawing it all.
+    var pre = a.getAttribute('data-slug') === d.slug && a.classList.contains('on') && a.querySelector('.body');
+    a.removeAttribute('data-slug');
+    if (!pre) app.classList.remove('p-boot');
+    var top = '<button class="back" type="button" data-close>← Back</button>' +
       '<div class="hero" style="background:' + d.color + ';color:' + d.ink + '"><span class="p-kicker">' + esc(d.kicker) + '</span><h2>' + esc(d.title) + '</h2></div>' +
       '<div style="padding-top:16px;display:flex;gap:8px;flex-wrap:wrap">' + (d.episode >= 0 ? '<button class="p-btn listen" type="button" data-ep="' + d.episode + '">▶ Listen to this devotion</button>' : '') +
-      '<button class="p-btn ghost" type="button" data-share-dev="' + i + '" style="background:rgba(0,0,0,.08);color:inherit">Share</button></div>' +
-      '<div class="body p-txt">' + d.html + '</div>';
+      '<button class="p-btn ghost" type="button" data-share-dev="' + i + '" style="background:rgba(0,0,0,.08);color:inherit">Share</button></div>';
+    var same = document.createElement('div'); same.innerHTML = d.html;
+    if (pre && pre.innerHTML === same.innerHTML) {
+      while (a.firstChild !== pre) a.removeChild(a.firstChild);
+      pre.insertAdjacentHTML('beforebegin', top);
+    } else a.innerHTML = top + '<div class="body p-txt">' + d.html + '</div>';
     closeOverlays();
     a.classList.add('on');
     a.scrollTop = 0;
