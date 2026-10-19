@@ -1238,6 +1238,11 @@
     }
     FILTER_APPLY.listen = apply; apply();
   })();
+  (function oneEpisode() {
+    var feat = $('[data-featured-audio="listen"]');
+    var one = C.episodes.length === 1 && feat && !feat.hidden;
+    $('.v-listen').classList.toggle('p-one-ep', !!one);
+  })();
   function renderPlayer() {
     var has = player.ep >= 0;
     app.classList.toggle('has-mini', has);

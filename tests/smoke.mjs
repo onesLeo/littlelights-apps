@@ -75,9 +75,12 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check((await page.$eval('#pSoonTitle', (t) => t.textContent)) === 'Verses is coming soon', 'nav: message names the menu');
   await page.click('[data-soon-close]');
   check(!(await soonOpen()), 'nav: Okay closes the message');
-  await page.click('.p-ring[data-go="verses"]');
+  // Phone Today no longer repeats the tab bar as a row of round shortcuts (SWA audit).
+  check(!(await page.isVisible('.p-rings .p-ring')) && await page.isVisible('.p-rings .p-rwm'), 'phone: Today keeps the wordmark but not the duplicate section shortcuts');
+  await page.goto(base + '#verses');
+  await page.waitForSelector('#app[data-ready]');
   await page.waitForTimeout(150);
-  check(await soonOpen(), 'nav: the Today shortcut shows the message too');
+  check(await soonOpen(), 'nav: an old #verses link shows the message too');
   await page.keyboard.press('Escape');
   check(!(await soonOpen()), 'nav: Escape closes the message');
   check(!(await page.$('#pFeed [data-go="verses"], #pFeed [data-save-verse]')), 'nav: with verses off by default there is no More verses or Save image button');
@@ -101,7 +104,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
 
   // Approved copy (Oct 2026): free game, Android closed test, no dead sign-up form, no audio-less Listen button.
   const html = await page.content();
-  check(html.includes('Little Light: Bible Journeys is completely free.</h2>') && html.includes('No ads, no purchases, nothing to unlock.'), 'copy: Play headline says the game is free, details in the text below');
+  check(html.includes('A free, gentle Bible adventure for ages 5–8</h2>') && html.includes('Little Light: Bible Journeys is completely free. No ads, no purchases, nothing to unlock.'), 'copy: short Play headline, the free-game details in the text below');
   check(!html.includes('App Store') && !html.includes('Play the free preview') && !html.includes('Free preview'), 'copy: no App Store badge, preview button or Free preview status');
   check(html.includes('14-day closed test') && !!(await page.$('.p-stores a[href$="/join"]')), 'copy: store line explains the closed test and links to /join');
   check(new Set(await page.$$eval('#pMap .st', (s) => s.map((x) => x.textContent))).size === 1, 'copy: all journey statuses are the same');
@@ -171,9 +174,10 @@ async function openApp(viewport, sw = true, versesOn = true) {
   const nav = await page.$eval('.p-tabs', (n) => n.getBoundingClientRect().top);
   check(nav > 700, 'phone: menu sits at the bottom');
 
-  await page.click('.p-ring[data-go="listen"]');
+  await page.click('.p-tab[data-tab="listen"]');
   await page.waitForTimeout(150);
-  check((await onView()) === 'listen', 'phone: story ring jumps to Listen');
+  check((await onView()) === 'listen', 'phone: the Listen tab opens Listen');
+  check(await page.$eval('.v-listen', (v) => v.classList.contains('p-one-ep') === (window.LL_CONTENT.episodes.length === 1)) && (window => true)(), 'phone: Listen does not repeat a single episode under All episodes');
 
   const rows = await page.$$eval('#pEps .p-row', (r) => r.map((x) => x.textContent));
   check(rows.length === 1 && rows[0].includes('Psalm 56:3'), `listen: only episodes with a recording are listed (${rows.length})`);
@@ -199,7 +203,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(!(await page.$eval('#pSheetWrap', (a) => a.classList.contains('on'))), 'phone: the close button closes the sheet');
   await page.click('.p-tab[data-tab="listen"]');
   await page.waitForTimeout(150);
-  await page.click('#pEps .p-row');
+  await page.click('.v-listen [data-featured-audio] [data-fa="play"]');
   await page.click('#pMiniOpen');
   await page.waitForTimeout(200);
   const tx = await page.$$eval('#pFull .transcript p', (ps) => ps.map((p) => p.textContent));
@@ -457,8 +461,8 @@ const seriesStub = shippedContent
   for (const [theme, vp, hash, sel, setup, fixture] of [['day', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['night', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['phone day', { width: 390, height: 844 }, '#read', '#pCards .p-card, .p-now'], ['phone night', { width: 390, height: 844 }, '#read', '#pCards .p-card'], ...[1024, 1280, 1440].flatMap((w) => [['desk ' + w + ' read day', { width: w, height: 900 }, '#read', '#pCards .p-card'], ['desk ' + w + ' read night', { width: w, height: 900 }, '#read', '#pCards .p-card']]),
     ...['day', 'night'].flatMap((t) => [
       [`desktop ${t} nav`, { width: 1440, height: 900 }, '#listen', '.p-tabs', async (pg) => { await pg.evaluate(() => { const v = document.querySelector('.v-listen'); if (v) v.scrollTop = 200; }); }],
-      [`phone ${t} listen bars`, { width: 390, height: 844 }, '#listen', '.v-listen .p-head, .p-tabs, .p-list .p-row, .p-mini', async (pg) => { await pg.click('.p-row'); await pg.waitForTimeout(300); await pg.evaluate(() => { const v = document.querySelector('.v-listen'); if (v) v.scrollTop = 120; }); }],
-      [`phone ${t} player`, { width: 390, height: 844 }, '#listen', '.p-full.on', async (pg) => { await pg.click('.p-row'); await pg.waitForTimeout(300); await pg.click('#pMiniOpen'); await pg.waitForTimeout(700); }],
+      [`phone ${t} listen bars`, { width: 390, height: 844 }, '#listen', '.v-listen .p-head, .p-tabs, .p-list .p-row, .p-mini', async (pg) => { await pg.click('.v-listen [data-featured-audio] [data-fa="play"]'); await pg.waitForTimeout(300); await pg.evaluate(() => { const v = document.querySelector('.v-listen'); if (v) v.scrollTop = 120; }); }],
+      [`phone ${t} player`, { width: 390, height: 844 }, '#listen', '.p-full.on', async (pg) => { await pg.click('.v-listen [data-featured-audio] [data-fa="play"]'); await pg.waitForTimeout(300); await pg.click('#pMiniOpen'); await pg.waitForTimeout(700); }],
       [`desktop ${t} watch`, { width: 1440, height: 900 }, '#watch', '.p-whero, .p-wcard', async () => {}],
       [`desktop ${t} today filters`, { width: 1440, height: 900 }, '#today', '.p-filter', async () => {}],
       [`phone ${t} watch filters`, { width: 390, height: 844 }, '#watch', '.p-filter', async () => {}],
@@ -934,7 +938,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
     for (const night of [false, true]) {
       if ((await page.$eval('#app', (a) => a.classList.contains('night'))) !== night) { await page.click('.p-rings [data-mode]'); await page.waitForTimeout(300); }
       const r = await page.evaluate(() => {
-        const wm = document.querySelector('.p-rings .p-rwm .wm'), ring = document.querySelector('.p-rings .p-ring');
+        const wm = document.querySelector('.p-rings .p-rwm .wm'), ring = document.querySelector('.p-rings .p-mode');
         const b = wm.getBoundingClientRect(), rb = ring.getBoundingClientRect(), cs = getComputedStyle(wm);
         const k = document.querySelector('.v-today .p-slide.s1 .p-kicker');
         return { visible: b.width > 60 && b.height > 0, fs: parseFloat(cs.fontSize), above: b.bottom <= rb.top, inView: b.left >= 0 && b.right <= innerWidth,

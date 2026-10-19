@@ -990,6 +990,17 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .no-verses .p-hello { display: grid; gap: 10px; }
 .no-verses .p-hello .big { font: 800 34px/1.1 var(--display); letter-spacing: -.02em; }
 .no-verses .p-hello p { font-size: 16px; line-height: 1.45; max-width: 30ch; }
+/* Phone (SWA audit): the tab bar already lists every section, so Today's top row keeps only the
+   wordmark and the night/calm buttons, and the welcome sits higher, with less empty sky above it. */
+@media (max-width: 899px) {
+  .v-today .p-rings .p-ring { display: none; }
+  .no-verses .v-today .p-slide.s1:not(.s-studio) { justify-content: flex-start; padding-top: clamp(150px, 22vh, 200px); }
+  /* moon and clouds stay in the band above the welcome so they never sit behind the words */
+  .no-verses .v-today .p-slide.s1:not(.s-studio) .p-orb { top: 108px; right: 22px; width: 72px; height: 72px; }
+  .no-verses .v-today .p-slide.s1:not(.s-studio) .p-clouds { height: clamp(120px, 18vh, 170px); }
+}
+/* Listen with a single episode: it is already the "This week" card, so the list isn't repeated. */
+.v-listen.p-one-ep > :is(.p-sec, .p-list, .p-filter) { display: none; }
 /* Before the app starts (the page is written with .no-verses), hide what it is about to remove. */
 .no-verses #pFeed .p-slide.s1 > :is(.p-kicker, .verse, .ref, .p-btns), .no-verses #pFeed [data-go="verses"] { display: none; }
 @media (min-width: 900px) {
