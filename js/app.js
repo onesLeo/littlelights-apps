@@ -821,9 +821,16 @@
     art.style.background = base;
     var sv = src && src.querySelector('.save'); rSheet.querySelector('.bk-save').setAttribute('aria-pressed', String(!!(sv && sv.classList.contains('saved'))));
   }
+  // Caption text: blank lines (\n\n) become separate <p>s, built with textContent (no HTML parsing).
+  function setCaption(p0, text) {
+    var paras = String(text || '').split(/\n\s*\n/).map(function (t) { return t.trim(); }).filter(Boolean), at = p0;
+    Array.prototype.forEach.call(p0.parentNode.querySelectorAll('p[data-para]'), function (x) { x.remove(); });
+    p0.textContent = paras[0] || '';
+    paras.slice(1).forEach(function (t) { var p = document.createElement('p'); p.dataset.para = '1'; p.textContent = t; at.after(p); at = p; });
+  }
   function openReelSheet(i, from) {
     var r = C.reels[i], pt = parts[visibleReel] || r;
-    rSheetFrom = from; rSheetI = i; rSheet.querySelector('h3').textContent = r.title; rSheet.querySelector('p').textContent = r.caption;
+    rSheetFrom = from; rSheetI = i; rSheet.querySelector('h3').textContent = r.title; setCaption(rSheet.querySelector('p'), r.caption);
     rSheet.querySelector('.bk-kick').textContent = r.series ? r.series + (r.episode ? ' · Episode ' + r.episode : '') : 'Reel' + (pt.len ? ' · ' + pt.len : '');
     rSheet.hidden = false; if (from) from.setAttribute('aria-expanded', 'true'); applyBook(); wakeOverlay(); rSheet.querySelector('.p-rsheet-x').focus();
   }

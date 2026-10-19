@@ -1087,6 +1087,7 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .p-rsheet-in .handle { position: absolute; top: 9px; left: 50%; translate: -50% 0; width: 40px; height: 5px; border-radius: 999px; background: rgba(255,255,255,.4); }
 .p-rsheet-in h3 { font: 800 22px/1.2 var(--display); margin: 4px 48px 10px 0; }
 .p-rsheet-in p { font-size: 16px; line-height: 1.6; margin: 0; color: #ece6ff; }
+.p-rsheet-in p[data-para] { margin-top: .75em; }
 .p-rsheet-x { position: absolute; top: 16px; right: 14px; width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.1); color: #fff; display: grid; place-items: center; cursor: pointer; padding: 0; }
 .p-rsheet-x svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
 @media (min-width: 900px) {
@@ -1266,7 +1267,8 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
   .p-wplayer.book .p-rsheet-in h3 { font: italic 500 42px/1.04 var(--serif); letter-spacing: -.01em; margin: 0; padding-right: 40px; color: var(--bk-text); }
   .p-wplayer.book .bk-rule { display: block; width: 64px; height: 1.5px; background: var(--bk-hair); }
   .p-wplayer.book .p-rsheet-in p { font: 400 21px/1.6 var(--serif); color: var(--bk-text); margin: 0; }
-  .p-wplayer.book .p-rsheet-in p::first-letter { float: left; font: italic 500 3.1em/.82 var(--serif); margin: .08em .1em 0 0; color: var(--bk-acc); }
+  .p-wplayer.book .p-rsheet-in p[data-para] { margin-top: .75em; }
+  .p-wplayer.book .p-rsheet-in p:not([data-para])::first-letter { float: left; font: italic 500 3.1em/.82 var(--serif); margin: .08em .1em 0 0; color: var(--bk-acc); }
   .p-wplayer.book .bk-acts { display: flex; gap: 10px; margin-top: auto; padding-top: 18px; }
   .p-wplayer.book .bk-acts button { min-height: 44px; padding: 0 18px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px; font: 800 15px var(--display); cursor: pointer; }
   .p-wplayer.book .bk-acts svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -1303,7 +1305,8 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
   .p-rsheet-in h3 { font: italic 500 29px/1.08 var(--serif); letter-spacing: -.01em; margin: 0; padding-right: 48px; color: var(--bk-text, #fff); }
   .p-rsheet-in .bk-rule { display: block; width: 52px; height: 1.5px; background: var(--bk-hair, #F2C46B); }
   .p-rsheet-in p { font: 400 18.5px/1.6 var(--serif); color: var(--bk-text, #fff); margin: 0; }
-  .p-rsheet-in p::first-letter { float: left; font: italic 500 2.9em/.82 var(--serif); margin: .08em .1em 0 0; color: var(--bk-acc, #F2C46B); }
+  .p-rsheet-in p[data-para] { margin-top: .75em; }
+  .p-rsheet-in p:not([data-para])::first-letter { float: left; font: italic 500 2.9em/.82 var(--serif); margin: .08em .1em 0 0; color: var(--bk-acc, #F2C46B); }
   .p-rsheet-in .bk-acts { display: flex; gap: 10px; padding-top: 6px; }
   .p-rsheet-in .bk-acts button { min-height: 44px; padding: 0 18px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px; font: 800 15px var(--display); cursor: pointer; }
   .p-rsheet-in .bk-acts svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

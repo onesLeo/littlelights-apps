@@ -62,9 +62,15 @@ window.LL_CONTENT = {
   ],
 
   // `src` is empty until real videos exist; the reel then shows an animated placeholder.
-  // `hidden: true` = hidden by default (Oct 2026: only The Last Straw and The Whisper show); Studio > Built-in content can show them again.
+  // `hidden: true` = hidden by default (Oct 2026: only First Day Jitters, The Last Straw and The Whisper show); Studio > Built-in content can show them again.
   reels: [
     // Built-in uploaded-video reels, hosted in the repo (media/reels/). Newest first, so it leads Watch.
+    { title: 'First Day Jitters', topic: 'When I\u2019m nervous', len: '0:39', bg: '#1f2a44', kind: 'sea',
+      src: 'media/reels/first-day-jitters.mp4', poster: 'media/reels/first-day-jitters-poster.jpg', date: '2026-10-19T19:00:00+08:00',
+      // Caption page: golden-hour amber from the poster's sunrise over the school gate (auto-contrast picks text/accent).
+      pageStyle: 'auto', pageColor: '#c27d4a',
+      // Blank lines (\n\n) become separate paragraphs in the caption sheet.
+      caption: "First days can feel scary, for kids and grown-ups too. 💛 Mia was nervous about her new school, so she and Hana prayed together, and Mia asked Jesus for strength. God helped her be brave enough to say hello and make a new friend.\n\n\"What time I am afraid, I will trust in thee.\" Psalm 56:3 (KJV)\n\nWill you pray with your little one before their next big day?" },
     { title: 'The Last Straw', topic: 'When I feel angry', len: '0:28', bg: '#1f2a44', kind: 'rain',
       src: 'media/reels/the-last-straw.mp4', poster: 'media/reels/the-last-straw-poster.jpg', date: '2026-10-18T21:00:00+08:00',
       // Caption page: rainy-night slate blue from the poster's sky (auto-contrast picks text/accent).
