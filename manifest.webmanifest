@@ -2,7 +2,7 @@
   "name": "Salt and Light",
   "short_name": "Salt and Light",
   "description": "Encouragement for families: Bible verses, devotions, audio prayers, reels and the Little Light Bible game.",
-  "start_url": "./#today",
+  "start_url": "/",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",

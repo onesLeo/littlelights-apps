@@ -3,3 +3,4 @@ Allow: /
 Disallow: /studio/
 
 Sitemap: https://littlesaltandlight.com/sitemap.xml
+Sitemap: https://legal.littlesaltandlight.com/sitemap.xml

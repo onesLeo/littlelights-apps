@@ -4,6 +4,7 @@
 import { access, cp, mkdir, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { prerender } from './prerender.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const output = resolve(root, 'dist');
@@ -12,8 +13,9 @@ await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 
 // _headers (security headers) and 404.html are read by Cloudflare Pages; 404.html is also what
-// Pages shows for any address that has no file (the app uses #hash addresses, so it needs no fallback).
-for (const file of ['index.html', '404.html', 'manifest.webmanifest', 'sw.js', '_headers', 'robots.txt', 'sitemap.xml', 'favicon.ico']) {
+// Pages shows for any address that has no file, with status 404. Every real address gets its own
+// file from scripts/prerender.mjs (dist/watch.html is served at /watch), so there is no catch-all.
+for (const file of ['404.html', 'manifest.webmanifest', 'sw.js', '_headers', 'robots.txt', 'favicon.ico']) {
   await cp(resolve(root, file), resolve(output, file));
 }
 
@@ -30,3 +32,6 @@ try {
 
 // Short links such as /join (Cloudflare Pages reads _redirects from the output folder).
 await cp(resolve(root, '_redirects'), resolve(output, '_redirects'));
+
+// index.html, one page per address, and sitemap.xml.
+await prerender(root, output);

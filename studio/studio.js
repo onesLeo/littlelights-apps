@@ -255,7 +255,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
         var on = state.view === n[0] || (n[0] === 'new' && state.view === 'edit' && state.editing && !state.editing.id);
         return '<button class="nav' + (on ? ' on' : '') + '" type="button" data-view="' + n[0] + '"' + (on ? ' aria-current="page"' : '') + '>' + n[2] + n[1] +
           (n[0] === 'posts' ? '<span class="count">' + state.posts.length + '</span>' : '') + '</button>';
-      }).join('') + '<a class="nav" href="../#today" target="_blank" rel="noopener">' + ICON.site + 'View the app</a></nav>' +
+      }).join('') + '<a class="nav" href="../" target="_blank" rel="noopener">' + ICON.site + 'View the app</a></nav>' +
       '<div class="me"><div class="who"><span class="avatar">' + esc(state.email[0] || '?').toUpperCase() + '</span><span>' + esc(state.email) + '<small>' + esc(cap(state.session.role)) + '</small></span></div>' +
       '<button class="btn ghost" type="button" id="signout" style="justify-content:flex-start;padding-left:0">Sign out</button></div>' +
       '</aside><main class="main">' + modeBar() + inner + '</main></div>';

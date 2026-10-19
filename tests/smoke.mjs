@@ -104,7 +104,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(!(await page.$('.p-slide.s2 [data-ep], .p-slide [data-sheet="0"] + [data-ep]')), 'copy: Today devotion card has no Listen button');
   check(await page.evaluate(() => window.LL_CONTENT.verses.some((v) => v.ref === 'Proverbs 17:17' && v.text === 'A friend loves at all times; and a brother is born for adversity.')), 'copy: Proverbs 17:17 is the full WEB verse');
 
-  check(await page.title() === 'Salt and Light' && (await page.getAttribute('.p-brand .wm', 'aria-label')) === 'Salt and Light', 'brand: site is called Salt and Light');
+  check((await page.title()).startsWith('Salt and Light — ') && (await page.getAttribute('.p-brand .wm', 'aria-label')) === 'Salt and Light', 'brand: site is called Salt and Light');
   // Calligraphy wordmark: accessible name, candle i, alignment and contrast.
   const wm = await page.evaluate(async () => {
     await document.fonts.load('22px Parisienne');
@@ -158,7 +158,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
     await page.click(`.p-tab[data-tab="${tab}"]`);
     await page.waitForTimeout(150);
     check((await onView()) === tab, `phone: ${tab} tab opens`);
-    check(page.url().endsWith(`#${tab}`), `phone: ${tab} tab updates the address`);
+    check(new URL(page.url()).pathname === (tab === 'today' ? '/' : `/${tab}`) || (tab === 'verses' && new URL(page.url()).pathname === '/'), `phone: ${tab} tab updates the address (a real path, no #)`);
   }
   await page.screenshot({ path: 'test-results/phone-today.png' });
 
@@ -258,9 +258,10 @@ async function openApp(viewport, sw = true, versesOn = true) {
   await page.click('.p-reel .save');
   check(await page.$eval('.p-reel .save', (b) => b.classList.contains('saved')), 'phone: Watch Save marks a reel on this device');
   check((await page.evaluate(() => localStorage.getItem('ll.savedReels') || '')).includes('true'), 'phone: Watch Save is remembered in local storage');
+  check(/^\/watch\/[a-z0-9-]+$/.test(new URL(page.url()).pathname), 'phone: an open video has its own address (/watch/<video>)');
   await page.reload();
-  await page.waitForSelector('#app[data-ready]');
-  await page.click('.p-whero'); await page.waitForTimeout(150);
+  await page.waitForSelector('#app[data-ready]'); await page.waitForTimeout(150);
+  check(!(await page.$eval('#pWatchPlayer', (p) => p.hidden)), 'phone: reloading a video address opens that video again');
   check(await page.$eval('.p-reel .save', (b) => b.classList.contains('saved')), 'phone: Watch Save stays marked after reload');
   await page.evaluate(() => window.LL_closeWatch && window.LL_closeWatch());
 
@@ -291,7 +292,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   await page.waitForTimeout(200);
   await page.screenshot({ path: 'test-results/computer-article.png' });
 
-  const manifest = await page.evaluate(async () => (await fetch('manifest.webmanifest')).json());
+  const manifest = await page.evaluate(async () => (await fetch('/manifest.webmanifest')).json());
   check(manifest.name === 'Salt and Light' && manifest.short_name === 'Salt and Light' && manifest.icons.length >= 3, 'app: manifest is valid');
   const sw = await page.evaluate(() => Promise.race([
     navigator.serviceWorker.ready.then(() => true),
@@ -358,7 +359,7 @@ const flareState = (sel) => (s) => {
   await ctx2.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
   const p2 = await ctx2.newPage(); await p2.goto(base + '#listen'); await p2.waitForSelector('#app[data-ready]');
   await p2.tap('.p-brand .wm-l'); await p2.waitForTimeout(400);
-  check((await p2.evaluate(() => location.hash)) === '#today' && (await p2.$eval('.p-brand .wm', (w) => w.classList.contains('flaring'))), 'flare: tapping the logo link still navigates to Today');
+  check((await p2.evaluate(() => location.pathname + location.hash)) === '/' && (await p2.$eval('.p-view.on', (v) => v.dataset.view)) === 'today' && (await p2.$eval('.p-brand .wm', (w) => w.classList.contains('flaring'))), 'flare: tapping the logo link still navigates to Today');
   await ctx2.close();
 }
 // ---------- night owl: perched on a branch, never covered, no sideways scroll ----------

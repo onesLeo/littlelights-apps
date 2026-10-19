@@ -1,7 +1,8 @@
 // Tiny static server for local development and tests. Run: npm start (http://localhost:8080)
 import { createServer } from 'node:http';
 import { connect } from 'node:net';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -41,13 +42,24 @@ function headersFor(rules, path) {
   return out;
 }
 
+// The app's addresses (/watch, /read/brave), from js/seo.js.
+const seo = (() => { const ctx = {}; vm.createContext(ctx); vm.runInContext(readFileSync(join(ROOT, 'js', 'seo.js'), 'utf8'), ctx); return ctx.LL_SEO; })();
+
 // serve(port, { headers: true }) also sends the security headers from _headers, like the live site.
+// serve(port, { root: 'dist' }) serves the built site the way Cloudflare Pages does: /watch is
+// dist/watch.html and an address with no file is a 404. From the source folder (the default), every
+// app address gets index.html, standing in for the pages the build writes.
 export function serve(port = 8080, options = {}) {
-  const rules = options.headers ? parseHeaders(readFileSync(join(ROOT, '_headers'), 'utf8')) : [];
+  const base = options.root ? normalize(join(ROOT, options.root)) + '/' : ROOT;
+  const rules = options.headers ? parseHeaders(readFileSync(join(base, '_headers'), 'utf8')) : [];
   const server = createServer(async (req, res) => {
     const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-    const file = normalize(join(ROOT, path.endsWith('/') ? path + 'index.html' : path));
-    if (!file.startsWith(ROOT) || file.includes('node_modules')) { res.writeHead(403).end(); return; }
+    let file = normalize(join(base, path.endsWith('/') ? path + 'index.html' : path));
+    if (!file.startsWith(base) || file.includes('node_modules')) { res.writeHead(403).end(); return; }
+    if (!existsSync(file) || !extname(file)) {
+      if (existsSync(file + '.html')) file += '.html';
+      else if (!options.root && seo.parse(path) && !/\.[a-z0-9]+$/i.test(path)) file = join(base, 'index.html');
+    }
     const extra = headersFor(rules, path);
     try {
       const body = await readFile(file);
@@ -56,7 +68,7 @@ export function serve(port = 8080, options = {}) {
     } catch {
       // Like Cloudflare Pages: an address with no file gets 404.html, with status 404.
       try {
-        res.writeHead(404, { 'Content-Type': TYPES['.html'], ...extra }).end(await readFile(join(ROOT, '404.html')));
+        res.writeHead(404, { 'Content-Type': TYPES['.html'], ...extra }).end(await readFile(join(base, '404.html')));
       } catch {
         res.writeHead(404, { 'Content-Type': 'text/plain' }).end('Not found');
       }

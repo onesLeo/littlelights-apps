@@ -136,7 +136,7 @@
           if (p.show_on_today) today.push({ type: 'devotion', i: devs.length - 1 });
         } else if (p.type === 'reel') {
           var look = reelLook.filter(function (l) { return l[1] === f.look; })[0] || reelLook[reels.length % 3];
-          reels.push({ title: p.title, len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '', date: p.publish_at || p.created_at || '', series: f.series || '', episode: +f.episode || 0, seriesDesc: f.series_description || '', pageStyle: f.page_style || '', pageColor: /^#[0-9a-f]{6}$/i.test(f.page_color || '') ? f.page_color : '' });
+          reels.push({ title: p.title, slug: p.slug || '', len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '', date: p.publish_at || p.created_at || '', series: f.series || '', episode: +f.episode || 0, seriesDesc: f.series_description || '', pageStyle: f.page_style || '', pageColor: /^#[0-9a-f]{6}$/i.test(f.page_color || '') ? f.page_color : '' });
           if (f.builtin) copyOf[f.builtin] = reels.length - 1;
           if (p.show_on_today) today.push({ type: 'reel', i: reels.length - 1 });
         } else if (p.type === 'verse') {
@@ -277,8 +277,13 @@
     var old = document.querySelector('.p-filter[data-fpage="' + page + '"]'); if (old) old.remove();
     if (!html || !before) return; before.insertAdjacentHTML('beforebegin', html);
   }
+  // Files named in js/content.js ('media/...') are relative to the site root; pages also live at
+  // deeper addresses now (/read/brave), so make them root-relative.
+  function fromRoot(u) { return u && !/^(?:[a-z][a-z0-9+.-]*:|\/|#)/i.test(u) ? '/' + u : u; }
   function startApp() {
   dropLeftOut();
+  C.episodes.forEach(function (e) { e.src = fromRoot(e.src); });
+  C.reels.forEach(function (r) { r.src = fromRoot(r.src); r.poster = fromRoot(r.poster); });
   // Verses switched off: no verse cards on Today (built-in or Studio) and no verse buttons.
   // Bible quotes inside devotions are untouched. The Verses menu keeps its own nav state.
   if (!CONTENT.verses) {
@@ -380,7 +385,9 @@
     toastT = setTimeout(function () { t.classList.remove('on'); }, 2400);
   }
 
-  // ---------- routing: #today, #watch, #read/brave, ... ----------
+  // ---------- routing: real addresses (/, /watch, /listen, /read/brave, /watch/the-whisper), see js/seo.js ----------
+  // Old #addresses (#watch, #read/brave) still work: route() swaps them for the new path.
+  var SEO = window.LL_SEO;
   var current = 'today';
   function show(tab) {
     closeOverlays();
@@ -415,32 +422,91 @@
     var ok = $('#pSoon [data-soon-close]'); if (ok) ok.focus();
   }
   function closeSoon() { $('#pSoon').classList.remove('on'); }
+  // <title>, description, canonical and the share-preview tags follow the screen (same values the
+  // build writes into each page's static <head>, from js/seo.js).
+  function setHead(m) {
+    if (!SEO || !m) return;
+    document.title = m.title;
+    var set = function (sel, attr, v) { var el = document.head.querySelector(sel); if (el) el.setAttribute(attr, v); };
+    var url = SEO.SITE + m.path;
+    set('meta[name="description"]', 'content', m.desc);
+    set('link[rel="canonical"]', 'href', url);
+    set('meta[property="og:url"]', 'content', url);
+    set('meta[property="og:type"]', 'content', m.type);
+    set('meta[property="og:title"]', 'content', m.title);
+    set('meta[property="og:description"]', 'content', m.desc);
+    set('meta[name="twitter:title"]', 'content', m.title);
+    set('meta[name="twitter:description"]', 'content', m.desc);
+  }
+  function pageHead(tab) { if (SEO) setHead(SEO.meta('page', tab)); }
+  // Changes the address without a page load. replace: no new history entry (overlays, fixes).
+  function setPath(p, replace) {
+    if (!SEO || location.pathname + location.search + location.hash === p) return;
+    try { history[replace ? 'replaceState' : 'pushState'](null, '', p); } catch (err) { /* file:// */ }
+  }
+  function navigate(p, replace) { setPath(p, replace); route(); }
   function route() {
-    var parts = (location.hash || '#today').slice(1).split('/');
-    var tab = TABS.indexOf(parts[0]) >= 0 ? parts[0] : 'today';
+    var legacy = SEO && SEO.fromHash(location.hash);
+    if (legacy) setPath(legacy + location.search, true);
+    var r = (SEO && SEO.parse(location.pathname)) || { tab: 'today' };
+    var tab = TABS.indexOf(r.tab) >= 0 ? r.tab : 'today';
     if (navState(tab) !== 'on') {
-      // Stay where we are (Today on a fresh visit) and drop the address back.
+      // Stay where we are (Today on a fresh visit) and put the address back.
+      setPath(SEO ? SEO.path(current) : '/', true);
+      // A fresh visit to /verses: the page was built showing that screen, so show Today instead.
+      if (!app.dataset.ready) { show(current); pageHead(current); }
       if (navState(tab) === 'coming_soon') showSoon(tab);
-      if (history.replaceState) history.replaceState(null, '', current === 'today' ? location.pathname + location.search : '#' + current);
       return;
     }
-    if (tab === 'read' && parts[1]) {
-      var i = indexBySlug(parts[1]);
+    if (tab === 'read' && r.slug) {
+      var i = indexBySlug(r.slug);
       if (current !== 'read') show('read');
-      if (i >= 0) openArticle(i, true);
+      if (i >= 0) { openArticle(i, true); return; }
+      setPath('/read', true);
+      if ($('#pArticle').classList.contains('on')) $('#pArticle').classList.remove('on');
+      pageHead('read');
       return;
     }
+    if (tab === 'watch' && (r.slug || r.series)) {
+      if (current !== 'watch') show('watch');
+      if (r.series) {
+        var u = units().filter(function (x) { return x.series && SEO.slugify(x.series) === r.series; })[0];
+        if (u) { openSeries(u.series); return; }
+      } else {
+        var k = reelBySlug(r.slug);
+        if (k >= 0) { openReel(k); return; }
+      }
+      setPath('/watch', true);
+      pageHead('watch');
+      return;
+    }
+    if (current === 'read' && tab === 'read') $('#pArticle').classList.remove('on');
+    if (tab === 'watch') { closeWatch(true); closeSeries(true); }
     show(tab);
+    pageHead(tab);
   }
-  function go(tab) {
-    if (location.hash === '#' + tab) show(tab);
-    else location.hash = tab;
-  }
+  function go(tab) { navigate(SEO ? SEO.path(tab) : '/'); }
   function indexBySlug(slug) {
     for (var i = 0; i < C.devotions.length; i++) if (C.devotions[i].slug === slug) return i;
     return -1;
   }
-  window.addEventListener('hashchange', route);
+  function reelBySlug(slug) {
+    for (var i = 0; i < C.reels.length; i++) if (SEO.reelSlug(C.reels[i]) === slug) return i;
+    return -1;
+  }
+  // In-app links (menu, cards, wordmark) change screen without reloading the page.
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a || !SEO || e.defaultPrevented || e.button > 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || (a.target && a.target !== '_self')) return;
+    var url = new URL(a.getAttribute('href'), location.href);
+    if (url.origin !== location.origin || !SEO.parse(url.pathname) || url.pathname.indexOf('/studio') === 0) return;
+    e.preventDefault();
+    navigate(url.pathname);
+  });
+  window.addEventListener('popstate', route);
+  // A typed or old #link fires popstate (handled above) and then hashchange; by then route() has already
+  // swapped the hash for a path, so only a hash that is still there needs routing.
+  window.addEventListener('hashchange', function () { if (location.hash && SEO && SEO.fromHash(location.hash)) route(); });
 
   // ---------- Studio posts marked "Show on Today" go to the top of the feed ----------
   (function buildTodaySlides() {
@@ -988,7 +1054,7 @@
     else if (e.target.closest('.p-rnext')) { openStory(+e.target.closest('.p-rnext').dataset.story); }
     else if (e.target.closest('.p-ragain')) { showReel(0, true); var z = reelEl(visibleReel).querySelector('.z-mid'); if (z) z.focus(); }
     else if (e.target.closest('.more')) { openReelSheet(i, e.target.closest('.more')); updateReels(); }
-    else if (e.target.closest('[data-read-slug]')) { closeWatch(); location.hash = 'read/' + e.target.closest('[data-read-slug]').dataset.readSlug; }
+    else if (e.target.closest('[data-read-slug]')) { closeWatch(); navigate(SEO.path('read', e.target.closest('[data-read-slug]').dataset.readSlug)); }
     else if (e.target.closest('[data-listen-title]')) { var t = e.target.closest('[data-listen-title]').dataset.listenTitle; closeWatch(); var k = C.episodes.findIndex(function (x) { return x.title === t; }); go('listen'); if (k >= 0) playEp(k); } else if (e.target.closest('.save')) {
       var s = e.target.closest('.save');
       s.classList.toggle('saved');
@@ -996,7 +1062,7 @@
       store('savedReels', JSON.stringify(savedReels));
       toast(savedReels[i] ? 'Saved on this device' : 'Removed from saved');
     } else if (e.target.closest('.share')) {
-      share(C.reels[i].title, C.reels[i].caption, location.origin + location.pathname + '#watch');
+      share(C.reels[i].title, C.reels[i].caption, location.origin + SEO.path('watch', SEO.reelSlug(C.reels[i])));
     }
   });
   // ---------- Watch gallery: featured hero + thumbnail grid; the feed opens in a glass player ----------
@@ -1061,12 +1127,21 @@
           (w ? '<span class="p-ep-tick" aria-hidden="true">✓</span>' : '') + '</button></li>'; }).join('') + '</ol></div></div>';
     if (focusWas) { var f = seriesEl.querySelector('[data-story="' + focusWas + '"]') || seriesEl.querySelector('.' + String(focusWas).split(' ')[0]); if (f) f.focus(); }
   }
+  function seriesHead(name) {
+    var u = units().filter(function (x) { return x.series === name; })[0];
+    if (!SEO || !u) return;
+    setPath(SEO.path('series', SEO.slugify(name)), true);
+    setHead(SEO.meta('series', { series: name, desc: u.desc }));
+  }
   function openSeries(name) {
     if (!seriesOpen) seriesReturn = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
     seriesOpen = name; renderSeries(name); seriesEl.hidden = false; seriesEl.querySelector('.p-series-x').focus();
+    seriesHead(name);
   }
-  function closeSeries() {
+  // quiet: the router is already changing the address.
+  function closeSeries(quiet) {
     if (!seriesOpen) return false; var name = seriesOpen; seriesOpen = ''; seriesEl.hidden = true;
+    if (quiet !== true && SEO && location.pathname.indexOf('/watch/') === 0) { setPath('/watch', true); pageHead('watch'); }
     var back = seriesReturn && wGal.contains(seriesReturn) ? seriesReturn : $$('[data-series]', wGal).filter(function (b) { return b.dataset.series === name; })[0]; if (back) back.focus(); return true;
   }
   window.LL_series = { open: openSeries, close: closeSeries, units: function () { return units().map(function (u) { return { series: u.series, eps: u.eps.slice(), date: u.date, watched: unitWatched(u) }; }); } };
@@ -1083,13 +1158,14 @@
   FILTER_APPLY.watch = renderWatch;
   renderWatch();
   wGal.addEventListener('click', function (e) { var b = e.target.closest('[data-watch]'); if (b) openReel(+b.dataset.watch); var sr = e.target.closest('[data-series]'); if (sr) openSeries(sr.dataset.series); var cl = e.target.closest('[data-clear-watched]'); if (cl) { window.LL_watched.clear(); var h = wGal.querySelector('.p-whero'); if (h) h.focus(); } });
-  function closeWatch() {
+  function closeWatch(quiet) {
     if (!watchOpen) return;
     rSheet.hidden = true; wPlayer.classList.remove('book', 'capopen'); watchOpen = false; wPlayer.hidden = true; wPlayer.classList.remove('on'); updateReels();
+    if (quiet !== true && SEO && location.pathname.indexOf('/watch/') === 0) { if (seriesOpen) seriesHead(seriesOpen); else { setPath('/watch', true); pageHead('watch'); } }
     if (watchReturn && document.contains(watchReturn)) watchReturn.focus();
   }
   window.LL_closeWatch = closeWatch;
-  $('#pWatchClose').addEventListener('click', closeWatch);
+  $('#pWatchClose').addEventListener('click', function () { closeWatch(); });
   wPlayer.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') { e.stopPropagation(); if (!closeReelSheet()) closeWatch(); }
     if (e.key === 'Tab') { var f = $$('#pWatchPlayer button, #pWatchPlayer a[href], #pWatchPlayer iframe, #pWatchPlayer video').filter(function (x) { return x.offsetParent; });
@@ -1103,7 +1179,8 @@
   }
   function openReel(i) {
     if (!watchOpen) watchReturn = document.activeElement;
-    go('watch');
+    if (current !== 'watch') { if (navState('watch') !== 'on') { go('watch'); return; } show('watch'); }
+    if (SEO && C.reels[i]) { setPath(SEO.path('watch', SEO.reelSlug(C.reels[i])), true); setHead(SEO.meta('reel', C.reels[i])); }
     watchOpen = true; wPlayer.hidden = false; wPlayer.classList.add('on');
     setTimeout(function () { openStory(i); }, 0);
   }
@@ -1238,7 +1315,7 @@
 
   // ---------- read ----------
   $('#pCards').innerHTML = C.devotions.map(function (d, i) {
-    return '<a class="p-card' + (i === 0 ? ' feat' : '') + '" data-i="' + i + '" href="#read/' + d.slug + '" style="--c:' + d.color + ';color:' + d.ink + ';text-decoration:none">' +
+    return '<a class="p-card' + (i === 0 ? ' feat' : '') + '" data-i="' + i + '" href="/read/' + esc(d.slug) + '" style="--c:' + d.color + ';color:' + d.ink + ';text-decoration:none">' +
       '<span class="p-kicker">' + esc(d.kicker) + '</span><b>' + esc(d.title) + '</b><span>' + esc(d.teaser) + '</span>' +
       '<span class="foot"><span>Read →</span>' + (d.episode >= 0 ? '<span>▶ Audio ' + fmt(C.episodes[d.episode].dur) + '</span>' : '') + '</span></a>';
   }).join('');
@@ -1252,22 +1329,22 @@
     FILTER_APPLY.read = apply; apply();
   })();
   function openArticle(i, fromRoute) {
-    if (!fromRoute) { location.hash = 'read/' + C.devotions[i].slug; return; }
+    if (!fromRoute) { navigate(SEO ? SEO.path('read', C.devotions[i].slug) : '#read/' + C.devotions[i].slug); return; }
     var d = C.devotions[i], a = $('#pArticle');
     a.innerHTML = '<button class="back" type="button" data-close>← Back</button>' +
-      '<div class="hero" style="background:' + d.color + ';color:' + d.ink + '"><span class="p-kicker">' + esc(d.kicker) + '</span><b>' + esc(d.title) + '</b></div>' +
+      '<div class="hero" style="background:' + d.color + ';color:' + d.ink + '"><span class="p-kicker">' + esc(d.kicker) + '</span><h2>' + esc(d.title) + '</h2></div>' +
       '<div style="padding-top:16px;display:flex;gap:8px;flex-wrap:wrap">' + (d.episode >= 0 ? '<button class="p-btn listen" type="button" data-ep="' + d.episode + '">▶ Listen to this devotion</button>' : '') +
       '<button class="p-btn ghost" type="button" data-share-dev="' + i + '" style="background:rgba(0,0,0,.08);color:inherit">Share</button></div>' +
       '<div class="body p-txt">' + d.html + '</div>';
     closeOverlays();
     a.classList.add('on');
     a.scrollTop = 0;
-    document.title = d.title + ' · Salt and Light';
+    if (SEO) setHead(SEO.meta('devotion', d));
   }
   function closeArticle() {
     $('#pArticle').classList.remove('on');
-    document.title = 'Salt and Light';
-    if (location.hash.indexOf('#read/') === 0) history.replaceState(null, '', '#read');
+    if (SEO && location.pathname.indexOf('/read/') === 0) setPath('/read', true);
+    pageHead(current);
   }
   // Devotion preview: bottom sheet on phones, centred modal on computers. Focus stays inside while
   // it's open and goes back to the button that opened it; the page behind doesn't scroll.
@@ -1443,7 +1520,7 @@
       navigator.clipboard.writeText(msg).then(function () { toast('Copied to share'); }, function () { toast(url); });
     } else toast(url);
   }
-  function pageUrl(hash) { return location.origin + location.pathname + hash; }
+  function pageUrl(p) { return location.origin + p; }
 
   // ---------- play ----------
   $('#pMap').innerHTML = C.journeys.map(function (j) {
@@ -1502,8 +1579,8 @@
     else if (d.read != null) openArticle(+d.read);
     else if (d.reel != null) openReel(+d.reel);
     else if (d.saveVerse != null) saveVerse(+d.saveVerse);
-    else if (d.shareVerse != null) { var v = C.verses[+d.shareVerse]; share(v.ref, '“' + v.text + '” ' + v.ref + ' (' + (v.translation || 'WEB') + ')', pageUrl('#verses')); }
-    else if (d.shareDev != null) { var dv = C.devotions[+d.shareDev]; share(dv.title, dv.teaser, pageUrl('#read/' + dv.slug)); }
+    else if (d.shareVerse != null) { var v = C.verses[+d.shareVerse]; share(v.ref, '“' + v.text + '” ' + v.ref + ' (' + (v.translation || 'WEB') + ')', pageUrl('/verses')); }
+    else if (d.shareDev != null) { var dv = C.devotions[+d.shareDev]; share(dv.title, dv.teaser, pageUrl(SEO.path('read', dv.slug))); }
     else if (d.preview != null) {
       if (C.gamePreviewUrl) window.open(C.gamePreviewUrl, '_blank', 'noopener');
       else toast('The free preview opens here once the browser build is published.');
@@ -1529,6 +1606,6 @@
 
   // ---------- offline support ----------
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+    window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
   }
 })();

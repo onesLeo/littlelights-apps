@@ -218,7 +218,10 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .p-article { bottom: calc(var(--navh) + var(--minih)); z-index: 10; background: #fbf6ee; color: #2a1f33; overflow-y: auto; animation: slidein .34s cubic-bezier(.2,.8,.2,1); }
 @keyframes slidein { from { transform: translateX(100%); } to { transform: none; } }
 .p-article .hero { padding: 64px 20px 22px; display: grid; gap: 8px; }
-.p-article .hero b { font-size: 26px; line-height: 1.05; font-weight: 800; }
+.p-article .hero h2 { margin: 0; font-size: 26px; line-height: 1.05; font-weight: 800; }
+/* Text written into the page by the build for search engines (title and caption of /watch/<video>);
+   the gallery replaces it as soon as the app starts. */
+.p-seo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .p-article .back { position: absolute; top: 16px; left: 14px; z-index: 2; border: 0; border-radius: 999px; background: rgba(0,0,0,.7); color: #fff; font-size: 12px; font-weight: 700; padding: 8px 12px; cursor: pointer; }
 .p-article .body { padding: 18px 20px 30px; }
 .p-article .listen { margin: 0 20px; }
