@@ -12,7 +12,7 @@ Placeholders that still need confirmation are defined once in `MACROS` in `build
 
 Heading font: `./make-font.sh` (reads `../fonts/bricolage-normal-800.woff2` by default) makes the subset of Bricolage Grotesque 800 in `static/fonts/` (SIL OFL). Body text uses system serif fonts, to keep the site tiny.
 
-No JavaScript and no external requests. CSP is `default-src 'self'`, so don't use inline `style=""` attributes.
+No JavaScript of our own and no external requests, except Cloudflare Web Analytics' cookie-free beacon, which Cloudflare adds to the page (CSP allows only static.cloudflareinsights.com for scripts and cloudflareinsights.com for its reports). CSP is otherwise `default-src 'self'`, so don't use inline `style=""` attributes.
 
 ## Deploying
 
