@@ -60,8 +60,14 @@ async function openApp(viewport, sw = true, versesOn = true) {
   const onView = () => page.$eval('.p-view.on', (v) => v.dataset.view);
   const soonOpen = () => page.$eval('#pSoon', (s) => s.classList.contains('on'));
 
-  // Built-in default (no setting saved): Verses is "coming soon", every way in shows the message.
+  // Built-in default (no setting saved): Verses is hidden from the menus (SWA audit, Oct 2026).
+  check(!(await page.isVisible('.p-tab[data-tab="verses"]')) && !(await page.isVisible('.p-ring[data-go="verses"]')), 'nav: Verses is hidden by default');
+  // Set to "coming soon" in the Studio: the tab shows, marked Soon, and every way in shows the message.
+  await page.evaluate(() => localStorage.setItem('ll.settings.v1', JSON.stringify({ nav: { menus: { verses: 'coming_soon' } } })));
+  await page.reload();
+  await page.waitForSelector('#app[data-ready]');
   check(await page.isVisible('.p-tab[data-tab="verses"]'), 'nav: Verses tab stays visible while coming soon');
+  check(await page.$eval('.p-tab[data-tab="verses"]', (t) => t.getAttribute('aria-label') === 'Verses, coming soon' && getComputedStyle(t, '::after').content.includes('Soon')), 'nav: a coming-soon tab is marked Soon (and says so to screen readers)');
   await page.click('.p-tab[data-tab="verses"]');
   await page.waitForTimeout(150);
   check(await soonOpen(), 'nav: tapping Verses shows the coming-soon message');
@@ -69,9 +75,12 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check((await page.$eval('#pSoonTitle', (t) => t.textContent)) === 'Verses is coming soon', 'nav: message names the menu');
   await page.click('[data-soon-close]');
   check(!(await soonOpen()), 'nav: Okay closes the message');
-  await page.click('.p-ring[data-go="verses"]');
+  // Phone Today no longer repeats the tab bar as a row of round shortcuts (SWA audit).
+  check(!(await page.isVisible('.p-rings .p-ring')) && await page.isVisible('.p-rings .p-rwm'), 'phone: Today keeps the wordmark but not the duplicate section shortcuts');
+  await page.goto(base + '#verses');
+  await page.waitForSelector('#app[data-ready]');
   await page.waitForTimeout(150);
-  check(await soonOpen(), 'nav: the Today shortcut shows the message too');
+  check(await soonOpen(), 'nav: an old #verses link shows the message too');
   await page.keyboard.press('Escape');
   check(!(await soonOpen()), 'nav: Escape closes the message');
   check(!(await page.$('#pFeed [data-go="verses"], #pFeed [data-save-verse]')), 'nav: with verses off by default there is no More verses or Save image button');
@@ -95,7 +104,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
 
   // Approved copy (Oct 2026): free game, Android closed test, no dead sign-up form, no audio-less Listen button.
   const html = await page.content();
-  check(html.includes('Little Light: Bible Journeys is completely free. No ads, no purchases, nothing to unlock.'), 'copy: Play subhead says the game is free');
+  check(html.includes('A free, gentle Bible adventure for ages 5–8</h2>') && html.includes('Little Light: Bible Journeys is completely free. No ads, no purchases, nothing to unlock.'), 'copy: short Play headline, the free-game details in the text below');
   check(!html.includes('App Store') && !html.includes('Play the free preview') && !html.includes('Free preview'), 'copy: no App Store badge, preview button or Free preview status');
   check(html.includes('14-day closed test') && !!(await page.$('.p-stores a[href$="/join"]')), 'copy: store line explains the closed test and links to /join');
   check(new Set(await page.$$eval('#pMap .st', (s) => s.map((x) => x.textContent))).size === 1, 'copy: all journey statuses are the same');
@@ -104,7 +113,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(!(await page.$('.p-slide.s2 [data-ep], .p-slide [data-sheet="0"] + [data-ep]')), 'copy: Today devotion card has no Listen button');
   check(await page.evaluate(() => window.LL_CONTENT.verses.some((v) => v.ref === 'Proverbs 17:17' && v.text === 'A friend loves at all times; and a brother is born for adversity.')), 'copy: Proverbs 17:17 is the full WEB verse');
 
-  check(await page.title() === 'Salt and Light' && (await page.getAttribute('.p-brand .wm', 'aria-label')) === 'Salt and Light', 'brand: site is called Salt and Light');
+  check((await page.title()).startsWith('Salt and Light — ') && (await page.getAttribute('.p-brand .wm', 'aria-label')) === 'Salt and Light', 'brand: site is called Salt and Light');
   // Calligraphy wordmark: accessible name, candle i, alignment and contrast.
   const wm = await page.evaluate(async () => {
     await document.fonts.load('22px Parisienne');
@@ -158,16 +167,17 @@ async function openApp(viewport, sw = true, versesOn = true) {
     await page.click(`.p-tab[data-tab="${tab}"]`);
     await page.waitForTimeout(150);
     check((await onView()) === tab, `phone: ${tab} tab opens`);
-    check(page.url().endsWith(`#${tab}`), `phone: ${tab} tab updates the address`);
+    check(new URL(page.url()).pathname === (tab === 'today' ? '/' : `/${tab}`) || (tab === 'verses' && new URL(page.url()).pathname === '/'), `phone: ${tab} tab updates the address (a real path, no #)`);
   }
   await page.screenshot({ path: 'test-results/phone-today.png' });
 
   const nav = await page.$eval('.p-tabs', (n) => n.getBoundingClientRect().top);
   check(nav > 700, 'phone: menu sits at the bottom');
 
-  await page.click('.p-ring[data-go="listen"]');
+  await page.click('.p-tab[data-tab="listen"]');
   await page.waitForTimeout(150);
-  check((await onView()) === 'listen', 'phone: story ring jumps to Listen');
+  check((await onView()) === 'listen', 'phone: the Listen tab opens Listen');
+  check(await page.$eval('.v-listen', (v) => v.classList.contains('p-one-ep') === (window.LL_CONTENT.episodes.length === 1)) && (window => true)(), 'phone: Listen does not repeat a single episode under All episodes');
 
   const rows = await page.$$eval('#pEps .p-row', (r) => r.map((x) => x.textContent));
   check(rows.length === 1 && rows[0].includes('Psalm 56:3'), `listen: only episodes with a recording are listed (${rows.length})`);
@@ -193,7 +203,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check(!(await page.$eval('#pSheetWrap', (a) => a.classList.contains('on'))), 'phone: the close button closes the sheet');
   await page.click('.p-tab[data-tab="listen"]');
   await page.waitForTimeout(150);
-  await page.click('#pEps .p-row');
+  await page.click('.v-listen [data-featured-audio] [data-fa="play"]');
   await page.click('#pMiniOpen');
   await page.waitForTimeout(200);
   const tx = await page.$$eval('#pFull .transcript p', (ps) => ps.map((p) => p.textContent));
@@ -258,9 +268,10 @@ async function openApp(viewport, sw = true, versesOn = true) {
   await page.click('.p-reel .save');
   check(await page.$eval('.p-reel .save', (b) => b.classList.contains('saved')), 'phone: Watch Save marks a reel on this device');
   check((await page.evaluate(() => localStorage.getItem('ll.savedReels') || '')).includes('true'), 'phone: Watch Save is remembered in local storage');
+  check(/^\/watch\/[a-z0-9-]+$/.test(new URL(page.url()).pathname), 'phone: an open video has its own address (/watch/<video>)');
   await page.reload();
-  await page.waitForSelector('#app[data-ready]');
-  await page.click('.p-whero'); await page.waitForTimeout(150);
+  await page.waitForSelector('#app[data-ready]'); await page.waitForTimeout(150);
+  check(!(await page.$eval('#pWatchPlayer', (p) => p.hidden)), 'phone: reloading a video address opens that video again');
   check(await page.$eval('.p-reel .save', (b) => b.classList.contains('saved')), 'phone: Watch Save stays marked after reload');
   await page.evaluate(() => window.LL_closeWatch && window.LL_closeWatch());
 
@@ -291,7 +302,7 @@ async function openApp(viewport, sw = true, versesOn = true) {
   await page.waitForTimeout(200);
   await page.screenshot({ path: 'test-results/computer-article.png' });
 
-  const manifest = await page.evaluate(async () => (await fetch('manifest.webmanifest')).json());
+  const manifest = await page.evaluate(async () => (await fetch('/manifest.webmanifest')).json());
   check(manifest.name === 'Salt and Light' && manifest.short_name === 'Salt and Light' && manifest.icons.length >= 3, 'app: manifest is valid');
   const sw = await page.evaluate(() => Promise.race([
     navigator.serviceWorker.ready.then(() => true),
@@ -358,7 +369,7 @@ const flareState = (sel) => (s) => {
   await ctx2.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
   const p2 = await ctx2.newPage(); await p2.goto(base + '#listen'); await p2.waitForSelector('#app[data-ready]');
   await p2.tap('.p-brand .wm-l'); await p2.waitForTimeout(400);
-  check((await p2.evaluate(() => location.hash)) === '#today' && (await p2.$eval('.p-brand .wm', (w) => w.classList.contains('flaring'))), 'flare: tapping the logo link still navigates to Today');
+  check((await p2.evaluate(() => location.pathname + location.hash)) === '/' && (await p2.$eval('.p-view.on', (v) => v.dataset.view)) === 'today' && (await p2.$eval('.p-brand .wm', (w) => w.classList.contains('flaring'))), 'flare: tapping the logo link still navigates to Today');
   await ctx2.close();
 }
 // ---------- night owl: perched on a branch, never covered, no sideways scroll ----------
@@ -450,8 +461,8 @@ const seriesStub = shippedContent
   for (const [theme, vp, hash, sel, setup, fixture] of [['day', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['night', { width: 1440, height: 900 }, '#today', '.v-today .p-slide, .p-sidecard'], ['phone day', { width: 390, height: 844 }, '#read', '#pCards .p-card, .p-now'], ['phone night', { width: 390, height: 844 }, '#read', '#pCards .p-card'], ...[1024, 1280, 1440].flatMap((w) => [['desk ' + w + ' read day', { width: w, height: 900 }, '#read', '#pCards .p-card'], ['desk ' + w + ' read night', { width: w, height: 900 }, '#read', '#pCards .p-card']]),
     ...['day', 'night'].flatMap((t) => [
       [`desktop ${t} nav`, { width: 1440, height: 900 }, '#listen', '.p-tabs', async (pg) => { await pg.evaluate(() => { const v = document.querySelector('.v-listen'); if (v) v.scrollTop = 200; }); }],
-      [`phone ${t} listen bars`, { width: 390, height: 844 }, '#listen', '.v-listen .p-head, .p-tabs, .p-list .p-row, .p-mini', async (pg) => { await pg.click('.p-row'); await pg.waitForTimeout(300); await pg.evaluate(() => { const v = document.querySelector('.v-listen'); if (v) v.scrollTop = 120; }); }],
-      [`phone ${t} player`, { width: 390, height: 844 }, '#listen', '.p-full.on', async (pg) => { await pg.click('.p-row'); await pg.waitForTimeout(300); await pg.click('#pMiniOpen'); await pg.waitForTimeout(700); }],
+      [`phone ${t} listen bars`, { width: 390, height: 844 }, '#listen', '.v-listen .p-head, .p-tabs, .p-list .p-row, .p-mini', async (pg) => { await pg.click('.v-listen [data-featured-audio] [data-fa="play"]'); await pg.waitForTimeout(300); await pg.evaluate(() => { const v = document.querySelector('.v-listen'); if (v) v.scrollTop = 120; }); }],
+      [`phone ${t} player`, { width: 390, height: 844 }, '#listen', '.p-full.on', async (pg) => { await pg.click('.v-listen [data-featured-audio] [data-fa="play"]'); await pg.waitForTimeout(300); await pg.click('#pMiniOpen'); await pg.waitForTimeout(700); }],
       [`desktop ${t} watch`, { width: 1440, height: 900 }, '#watch', '.p-whero, .p-wcard', async () => {}],
       [`desktop ${t} today filters`, { width: 1440, height: 900 }, '#today', '.p-filter', async () => {}],
       [`phone ${t} watch filters`, { width: 390, height: 844 }, '#watch', '.p-filter', async () => {}],
@@ -701,7 +712,7 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
   });
   const tag = vp.width >= 900 ? 'desktop' : 'phone';
   check(r.verseText === 0 && r.buttons === 0, `verses off ${tag}: no verse cards, More verses or Save image on Today`);
-  check(r.navVerses, `verses off ${tag}: the Verses menu entry stays (coming soon)`);
+  check(!r.navVerses, `verses off ${tag}: the Verses menu entry is hidden by default (Studio > Menus can show it)`);
   check(tag === 'desktop' ? (r.welcome && !r.hello && r.firstTopGap < 2 && r.rowGap < 2) : r.hello, `verses off ${tag}: Today still opens with a welcome and the cards close up (gap ${Math.round(r.firstTopGap)}/${Math.round(r.rowGap)}px)`);
   check(r.devotionQuote, `verses off ${tag}: Bible quotes inside devotions are kept`);
   // Owner switches them back on: everything returns, nothing was deleted.
@@ -787,7 +798,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
   await ctx.addInitScript((t) => { localStorage.setItem('ll.theme', t); }, theme);
   const pg = await ctx.newPage(); await pg.goto(base + '#read'); await pg.waitForSelector('#pCards .p-card'); await pg.waitForTimeout(600);
   const r = await pg.evaluate(() => { const R = (e) => e.getBoundingClientRect(); const h = document.querySelector('.v-read .p-head'); const c = document.querySelector('#pCards .p-card.feat'); const f = document.querySelector('.v-read .p-filter');
-    const t = h.querySelector('h3') || h; const tr = document.createRange(); tr.selectNodeContents(t);
+    const t = h.querySelector('h1, h3') || h; const tr = document.createRange(); tr.selectNodeContents(t);
     return { title: Math.round(tr.getBoundingClientRect().left), card: Math.round(R(c).left), filt: f ? Math.round(R(f).left) : null, headBg: getComputedStyle(h).backgroundColor, gap: R(c.querySelector('.p-kicker')).top - R(c).top,
       hair: [...document.querySelectorAll('#pCards .p-card')].every((x) => { const a = getComputedStyle(x, '::after'); return parseFloat(a.height) >= 1.5 && parseFloat(a.height) <= 2 && /gradient/.test(a.backgroundImage); }) }; });
   check(Math.abs(r.title - r.card) <= 2 && (r.filt === null || Math.abs(r.filt - r.card) <= 2), `read ${w} ${theme}: title/filter aligned with cards (${r.title}/${r.filt}/${r.card})`);
@@ -927,7 +938,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
     for (const night of [false, true]) {
       if ((await page.$eval('#app', (a) => a.classList.contains('night'))) !== night) { await page.click('.p-rings [data-mode]'); await page.waitForTimeout(300); }
       const r = await page.evaluate(() => {
-        const wm = document.querySelector('.p-rings .p-rwm .wm'), ring = document.querySelector('.p-rings .p-ring');
+        const wm = document.querySelector('.p-rings .p-rwm .wm'), ring = document.querySelector('.p-rings .p-mode');
         const b = wm.getBoundingClientRect(), rb = ring.getBoundingClientRect(), cs = getComputedStyle(wm);
         const k = document.querySelector('.v-today .p-slide.s1 .p-kicker');
         return { visible: b.width > 60 && b.height > 0, fs: parseFloat(cs.fontSize), above: b.bottom <= rb.top, inView: b.left >= 0 && b.right <= innerWidth,

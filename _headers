@@ -15,6 +15,15 @@
   Cross-Origin-Opener-Policy: same-origin
   ! Access-Control-Allow-Origin
 
+# Fingerprinted CSS and scripts (scripts/build-pages.mjs names each copy after a hash of its contents)
+# and the self-hosted fonts (a changed font gets a new file name) never change, so browsers keep them.
+# Pages and sw.js keep the default (checked on every visit), which is what lets updates arrive.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/fonts/*.woff2
+  Cache-Control: public, max-age=31536000, immutable
+
 /studio/*
   X-Robots-Tag: noindex, nofollow
 

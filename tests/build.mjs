@@ -14,7 +14,7 @@ function check(ok, label) {
   if (!ok) failures++;
 }
 
-execFileSync(process.execPath, [join(root, 'scripts', 'build-pages.mjs')], { stdio: 'inherit' });
+execFileSync(process.execPath, [join(root, 'scripts', 'build-pages.mjs')], { stdio: 'inherit', env: { ...process.env, PRERENDER_STUDIO: '0' } });
 
 // Everything the offline service worker caches on install; one missing file stops it installing.
 const shell = readFileSync(join(root, 'sw.js'), 'utf8').match(/const SHELL = \[([\s\S]*?)\];/)[1]
@@ -29,7 +29,8 @@ function refs(file) {
   return found.filter((u) => !/^(https?:|data:|mailto:|#|\/\/)/.test(u)).map((u) => join(dirname(file), u));
 }
 for (const page of ['index.html', 'studio/index.html', 'fonts/fonts.css', 'css/app.css', 'studio/studio.css']) {
-  const missing = refs(page).filter((f) => !existsSync(join(dist, f)));
+  // In-app addresses (/watch) are pages the build writes as watch.html.
+  const missing = refs(page).filter((f) => !existsSync(join(dist, f)) && !existsSync(join(dist, f + '.html')));
   check(missing.length === 0, `${page}: every linked file is in the build ${missing.join(', ')}`);
 }
 
@@ -56,10 +57,12 @@ check(directive('frame-ancestors').join(' ') === "'none'", '_headers: the site c
 for (const h of ['Strict-Transport-Security', 'X-Content-Type-Options: nosniff', 'Referrer-Policy: strict-origin-when-cross-origin', 'Permissions-Policy', 'X-Frame-Options: DENY', 'Cross-Origin-Opener-Policy: same-origin', '! Access-Control-Allow-Origin']) {
   check(headers.includes(h), `_headers: ${h}`);
 }
-// No inline <script> or <style> blocks (the policy would block them).
+// No inline <script> or <style> blocks (the policy would block them), except the one critical-CSS block on
+// the public pages, which the policy allows by its hash (checked below).
 for (const page of ['index.html', '404.html', 'studio/index.html']) {
   const html = readFileSync(join(dist, page), 'utf8');
-  check(!/<script(?![^>]*\ssrc=)[^>]*>/i.test(html) && !/<style[\s>]/i.test(html) && !/\son[a-z]+="/i.test(html), `${page}: no inline scripts, style blocks or event handlers`);
+  // JSON-LD (type="application/ld+json") is data, not a script, so the policy doesn't apply to it.
+  check(!/<script(?![^>]*\ssrc=)(?![^>]*type="application\/ld\+json")[^>]*>/i.test(html) && !/<style[\s>]/i.test(html.replace(/<style>[\s\S]*?<\/style>/, '')) && !/\son[a-z]+="/i.test(html), `${page}: no inline scripts, style blocks or event handlers`);
 }
 // Nothing is loaded from Google Fonts or other font services.
 for (const page of ['index.html', '404.html', 'studio/index.html', 'sw.js', 'css/app.css', 'studio/studio.css']) {
@@ -69,5 +72,70 @@ for (const hidden of ['docs', 'supabase', 'tests', 'scripts', 'package.json', 'n
   check(!existsSync(join(dist, hidden)), `${hidden} is not published`);
 }
 
+// ---------- one page per address (scripts/prerender.mjs) ----------
+const page = (f) => readFileSync(join(dist, f), 'utf8');
+const head = (html) => {
+  const get = (re) => (html.match(re) || [])[1];
+  let ld = null; try { ld = JSON.parse(get(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)); } catch { ld = null; }
+  return { title: get(/<title>([^<]*)<\/title>/), desc: get(/<meta name="description" content="([^"]*)"/), canonical: get(/<link rel="canonical" href="([^"]*)"/),
+    ogUrl: get(/<meta property="og:url" content="([^"]*)"/), ogImage: get(/<meta property="og:image" content="([^"]*)"/), ogType: get(/<meta property="og:type" content="([^"]*)"/),
+    card: get(/<meta name="twitter:card" content="([^"]*)"/), robots: get(/<meta name="robots" content="([^"]*)"/), ld, types: ld ? ld['@graph'].map((g) => g['@type']) : [] };
+};
+const routes = { 'index.html': '/', 'watch.html': '/watch', 'listen.html': '/listen', 'read.html': '/read', 'play.html': '/play', 'verses.html': '/verses', 'read/brave.html': '/read/brave', 'watch/the-whisper.html': '/watch/the-whisper' };
+const titles = new Set();
+for (const [file, path] of Object.entries(routes)) {
+  check(existsSync(join(dist, file)), `${path}: has its own page (${file})`);
+  if (!existsSync(join(dist, file))) continue;
+  const h = head(page(file));
+  titles.add(h.title);
+  check(h.canonical === 'https://littlesaltandlight.com' + path && h.ogUrl === h.canonical, `${path}: canonical and og:url point at ${path}`);
+  check(!!h.title && h.title.includes('Salt and Light') && h.title.length <= 75 && !!h.desc && h.desc.length >= 50 && h.desc.length <= 160, `${path}: title (${h.title && h.title.length} chars) and description (${h.desc && h.desc.length} chars)`);
+  check(h.ogImage === 'https://littlesaltandlight.com/icons/og-image.png' && h.card === 'summary_large_image' && !!h.ogType, `${path}: share preview (og:image 1200x630, twitter summary_large_image)`);
+  check(h.types.includes('WebSite') && h.types.includes('Organization'), `${path}: JSON-LD has WebSite and Organization`);
+  const html = page(file), tab = path === '/' ? 'today' : path.split('/')[1];
+  check(new RegExp(`class="p-view v-${tab} on"`).test(html) && (html.match(/class="p-view [^"]* on"/g) || []).length === 1, `${path}: the ${tab} screen is the one shown before scripts run`);
+}
+check(titles.size === Object.keys(routes).length, 'every page has its own title');
+check(head(page('read/brave.html')).types.includes('Article') && /<article class="p-over p-article on" id="pArticle"[^>]*>[\s\S]*?<h2>You don’t have to feel brave to be brave<\/h2>[\s\S]*?valley of Elah/.test(page('read/brave.html')), '/read/brave: Article JSON-LD and the devotion text are in the HTML');
+check(head(page('watch/the-whisper.html')).types.includes('VideoObject') && head(page('watch/the-whisper.html')).ld['@graph'].find((g) => g['@type'] === 'VideoObject').thumbnailUrl.endsWith('.jpg'), '/watch/the-whisper: VideoObject JSON-LD with a thumbnail');
+check(head(page('listen.html')).types.includes('PodcastEpisode'), '/listen: PodcastEpisode JSON-LD');
+check(head(page('verses.html')).robots === 'noindex', '/verses: "coming soon", so kept out of search');
+check(!head(page('watch.html')).robots && !head(page('index.html')).robots, 'live screens are indexable');
+const sitemap = page('sitemap.xml');
+const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+check(['/', '/watch', '/listen', '/read', '/play', '/read/brave', '/read/heart', '/read/keep-building', '/watch/the-whisper', '/watch/the-last-straw', '/watch/first-day-jitters'].every((p) => locs.includes('https://littlesaltandlight.com' + p)), `sitemap.xml lists every screen and post (${locs.length} addresses)`);
+check(!locs.some((l) => /\/(verses|studio|today)/.test(l)), 'sitemap.xml leaves out the Studio, /today (same as /) and coming-soon screens');
+check(!existsSync(join(dist, 'read', 'nope.html')) && !existsSync(join(dist, 'index', 'html')), 'no catch-all page: unknown addresses stay a 404');
+check(existsSync(join(root, 'functions', 'read', '[slug].js')) && existsSync(join(root, 'functions', 'watch', '[slug].js')), 'Pages Functions cover posts published after the build (/read/<slug>, /watch/<slug>)');
+
+// Performance: fingerprinted assets are what the pages load, cached for a year; pages and sw.js are not.
+{
+  const { readFile: rf, readdir: rd } = await import('node:fs/promises');
+  const assets = await rd(join(dist, 'assets'));
+  const page = await rf(join(dist, 'watch.html'), 'utf8');
+  const hashed = assets.every((f) => /\.[0-9a-f]{10}\.(js|css)$/.test(f));
+  const used = ['app', 'store', 'content', 'seo', 'config'].every((n) => new RegExp(`/assets/${n}\\.[0-9a-f]{10}\\.(js|css)`).test(page));
+  const headers = await rf(join(dist, '_headers'), 'utf8');
+  check(hashed && used && !/"\/js\/app\.js"/.test(page), 'build: public pages load fingerprinted /assets/ files');
+  check(/\/assets\/\*\s+Cache-Control: public, max-age=31536000, immutable/.test(headers) && !/^\/\*\n(?:\s+.*\n)*?\s+Cache-Control/m.test(headers), 'build: /assets/ is cached for a year, pages are not');
+  const sw = await rf(join(dist, 'sw.js'), 'utf8');
+  check(assets.every((f) => f.endsWith('.map') || sw.includes(f)), 'build: sw.js lists the fingerprinted files (so a change updates the service worker)');
+}
+
+// Critical CSS: inlined on every public page, allowed by its hash in the policy, and current.
+{
+  const { createHash } = await import('node:crypto');
+  const { sourceHash } = await import('../scripts/critical-css.mjs');
+  const headers = readFileSync(join(dist, '_headers'), 'utf8');
+  const pages = ['index.html', 'watch.html', 'read/brave.html', 'listen.html', 'play.html'];
+  const okPages = pages.every((f) => {
+    const html = readFileSync(join(dist, f), 'utf8');
+    const styles = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
+    return styles.length === 1 && headers.includes(`'sha256-${createHash('sha256').update(styles[0]).digest('base64')}'`) && /media="print" data-late/.test(html) && /<noscript><link rel="stylesheet" href="\/assets\/app\./.test(html);
+  });
+  check(okPages, 'build: each page inlines the critical CSS, its hash is in the policy, the full stylesheet follows');
+  const crit = readFileSync(join(root, 'css', 'critical.css'), 'utf8');
+  check(crit.includes(`(${sourceHash()})`), 'css/critical.css matches css/app.css (run npm run critical after changing app.css)');
+}
 console.log(failures ? `\n${failures} build check(s) failed` : '\nAll build checks passed');
 process.exit(failures ? 1 : 0);

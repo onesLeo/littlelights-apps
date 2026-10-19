@@ -1,6 +1,6 @@
 // Offline support: the app shell is cached on install; fonts are cached the first time they load.
 // Bump VERSION whenever a cached file changes so visitors get the new one.
-const VERSION = 'll-v68';
+const VERSION = 'll-v69';
 const SHELL = [
   './',
   'index.html',
@@ -17,6 +17,7 @@ const SHELL = [
   'js/store.js',
   'js/vendor/supabase-2.117.2.js',
   'js/content.js',
+  'js/seo.js',
   'js/app.js',
   'manifest.webmanifest',
   'icons/icon.svg',
@@ -41,9 +42,18 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  // Pages: try the network first so new posts appear, fall back to the cached app.
+  // Pages (/, /watch, /read/brave, ...): network first so new posts appear; each page is kept for
+  // offline use. Offline, an app address without its own copy gets the app shell, which routes by path.
   if (req.mode === 'navigate') {
-    event.respondWith(fetch(req).catch(() => caches.match(req).then((hit) => hit || caches.match('index.html'))));
+    const app = url.origin === location.origin && !url.pathname.startsWith('/studio');
+    event.respondWith(
+      fetch(req).then((res) => {
+        if (app && res.ok && !res.redirected) caches.open(VERSION).then((cache) => cache.put(url.pathname, res.clone()));
+        return res;
+      }).catch(() => caches.match(app ? url.pathname : req, { ignoreSearch: true })
+        .then((hit) => hit || (app ? caches.match('./') : undefined))
+        .then((hit) => hit || caches.match('index.html')))
+    );
     return;
   }
   // Same-site files and Google Fonts: serve from cache, refresh in the background.

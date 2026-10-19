@@ -167,10 +167,7 @@ await app.waitForTimeout(300);
 const firstSlide = await app.$eval('#pFeed .p-slide', (s) => s.textContent);
 check(firstSlide.includes('Psalm 23') || firstSlide.includes('Rest for the weary') || firstSlide.includes('Evening prayer'), 'app: Studio posts lead the Today feed');
 check(!(await app.$('#pFeed img')), 'app: text from the Studio is shown as text, never as HTML');
-await app.click('.p-tab[data-tab="verses"]');
-await app.waitForTimeout(150);
-check(await app.$eval('#pSoon', (s) => s.classList.contains('on')), 'menus: Verses is coming soon by default');
-await app.click('[data-soon-close]');
+check(!(await app.isVisible('.p-tab[data-tab="verses"]')), 'menus: Verses is hidden by default');
 // The owner switches Verses on in the Studio.
 await page.click('.side [data-view="site"]');
 check(await page.isDisabled('#siteForm select[disabled]'), 'menus: Today cannot be switched off');
