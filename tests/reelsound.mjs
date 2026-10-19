@@ -119,7 +119,7 @@ for (const [name, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { 
   const r2 = await page.evaluate(() => { const v = document.querySelector('.p-reel.on video'); return { muted: v.muted, pressed: document.querySelector('.p-reel.on .p-rsound').getAttribute('aria-pressed') }; });
   check(r2.pressed === 'true', `${name}: sound stays on for the next reel in this session`);
   const only = await page.evaluate(() => ({ reels: window.LL_CONTENT.reels.map((r) => r.title), cards: document.querySelectorAll('#pWatchGal .p-wcard').length }));
-  check(only.reels.join('|') === 'The Last Straw|The Whisper', `${name}: only The Last Straw and The Whisper are shipped visible (placeholders hidden by default)`);
+  check(only.reels.join('|') === 'First Day Jitters|The Last Straw|The Whisper', `${name}: only First Day Jitters, The Last Straw and The Whisper are shipped visible (placeholders hidden by default)`);
   await context.close();
 }
 {
@@ -127,7 +127,7 @@ for (const [name, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { 
   await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
   await context.addInitScript(() => localStorage.setItem('ll.calm', '1'));
   const page = await context.newPage(); await page.goto(base + '#watch'); await page.waitForSelector('#app[data-ready]');
-  check(await page.$$eval('#pWatchGal .p-whero', (h) => h.length) === 1 && await page.$$eval('#pWatchGal .p-wcard', (c) => c.length) === 1 && await page.$$eval('#pWatchGal .p-wsub', (c) => c.length) === 1, 'two shipped reels: Watch shows the hero and one card under More videos');
+  check(await page.$$eval('#pWatchGal .p-whero', (h) => h.length) === 1 && await page.$$eval('#pWatchGal .p-wcard', (c) => c.length) === 2 && await page.$$eval('#pWatchGal .p-wsub', (c) => c.length) === 1, 'three shipped reels: Watch shows the hero and two cards under More videos');
   check(!(await page.$('#pFeed .p-slide.s3:not(.s-studio)')) && (await page.$$('[data-reel="-1"]')).length === 0, 'Today: the card for the hidden Jonathan reel is removed, no broken links');
   await page.click('.p-whero'); await page.waitForTimeout(300);
   check(await page.$eval('.p-reel.on .cap', (c) => getComputedStyle(c).transitionDuration) === '0s', 'calm mode: overlay changes instantly (no fade)');
@@ -139,6 +139,20 @@ for (const [name, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { 
   check(await p2.$eval('.p-reel.on .cap', (c) => getComputedStyle(c).transitionDuration) === '0s', 'reduced motion: overlay changes instantly (no fade)');
   check(await p2.$$eval('.p-reel.on .side .p-ract, .p-reel.on .p-rsound', (b) => b.every((x) => getComputedStyle(x).transitionDuration === '0s')), 'reduced motion: controls change instantly (no fade)');
   await rm.close();
+}
+// Caption paragraphs: blank lines in a caption become separate <p>s (textContent only, no HTML parsing).
+for (const [name, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { width: 1440, height: 900 }]]) {
+  const context = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
+  await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  const page = await context.newPage(); await page.goto(base + '#watch'); await page.waitForSelector('#app[data-ready]');
+  const i = await page.evaluate(() => window.LL_CONTENT.reels.findIndex((r) => r.title === 'First Day Jitters'));
+  await page.click(`[data-watch="${i}"]`); await page.waitForTimeout(300); await page.click('.p-reel.on .p-rcc'); await page.waitForTimeout(300);
+  const ps = await page.evaluate(() => ({ want: window.LL_CONTENT.reels.find((r) => r.title === 'First Day Jitters').caption.split('\n\n'), got: [...document.querySelectorAll('#pReelSheet p')].map((p) => ({ t: p.textContent, kids: p.children.length, gap: parseFloat(getComputedStyle(p).marginTop) })) }));
+  check(ps.got.length === 3 && ps.got.every((p, k) => p.t === ps.want[k] && p.kids === 0) && ps.got[1].gap > 0 && ps.got[2].gap > 0, `${name}: a caption with blank lines shows as 3 separate paragraphs, text exact`);
+  await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+  await page.evaluate((i) => { window.LL_reel.open(i); }, i + 1); await page.waitForTimeout(300); await page.click('.p-reel.on .p-rcc'); await page.waitForTimeout(300);
+  check(await page.$$eval('#pReelSheet p', (p) => p.length) === 1, `${name}: extra paragraphs are cleared when a single-paragraph caption opens`);
+  await context.close();
 }
 await browser.close(); server.close();
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll reel sound checks passed');
