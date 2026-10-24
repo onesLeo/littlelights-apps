@@ -62,9 +62,15 @@ window.LL_CONTENT = {
   ],
 
   // `src` is empty until real videos exist; the reel then shows an animated placeholder.
-  // `hidden: true` = hidden by default (Oct 2026: only First Day Jitters, The Last Straw and The Whisper show); Studio > Built-in content can show them again.
+  // `hidden: true` = hidden by default (Oct 2026: only The Broken Crayon, First Day Jitters, The Last Straw and The Whisper show); Studio > Built-in content can show them again.
   reels: [
     // Built-in uploaded-video reels, hosted in the repo (media/reels/). Newest first, so it leads Watch.
+    { title: 'The Broken Crayon', topic: 'When I need to say sorry', len: '0:41', bg: '#1f2a44', kind: 'sea',
+      src: 'media/reels/the-broken-crayon.mp4', poster: 'media/reels/the-broken-crayon-poster.jpg', thumb: 'media/reels/the-broken-crayon-thumb', date: '2026-10-24T19:00:00+08:00',
+      // Caption page: warm wooden-desk tan, the poster's dominant colour (auto-contrast picks text/accent).
+      pageStyle: 'auto', pageColor: '#bc8566',
+      // Blank lines (\n\n) become separate paragraphs in the caption sheet.
+      caption: "Ema broke Lily's favourite crayon. A little voice told her she didn't need to say sorry, but Jesus helped her be brave. Watch what happens when we choose kindness.\n\n\"Be ye kind one to another, tenderhearted, forgiving one another, even as God for Christ's sake hath forgiven you.\" Ephesians 4:32 (KJV)" },
     { title: 'First Day Jitters', topic: 'When I\u2019m nervous', len: '0:39', bg: '#1f2a44', kind: 'sea',
       src: 'media/reels/first-day-jitters.mp4', poster: 'media/reels/first-day-jitters-poster.jpg', thumb: 'media/reels/first-day-jitters-thumb', date: '2026-10-19T19:00:00+08:00',
       // Caption page: golden-hour amber from the poster's sunrise over the school gate (auto-contrast picks text/accent).

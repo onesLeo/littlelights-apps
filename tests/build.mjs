@@ -103,7 +103,7 @@ check(head(page('verses.html')).robots === 'noindex', '/verses: "coming soon", s
 check(!head(page('watch.html')).robots && !head(page('index.html')).robots, 'live screens are indexable');
 const sitemap = page('sitemap.xml');
 const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-check(['/', '/watch', '/listen', '/read', '/play', '/read/brave', '/read/heart', '/read/keep-building', '/watch/the-whisper', '/watch/the-last-straw', '/watch/first-day-jitters'].every((p) => locs.includes('https://littlesaltandlight.com' + p)), `sitemap.xml lists every screen and post (${locs.length} addresses)`);
+check(['/', '/watch', '/listen', '/read', '/play', '/read/brave', '/read/heart', '/read/keep-building', '/watch/the-whisper', '/watch/the-last-straw', '/watch/first-day-jitters', '/watch/the-broken-crayon'].every((p) => locs.includes('https://littlesaltandlight.com' + p)), `sitemap.xml lists every screen and post (${locs.length} addresses)`);
 check(!locs.some((l) => /\/(verses|studio|today)/.test(l)), 'sitemap.xml leaves out the Studio, /today (same as /) and coming-soon screens');
 check(!existsSync(join(dist, 'read', 'nope.html')) && !existsSync(join(dist, 'index', 'html')), 'no catch-all page: unknown addresses stay a 404');
 check(existsSync(join(root, 'functions', 'read', '[slug].js')) && existsSync(join(root, 'functions', 'watch', '[slug].js')), 'Pages Functions cover posts published after the build (/read/<slug>, /watch/<slug>)');
