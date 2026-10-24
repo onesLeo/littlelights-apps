@@ -59,6 +59,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
     media: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 16l5-5 4 4 3-3 6 6"/></svg>',
     site: '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+    insights: '<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
     team: '<svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.5"/><path d="M3 19c.8-3.3 3.2-5 6-5s5.2 1.7 6 5M16 5.5a3 3 0 010 6M17.5 14c1.8.5 3 2.2 3.5 5"/></svg>',
     site: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.6 2.5 13.4 0 16M12 4c-2.5 2.6-2.5 13.4 0 16"/></svg>'
   };
@@ -248,7 +249,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       '<button class="btn ghost" type="button" id="back">Use a different email</button></div></main>';
   }
   function shell(inner) {
-    var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['site', 'Menus', ICON.site], ['builtins', 'Built-in content', ICON.media], ['team', 'Team', ICON.team]];
+    var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['site', 'Menus', ICON.site], ['builtins', 'Built-in content', ICON.media], ['insights', 'Insights', ICON.insights], ['team', 'Team', ICON.team]];
     return '<div class="shell"><aside class="side">' +
       '<div class="brand">' + wordmark('wms2') + '<small class="wm-tag">Studio</small></div>' +
       '<nav aria-label="Studio">' + nav.map(function (n) {
@@ -486,10 +487,71 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (state.screen === 'signin') root.innerHTML = signin();
     else if (state.screen === 'check') root.innerHTML = checkEmail();
     else {
-      var v = state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : state.view === 'site' ? siteView() : state.view === 'builtins' ? builtinsView() : teamView();
+      var v = state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : state.view === 'site' ? siteView() : state.view === 'builtins' ? builtinsView() : state.view === 'insights' ? insightsView() : teamView();
       root.innerHTML = shell(v);
       if (state.view === 'media') resolveMediaElements();
     }
+  }
+  // ---------- Insights: Cloudflare Web Analytics + anonymous play/read counts (functions/api/insights.js) ----------
+  function loadInsights(days) {
+    state.insights = { loading: true, days: days };
+    if (state.view === 'insights') render();
+    S.accessToken().then(function (token) {
+      if (!token) return { status: 0, body: { error: S.mode === 'local' ? 'Insights need the live Studio (Supabase mode).' : 'Sign in again to see insights.' } };
+      return fetch('/api/insights?days=' + days, { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' })
+        .then(function (r) { return r.json().catch(function () { return { error: 'Insights aren’t available on this address yet.' }; }).then(function (b) { return { status: r.status, body: b }; }); });
+    }).then(function (res) {
+      state.insights = res.body || {}; state.insights.days = days;
+      if (state.view === 'insights') render();
+    }).catch(function () { state.insights = { days: days, error: 'Couldn’t load insights. Check your connection and try again.' }; if (state.view === 'insights') render(); });
+  }
+  // A friendly title for an address or content key, from Studio posts or built-in content.
+  function insightTitle(kind, slug) {
+    var p = state.posts.filter(function (x) { return x.type === kind && (x.slug === slug || S.slugify(x.title || '') === slug); })[0];
+    if (p) return p.title;
+    var C = window.LL_CONTENT || {}, list = kind === 'devotion' ? C.devotions : kind === 'reel' ? C.reels : kind === 'audio' ? C.episodes : [];
+    var b = (list || []).filter(function (x) { return (x.slug || S.slugify(x.title || '')) === slug; })[0];
+    return b ? b.title : slug;
+  }
+  function insightsView() {
+    var I = state.insights || { loading: true, days: 7 }, days = I.days || 7;
+    var head = '<div class="top"><div><h2>Insights</h2><p>Views, countries and referrers for each post, plus how fast the site feels. No personal data.</p></div>' +
+      '<div class="chips" role="group" aria-label="Time range">' + [7, 30].map(function (n) { return '<button class="chip' + (days === n ? ' on' : '') + '" type="button" data-days="' + n + '"' + (days === n ? ' aria-pressed="true"' : ' aria-pressed="false"') + '>Last ' + n + ' days</button>'; }).join('') + '</div></div>';
+    if (I.loading) return head + '<div class="list"><div class="empty">Loading insights…</div></div>';
+    if (I.error && I.connected === undefined) return head + '<div class="list"><div class="empty">' + esc(I.error) + '</div></div>';
+    var plays = I.plays || null, rows = {}, order = [];
+    function row(kind, slug) { var k = kind + ':' + slug; if (!rows[k]) { rows[k] = { kind: kind, slug: slug, views: 0, countries: [], referrers: [], plays: null }; order.push(k); } return rows[k]; }
+    (I.pages || []).forEach(function (pg) {
+      var m = /^\/(read|watch)\/([a-z0-9-]+)\/?$/.exec(pg.path);
+      var r = m ? row(m[1] === 'read' ? 'devotion' : 'reel', m[2]) : row('page', pg.path);
+      r.views = pg.views; r.countries = pg.countries || []; r.referrers = pg.referrers || [];
+    });
+    Object.keys(plays || {}).forEach(function (k) { var i = k.indexOf(':'); row(k.slice(0, i), k.slice(i + 1)).plays = plays[k]; });
+    var KIND = { devotion: 'Devotion', reel: 'Reel', audio: 'Audio', verse: 'Verse', page: 'Page' };
+    function chips(list) { return list.length ? list.map(function (x) { return esc(x.name) + ' <b>' + x.views + '</b>'; }).join(' · ') : '<span class="muted">—</span>'; }
+    function playsCell(p) { if (!p) return '<span class="muted">—</span>'; return (p.started ? p.started + ' started' : '') + (p.finished ? (p.started ? ' · ' : '') + p.finished + ' finished' : '') + (p.read_end ? ((p.started || p.finished) ? ' · ' : '') + p.read_end + ' read to the end' : '') || '<span class="muted">—</span>'; }
+    var notice = '';
+    if (I.connected === false) notice = '<div class="ins-note"><b>Analytics not connected yet.</b> Page views, countries, referrers and Core Web Vitals appear here once the site owner adds the Cloudflare Analytics token. Play and read counts below work without it.</div>';
+    else if (I.error) notice = '<div class="ins-note err">' + esc(I.error) + '</div>';
+    if (plays === null) notice += '<div class="ins-note">Anonymous play and read counts start once the database update for them is approved and applied.</div>';
+    var v = I.vitals, stats = '';
+    if (I.connected) {
+      function rate(val, good, poor) { return val == null ? '' : val <= good ? ' ins-good' : val <= poor ? ' ins-ok' : ' ins-poor'; }
+      stats = '<div class="stats">' +
+        '<div class="stat"><b>' + ((I.total || {}).views || 0) + '</b><span>Page views</span></div>' +
+        '<div class="stat"><b>' + ((I.total || {}).visits || 0) + '</b><span>Visits</span></div>' +
+        '<div class="stat' + rate(v && v.lcp, 2500, 4000) + '"><b>' + (v && v.lcp != null ? (v.lcp / 1000).toFixed(2) + 's' : '—') + '</b><span>Largest paint (LCP, p75)</span></div>' +
+        '<div class="stat' + rate(v && v.inp, 200, 500) + '"><b>' + (v && v.inp != null ? v.inp + 'ms' : '—') + '</b><span>Responsiveness (INP, p75)</span></div>' +
+        '<div class="stat' + rate(v && v.cls, 0.1, 0.25) + '"><b>' + (v && v.cls != null ? (+v.cls).toFixed(2) : '—') + '</b><span>Layout shift (CLS, p75)</span></div></div>';
+    }
+    var body = order.length ? '<div class="list ins-table" role="table" aria-label="Insights per post">' +
+      '<div class="ins-row ins-h" role="row"><span role="columnheader">Post</span><span role="columnheader">Views</span><span role="columnheader">Top countries</span><span role="columnheader">Top referrers</span><span role="columnheader">Plays &amp; reads</span></div>' +
+      order.map(function (k) { var r = rows[k];
+        return '<div class="ins-row" role="row"><span role="cell"><small class="muted">' + esc(KIND[r.kind] || r.kind) + '</small><br>' + esc(r.kind === 'page' ? r.slug : insightTitle(r.kind, r.slug)) + '</span>' +
+          '<span role="cell"><b>' + (I.connected ? r.views : '—') + '</b></span><span role="cell">' + chips(r.countries) + '</span><span role="cell">' + chips(r.referrers) + '</span><span role="cell">' + playsCell(r.plays) + '</span></div>';
+      }).join('') + '</div>'
+      : '<div class="list"><div class="empty">Nothing to show for the last ' + days + ' days yet.</div></div>';
+    return head + notice + stats + body;
   }
   function resolveMediaElements() {
     Array.prototype.forEach.call(root.querySelectorAll('[data-src]'), function (el) {
@@ -497,7 +559,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     });
   }
   function refreshPreview() { var pv = document.getElementById('preview'); if (pv && state.editing) pv.innerHTML = preview(state.editing); }
-  function go(view) { state.view = view; state.editing = null; state.errors = {}; state.confirmDelete = false; render(); window.scrollTo(0, 0); }
+  function go(view) { if (view === 'insights' && !state.insights) loadInsights(7); state.view = view; state.editing = null; state.errors = {}; state.confirmDelete = false; render(); window.scrollTo(0, 0); }
 
   // ---------- validation and saving ----------
   function validate(p, publishing) {
@@ -638,6 +700,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var d = b.dataset;
     if (b.id === 'back') { state.screen = 'signin'; render(); }
     else if (b.id === 'signout') S.signOut().then(function () { state.session = null; state.screen = 'signin'; state.view = 'posts'; render(); });
+    else if (d.days) loadInsights(+d.days);
     else if (d.view) go(d.view);
     else if (d.filter) { state.filter = d.filter; render(); }
     else if (d.new) {
