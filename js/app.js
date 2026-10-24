@@ -799,11 +799,12 @@
   }
   function renderReelStory(i) {
     var r = C.reels[i]; curStory = i; parts = partsOf(r);
+    // Read only shows when its devotion slug resolves (a draft post isn't in C.devotions, so no dead link).
     // Read / Listen only appear when the reel post links a devotion (fields.devotion = slug) or audio (fields.audio = title).
     var acts = '<button type="button" class="save p-ract' + (savedReels[i] ? ' saved' : '') + '" aria-label="Save">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
       '<button type="button" class="share p-ract" aria-label="Share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button>' +
       (r.caption ? '<button type="button" class="more p-ract p-rcc" aria-label="Show caption" aria-expanded="false" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6" width="17" height="12" rx="3"/><text x="12" y="15.2" text-anchor="middle">CC</text></svg><span>Caption</span></button>' : '') +
-      (r.read ? '<button type="button" class="p-ract" data-read-slug="' + esc(r.read) + '" aria-label="Read the devotion">' + rIcon('M3 5h7a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H3zM21 5h-7a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h7z') + '<span>Read</span></button>' : '') +
+      (r.read && indexBySlug(r.read) >= 0 ? '<button type="button" class="p-ract" data-read-slug="' + esc(r.read) + '" aria-label="Read the devotion">' + rIcon('M3 5h7a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H3zM21 5h-7a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h7z') + '<span>Read</span></button>' : '') +
       (r.listen ? '<button type="button" class="p-ract" data-listen-title="' + esc(r.listen) + '" aria-label="Listen">' + rIcon('M4 14v-2a8 8 0 0 1 16 0v2M4 14h3v6H4zM17 14h3v6h-3z') + '<span>Listen</span></button>' : '');
     var many = parts.length > 1;
     reelsEl.innerHTML = parts.map(function (pt, k) {
