@@ -1,7 +1,7 @@
 // Clear-glass caption test: the caption sheet (phone) and book page (desktop) are see-through
 // (light tint + backdrop blur, no opaque underlay), backdrop-filter is really applied (no ancestor
 // or fallback blocks it), and the caption text stays AA over the brightest real frames of
-// media/reels/the-whisper.mp4 (tests/fixtures/whisper-frame-*.jpg, extracted with ffmpeg).
+// the-whisper reel video, now on R2 (tests/fixtures/whisper-frame-*.jpg, extracted with ffmpeg).
 // Run: npm test
 import { chromium } from 'playwright';
 import { readFile } from 'node:fs/promises';
