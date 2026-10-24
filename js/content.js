@@ -70,6 +70,8 @@ window.LL_CONTENT = {
     // Built-in uploaded-video reels, videos on MEDIA_BASE (R2), posters in media/reels/. Newest first, so it leads Watch.
     { title: 'The Broken Crayon', topic: 'When I need to say sorry', len: '0:41', bg: '#1f2a44', kind: 'sea',
       src: MEDIA_BASE + 'reels/the-broken-crayon.4e507a9c.mp4', poster: 'media/reels/the-broken-crayon-poster.jpg', thumb: 'media/reels/the-broken-crayon-thumb', date: '2026-10-24T19:00:00+08:00',
+      // Read button links this devotion; it only shows once the post is live (see renderReelStory).
+      read: 'the-bravest-word',
       // Caption page: warm wooden-desk tan, the poster's dominant colour (auto-contrast picks text/accent).
       pageStyle: 'auto', pageColor: '#bc8566',
       // Blank lines (\n\n) become separate paragraphs in the caption sheet.
