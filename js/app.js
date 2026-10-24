@@ -1020,7 +1020,7 @@
   // unwatched series or reels. Nothing starts by itself.
   function endStory(finished) {
     if (ended) return;
-    ended = true; clock.t = clock.dur; paint(); if (finished) markWatched(curStory);
+    ended = true; clock.t = clock.dur; paint(); if (finished) { markWatched(curStory); countEvent('reel', reelKey(curStory), 'finished'); }
     var el = reelEl(visibleReel), end = el.querySelector('.p-rend'), u = unitOf(curStory), at = u.eps.indexOf(curStory), nx = u.series ? u.eps[at + 1] : undefined;
     var html = '<b>' + (nx != null ? 'Up next' : 'That’s all for now') + '</b>';
     if (nx != null) { var n = C.reels[nx]; html += '<button type="button" class="p-rnext p-rnextep" data-story="' + nx + '" style="--bg:' + esc(n.bg) + '"><span class="p-wthumb">' + thumb(n) + '</span><span class="p-rnext-t"><small>Next episode</small><b>' + esc(epLabel(nx) + n.title) + '</b></span></button>'; }
@@ -1202,6 +1202,7 @@
   function openStory(i) {
     rSheet.hidden = true; wPlayer.classList.remove('book', 'capopen'); renderReelStory(i); seq = parts.map(function (_, k) { return k; });
     showReel(0); $('#pWatchClose').focus();
+    countEvent('reel', reelKey(i), 'started');
   }
   function openReel(i) {
     if (!watchOpen) watchReturn = document.activeElement;
@@ -1217,12 +1218,33 @@
     else if (e.key === ' ' || e.key === 'Spacebar') { if (!ended) togglePause(reelEl(visibleReel)); e.preventDefault(); }
   });
 
+  // ---------- anonymous play/read counter (Studio Insights) ----------
+  // Adds 1 to a per-post, per-day number in Supabase (public.increment_post_stat). Strictly anonymous:
+  // no IP is stored, no user id, cookie, localStorage id or fingerprint is sent or kept, and no
+  // credentials or referrer go with the request. At most once per page load per post and event.
+  var counted = {};
+  function slugKey(s) { return String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80); }
+  function countEvent(kind, slug, ev) {
+    var cfg = window.LL_CONFIG || {}, k = slugKey(slug);
+    if (!k || !cfg.supabaseUrl || !cfg.supabaseAnonKey || counted[kind + ':' + k + '|' + ev]) return;
+    counted[kind + ':' + k + '|' + ev] = 1;
+    try {
+      fetch(cfg.supabaseUrl + '/rest/v1/rpc/increment_post_stat', {
+        method: 'POST', keepalive: true, credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store',
+        headers: { apikey: cfg.supabaseAnonKey, Authorization: 'Bearer ' + cfg.supabaseAnonKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_post_id: kind + ':' + k, p_event: ev })
+      }).catch(function () {});
+    } catch (x) {}
+  }
+  window.LL_countEvent = countEvent;
+  function reelKey(i) { var r = C.reels[i]; return r ? (SEO ? SEO.reelSlug(r) : (r.slug || r.title)) : ''; }
+
   // ---------- audio: real files when `src` is set, otherwise a silent demo ----------
   var player = { ep: -1, t: 0, playing: false }, tick = null;
   var audio = new Audio();
   audio.preload = 'none';
   audio.addEventListener('timeupdate', function () { player.t = audio.currentTime; renderPlayer(); });
-  audio.addEventListener('ended', function () { setPlaying(false); });
+  audio.addEventListener('ended', function () { setPlaying(false); if (player.ep >= 0) countEvent('audio', C.episodes[player.ep].title, 'finished'); });
   function hasSrc() { return player.ep >= 0 && !!C.episodes[player.ep].src; }
   function duration() { return hasSrc() && isFinite(audio.duration) ? audio.duration : C.episodes[player.ep].dur; }
 
@@ -1296,6 +1318,7 @@
     if (C.episodes[i].src) { audio.src = C.episodes[i].src; audio.currentTime = 0; }
     setPlaying(true);
     toast('Playing: ' + C.episodes[i].title);
+    countEvent('audio', C.episodes[i].title, 'started');
   }
   // Transcript as paragraphs: blank lines if the text has them, otherwise a few sentences each,
   // with a new paragraph where a prayer starts.
@@ -1379,9 +1402,18 @@
     closeOverlays();
     a.classList.add('on');
     a.scrollTop = 0;
+    readSlug = d.slug;
+    setTimeout(function () { if (readSlug === d.slug && a.scrollHeight <= a.clientHeight + 80) countEvent('devotion', d.slug, 'read_end'); }, 4000);
     if (SEO) setHead(SEO.meta('devotion', d));
   }
+  // read_end: the reader scrolled to the end of the devotion (counted once per page load).
+  var readSlug = '';
+  $('#pArticle').addEventListener('scroll', function () {
+    var a = this;
+    if (readSlug && a.classList.contains('on') && a.scrollTop + a.clientHeight >= a.scrollHeight - 80) countEvent('devotion', readSlug, 'read_end');
+  }, { passive: true });
   function closeArticle() {
+    readSlug = '';
     $('#pArticle').classList.remove('on');
     if (SEO && location.pathname.indexOf('/read/') === 0) setPath('/read', true);
     pageHead(current);

@@ -41,6 +41,8 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+  // Private, live data (Studio Insights): never cached.
+  if (url.origin === location.origin && url.pathname.startsWith('/api/')) return;
 
   // Pages (/, /watch, /read/brave, ...): network first so new posts appear; each page is kept for
   // offline use. Offline, an app address without its own copy gets the app shell, which routes by path.
