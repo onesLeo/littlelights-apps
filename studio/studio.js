@@ -66,7 +66,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
 
   var state = {
     screen: 'loading', email: '', authError: '', session: null,
-    view: 'posts', filter: 'all', posts: [], team: [],
+    view: 'posts', filter: 'all', statusFilter: 'all', q: '', sortKey: 'date', sortDir: 'desc', limit: 20, posts: [], team: [],
     editing: null, errors: {}, confirmDelete: false, busy: false, uploading: ''
   };
 
@@ -285,23 +285,107 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   }
   function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : ''; }
 
+  // ---------- Posts: a compact, searchable, sortable list (a table on wide screens, rows on phones) ----------
+  var PAGE_SIZE = 20;
+  var STATUSES = [['published', 'Published'], ['scheduled', 'Scheduled'], ['draft', 'Drafts']];
+  var SORTS = { date: 'Date', title: 'Title', type: 'Type', status: 'Status', views: 'Views' };
+  function postPath(p) { return p.type === 'devotion' ? '/read/' + p.slug : p.type === 'reel' ? '/watch/' + p.slug : ''; }
+  // Page views (from Insights, last 30 days) plus plays, when Insights is available. null = not known.
+  function viewsOf(p) {
+    var I = state.postInsights;
+    if (!I || I.error && I.connected === undefined) return null;
+    var n = 0, path = postPath(p), known = false;
+    (I.pages || []).forEach(function (pg) { if (path && pg.path.replace(/\/$/, '') === path) { n += pg.views || 0; known = true; } });
+    var pl = (I.plays || {})[p.type + ':' + p.slug];
+    if (pl && !path) { n += pl.started || 0; known = true; }
+    return known || I.connected ? n : null;
+  }
+  function filteredPosts() {
+    var q = (state.q || '').trim().toLowerCase(), f = state.filter || 'all', sf = state.statusFilter || 'all';
+    var list = state.posts.filter(function (p) {
+      if (f !== 'all' && p.type !== f) return false;
+      if (sf !== 'all' && statusOf(p) !== sf) return false;
+      if (!q) return true;
+      var hay = [p.title, p.slug, TYPES[p.type] && TYPES[p.type].name, p.fields && (p.fields.ref || p.fields.series || p.fields.caption), p.author_email].join(' ').toLowerCase();
+      return hay.indexOf(q) >= 0;
+    });
+    var key = state.sortKey || 'date', dir = state.sortDir === 'asc' ? 1 : -1;
+    var val = function (p) {
+      if (key === 'title') return (p.title || '').toLowerCase();
+      if (key === 'type') return TYPES[p.type] ? TYPES[p.type].name : p.type;
+      if (key === 'status') return statusOf(p);
+      if (key === 'views') { var v = viewsOf(p); return v == null ? -1 : v; }
+      return p.publish_at || p.updated_at || '';
+    };
+    return list.slice().sort(function (a, b) { var x = val(a), y = val(b); return (x < y ? -1 : x > y ? 1 : 0) * dir; });
+  }
+  function thumb(p) {
+    var t = TYPES[p.type] || TYPES.verse, poster = p.fields && p.fields.poster;
+    return '<span class="thumb" style="background:' + t.color + ';color:' + t.ink + '" aria-hidden="true">' +
+      (poster ? '<img alt="" loading="lazy" data-src="' + esc(poster) + '">' : '<span>' + esc(t.name[0]) + '</span>') + '</span>';
+  }
+  function postRows() {
+    var list = filteredPosts(), limit = state.limit || PAGE_SIZE, shown = list.slice(0, limit);
+    if (!list.length) {
+      var msg = !state.posts.length ? 'No posts yet. Press “New post” to write the first one.'
+        : state.q ? 'Nothing matches “' + esc(state.q) + '”. Try another word, or clear the search.'
+        : 'No posts match these filters.';
+      return '<div class="empty">' + msg + (state.posts.length ? ' <button class="btn soft small" type="button" id="clearFilters">Show all posts</button>' : '') + '</div>';
+    }
+    var head = function (k, label, cls) {
+      var on = (state.sortKey || 'date') === k, dir = on ? (state.sortDir === 'asc' ? 'ascending' : 'descending') : 'none';
+      return '<th scope="col" class="' + (cls || '') + '" aria-sort="' + dir + '"><button type="button" class="sorth" data-sort="' + k + '">' + label + '<i aria-hidden="true">' + (on ? (state.sortDir === 'asc' ? '▲' : '▼') : '') + '</i></button></th>';
+    };
+    return '<table class="list ptable"><caption class="sr">Posts. Choose a column title to sort.</caption><thead><tr><th scope="col" class="c-thumb"><span class="sr">Picture</span></th>' +
+      head('title', 'Title') + head('type', 'Type', 'c-type') + head('status', 'Status', 'c-status') + head('date', 'Date', 'c-date') + head('views', 'Views', 'c-views') + '</tr></thead><tbody>' +
+      shown.map(function (p) {
+        var st = statusOf(p), v = viewsOf(p), t = TYPES[p.type] || TYPES.verse;
+        return '<tr class="row" data-edit="' + p.id + '"><td class="c-thumb">' + thumb(p) + '</td>' +
+          '<td class="c-title"><button type="button" class="titlebtn" data-edit="' + p.id + '"><b>' + esc(p.title || 'Untitled') + '</b></button>' +
+          '<small>' + (p.show_on_today ? 'On Today' : '') + (p.show_on_today && p.author_email ? ' · ' : '') + (p.author_email ? esc(p.author_email) : '') + '</small></td>' +
+          '<td class="c-type"><span class="kind"><i style="background:' + t.color + '"></i>' + t.name + '</span></td>' +
+          '<td class="c-status"><span class="pill ' + st + '">' + cap(st) + '</span></td>' +
+          '<td class="c-date when">' + esc(fmtWhen(p.publish_at || p.updated_at)) + '</td>' +
+          '<td class="c-views" title="Page views and plays in the last 30 days">' + (v == null ? '<span class="muted">—</span>' : v.toLocaleString()) + '</td></tr>';
+      }).join('') + '</tbody></table>' +
+      '<div class="more"><span class="muted" role="status">Showing ' + shown.length + ' of ' + list.length + (list.length === 1 ? ' post' : ' posts') + '</span>' +
+      (list.length > shown.length ? '<button class="btn soft" type="button" id="loadMore">Show ' + Math.min(PAGE_SIZE, list.length - shown.length) + ' more</button>' : '') + '</div>';
+  }
   function postsView() {
+    if (!state.postInsights && !state.postInsightsLoading) setTimeout(loadPostInsights, 0);
     var count = function (st) { return state.posts.filter(function (p) { return statusOf(p) === st; }).length; };
-    var list = state.posts.filter(function (p) { return state.filter === 'all' || p.type === state.filter; });
     var next = state.posts.filter(function (p) { return p.status === 'scheduled' && !S.isLive(p); })
       .sort(function (a, b) { return a.publish_at.localeCompare(b.publish_at); })[0];
-    return '<div class="top"><div><h2>Posts</h2><p>Everything on Today, Watch, Listen, Read and Verses.</p></div>' +
+    var f = state.filter || 'all', sf = state.statusFilter || 'all';
+    var typeCount = function (k) { return state.posts.filter(function (p) { return p.type === k; }).length; };
+    return '<div class="top"><div><h2>Posts</h2><p>Everything on Today, Watch, Listen, Read and Verses.' +
+      (next ? ' <span class="nextup">Next scheduled: <b>' + esc(fmtWhen(next.publish_at)) + '</b></span>' : '') + '</p></div>' +
       '<button class="btn primary" type="button" data-view="new">+ New post</button></div>' +
-      '<div class="stats"><div class="stat"><b>' + count('published') + '</b><span>Published</span></div><div class="stat"><b>' + count('scheduled') + '</b><span>Scheduled</span></div>' +
-      '<div class="stat"><b>' + count('draft') + '</b><span>Drafts</span></div><div class="stat"><b>' + (next ? esc(fmtWhen(next.publish_at)) : '—') + '</b><span>Next scheduled post</span></div></div>' +
-      '<div class="chips" role="group" aria-label="Filter by kind"><button class="chip' + (state.filter === 'all' ? ' on' : '') + '" type="button" data-filter="all">All</button>' +
-      Object.keys(TYPES).map(function (k) { return '<button class="chip' + (state.filter === k ? ' on' : '') + '" type="button" data-filter="' + k + '"><i style="background:' + TYPES[k].color + '"></i>' + TYPES[k].name + '</button>'; }).join('') +
-      '</div><div class="list">' + (list.length ? list.map(function (p) {
-        var st = statusOf(p);
-        return '<button class="row" type="button" data-edit="' + p.id + '"><span class="stripe" style="background:' + TYPES[p.type].color + '"></span>' +
-          '<span><b>' + esc(p.title || 'Untitled') + '</b><small>' + TYPES[p.type].name + (p.show_on_today ? ' · on Today' : '') + (p.author_email ? ' · ' + esc(p.author_email) : '') + '</small></span>' +
-          '<span class="when">' + esc(fmtWhen(p.publish_at || p.updated_at)) + '</span><span class="pill ' + st + '">' + cap(st) + '</span></button>';
-      }).join('') : '<div class="empty">' + (state.posts.length ? 'No ' + TYPES[state.filter].name.toLowerCase() + ' posts yet.' : 'No posts yet. Press “New post” to write the first one.') + '</div>') + '</div>';
+      '<div class="ptools">' +
+        '<label class="search"><span class="sr">Search posts</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>' +
+        '<input class="input" type="search" id="postSearch" placeholder="Search by title, verse or series" autocomplete="off" value="' + esc(state.q || '') + '"></label>' +
+        '<label class="sortsel"><span class="sr">Sort by</span><select class="select" id="postSort">' +
+          [['date-desc', 'Newest first'], ['date-asc', 'Oldest first'], ['title-asc', 'Title A–Z'], ['views-desc', 'Most viewed'], ['type-asc', 'Type'], ['status-asc', 'Status']].map(function (o) {
+            var cur = (state.sortKey || 'date') + '-' + (state.sortDir || 'desc');
+            return '<option value="' + o[0] + '"' + (cur === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+          }).join('') + '</select></label>' +
+      '</div>' +
+      '<div class="filters"><div class="chips" role="group" aria-label="Show status">' +
+        '<button class="chip' + (sf === 'all' ? ' on' : '') + '" type="button" data-sfilter="all" aria-pressed="' + (sf === 'all') + '">All <span class="n">' + state.posts.length + '</span></button>' +
+        STATUSES.map(function (s) { return '<button class="chip' + (sf === s[0] ? ' on' : '') + '" type="button" data-sfilter="' + s[0] + '" aria-pressed="' + (sf === s[0]) + '">' + s[1] + ' <span class="n">' + count(s[0]) + '</span></button>'; }).join('') +
+      '</div><div class="chips" role="group" aria-label="Filter by kind"><button class="chip' + (f === 'all' ? ' on' : '') + '" type="button" data-filter="all" aria-pressed="' + (f === 'all') + '">All kinds</button>' +
+        Object.keys(TYPES).map(function (k) { return '<button class="chip' + (f === k ? ' on' : '') + '" type="button" data-filter="' + k + '" aria-pressed="' + (f === k) + '"><i style="background:' + TYPES[k].color + '"></i>' + TYPES[k].name + (k === 'reel' ? ' (video)' : '') + ' <span class="n">' + typeCount(k) + '</span></button>'; }).join('') +
+      '</div></div>' +
+      '<div id="postResults">' + postRows() + '</div>';
+  }
+  function refreshPostRows() { var el = document.getElementById('postResults'); if (el) { el.innerHTML = postRows(); resolveMediaElements(); } }
+  function loadPostInsights() {
+    state.postInsightsLoading = true;
+    S.accessToken().then(function (token) {
+      if (!token) return null;
+      return fetch('/api/insights?days=30', { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' }).then(function (r) { return r.ok || r.status === 502 ? r.json() : null; });
+    }).then(function (body) { state.postInsights = body || { error: 'none' }; if (state.view === 'posts' && body) refreshPostRows(); })
+      .catch(function () { state.postInsights = { error: 'none' }; });
   }
 
   function newView() {
@@ -526,8 +610,10 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     else if (state.screen === 'check') root.innerHTML = checkEmail();
     else {
       var v = state.pwOpen ? passwordView() : state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : state.view === 'site' ? siteView() : state.view === 'builtins' ? builtinsView() : state.view === 'insights' ? insightsView() : teamView();
+      var ae = document.activeElement, keep = ae && ae.id === 'postSearch' ? [ae.selectionStart, ae.selectionEnd] : null;
       root.innerHTML = shell(v);
-      if (state.view === 'media' || state.view === 'edit' || state.view === 'new') resolveMediaElements();
+      if (state.view === 'media' || state.view === 'edit' || state.view === 'new' || state.view === 'posts') resolveMediaElements();
+      if (keep) { var ps = document.getElementById('postSearch'); if (ps) { ps.focus(); try { ps.setSelectionRange(keep[0], keep[1]); } catch (err) {} } }
     }
   }
   // ---------- Insights: Cloudflare Web Analytics + anonymous play/read counts (functions/api/insights.js) ----------
@@ -551,45 +637,120 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var b = (list || []).filter(function (x) { return (x.slug || S.slugify(x.title || '')) === slug; })[0];
     return b ? b.title : slug;
   }
+  // Friendly country name and flag from the two-letter code Cloudflare reports.
+  var regionNames = null;
+  try { regionNames = new Intl.DisplayNames(['en'], { type: 'region' }); } catch (err) {}
+  function countryLabel(code) {
+    var c = String(code || '').toUpperCase();
+    if (!/^[A-Z]{2}$/.test(c)) return c && c !== 'UNKNOWN' ? code : 'Somewhere unknown';
+    var name = c; try { name = regionNames ? regionNames.of(c) : c; } catch (err) {}
+    return String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65, 0x1F1E6 + c.charCodeAt(1) - 65) + ' ' + name;
+  }
+  var SOURCE_HELP = { 'Direct': 'Typed the address, used a bookmark, or tapped a link in an app that hides where it came from.', 'Within the site': 'Moved from one page of the site to another.' };
+  // "▲ 18% more than the 30 days before", kindly worded. Nothing to compare with = no line.
+  function change(cur, prev, days) {
+    if (prev == null || cur == null) return '';
+    var span = ' than the ' + days + ' days before';
+    if (!prev && !cur) return '';
+    if (!prev) return '<span class="delta up">New this period</span>';
+    var pct = Math.round((cur - prev) / prev * 100);
+    if (pct === 0) return '<span class="delta">About the same as the ' + days + ' days before</span>';
+    return '<span class="delta ' + (pct > 0 ? 'up' : 'down') + '">' + (pct > 0 ? '▲ ' + pct + '% more' : '▼ ' + (-pct) + '% fewer') + span + '</span>';
+  }
+  function card(id, label, value, help, delta) {
+    return '<div class="stat icard" id="' + id + '" title="' + esc(help) + '"><span class="ilabel">' + label + '</span><b>' + (value == null ? '—' : Number(value).toLocaleString()) + '</b>' +
+      (delta || '') + '<small class="ihelp">' + help + '</small></div>';
+  }
+  function bars(list, labelFn, helpFn, empty) {
+    if (!list || !list.length) return '<p class="iempty">' + empty + '</p>';
+    var max = Math.max.apply(null, list.map(function (x) { return x.views; })) || 1, total = list.reduce(function (s, x) { return s + x.views; }, 0) || 1;
+    return '<ul class="bars">' + list.map(function (x) {
+      var help = helpFn ? helpFn(x.name) : '';
+      return '<li' + (help ? ' title="' + esc(help) + '"' : '') + '><span class="bl">' + esc(labelFn(x.name)) + '</span><span class="bv">' + Math.round(x.views / total * 100) + '%</span>' +
+        '<span class="bt"><i style="width:' + Math.max(2, Math.round(x.views / max * 100)) + '%"></i></span></li>';
+    }).join('') + '</ul>';
+  }
+  // A simple bar chart of one number per day (inline SVG, no libraries).
+  function trend(series, key, label) {
+    if (!series || !series.length) return '';
+    var max = Math.max.apply(null, series.map(function (d) { return d[key] || 0; })) || 1, n = series.length, w = 100 / n;
+    var fmt = function (d) { var dt = new Date(d + 'T00:00:00'); return isNaN(dt) ? d : dt.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); };
+    return '<figure class="trend" aria-label="' + esc(label) + '"><svg viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="' + esc(label + ': highest ' + max + ' in a day') + '">' +
+      series.map(function (d, i) { var h = Math.max(.6, (d[key] || 0) / max * 38); return '<rect x="' + (i * w + w * .12).toFixed(2) + '" y="' + (40 - h).toFixed(2) + '" width="' + (w * .76).toFixed(2) + '" height="' + h.toFixed(2) + '" rx=".6"><title>' + esc(fmt(d.date)) + ': ' + (d[key] || 0) + '</title></rect>'; }).join('') +
+      '</svg><figcaption><span>' + esc(fmt(series[0].date)) + '</span><span>Busiest day: ' + max.toLocaleString() + '</span><span>' + esc(fmt(series[n - 1].date)) + '</span></figcaption></figure>';
+  }
+  function pageLabel(path) {
+    var P = { '/': 'Home (Today)', '/watch': 'Watch page', '/watch/': 'Watch page', '/read': 'Read page', '/read/': 'Read page', '/listen': 'Listen page', '/listen/': 'Listen page', '/verses': 'Verses page', '/verses/': 'Verses page' };
+    return P[path] || path;
+  }
+  function speedVerdict(v) {
+    if (!v || v.lcp == null) return null;
+    var slow = v.lcp > 4000 || (v.inp != null && v.inp > 500) || (v.cls != null && v.cls > 0.25);
+    var ok = v.lcp > 2500 || (v.inp != null && v.inp > 200) || (v.cls != null && v.cls > 0.1);
+    return slow ? ['ins-poor', 'Slow', 'Pages take a while to appear on many phones.'] : ok ? ['ins-ok', 'OK', 'Pages load fine, with a little room to improve.'] : ['ins-good', 'Fast', 'Pages open quickly for most visitors.'];
+  }
   function insightsView() {
     var I = state.insights || { loading: true, days: 7 }, days = I.days || 7;
-    var head = '<div class="top"><div><h2>Insights</h2><p>Views, countries and referrers for each post, plus how fast the site feels. No personal data.</p></div>' +
-      '<div class="chips" role="group" aria-label="Time range">' + [7, 30].map(function (n) { return '<button class="chip' + (days === n ? ' on' : '') + '" type="button" data-days="' + n + '"' + (days === n ? ' aria-pressed="true"' : ' aria-pressed="false"') + '>Last ' + n + ' days</button>'; }).join('') + '</div></div>';
-    if (I.loading) return head + '<div class="list"><div class="empty">Loading insights…</div></div>';
+    var head = '<div class="top"><div><h2>Insights</h2><p>How families are finding and enjoying Salt and Light. Counts only — no names, no personal data.</p></div>' +
+      '<div class="chips" role="group" aria-label="Time range">' + [7, 30, 90].map(function (n) { return '<button class="chip' + (days === n ? ' on' : '') + '" type="button" data-days="' + n + '" aria-pressed="' + (days === n) + '">' + n + ' days</button>'; }).join('') + '</div></div>';
+    if (I.loading) return head + '<div class="list"><div class="empty">Counting visits…</div></div>';
     if (I.error && I.connected === undefined) return head + '<div class="list"><div class="empty">' + esc(I.error) + '</div></div>';
     var plays = I.plays || null, rows = {}, order = [];
-    function row(kind, slug) { var k = kind + ':' + slug; if (!rows[k]) { rows[k] = { kind: kind, slug: slug, views: 0, countries: [], referrers: [], plays: null }; order.push(k); } return rows[k]; }
+    function row(kind, slug) { var k = kind + ':' + slug; if (!rows[k]) { rows[k] = { kind: kind, slug: slug, views: 0, plays: null }; order.push(k); } return rows[k]; }
     (I.pages || []).forEach(function (pg) {
       var m = /^\/(read|watch)\/([a-z0-9-]+)\/?$/.exec(pg.path);
       var r = m ? row(m[1] === 'read' ? 'devotion' : 'reel', m[2]) : row('page', pg.path);
-      r.views = pg.views; r.countries = pg.countries || []; r.referrers = pg.referrers || [];
+      r.views = pg.views;
     });
     Object.keys(plays || {}).forEach(function (k) { var i = k.indexOf(':'); row(k.slice(0, i), k.slice(i + 1)).plays = plays[k]; });
-    var KIND = { devotion: 'Devotion', reel: 'Reel', audio: 'Audio', verse: 'Verse', page: 'Page' };
-    function chips(list) { return list.length ? list.map(function (x) { return esc(x.name) + ' <b>' + x.views + '</b>'; }).join(' · ') : '<span class="muted">—</span>'; }
-    function playsCell(p) { if (!p) return '<span class="muted">—</span>'; return (p.started ? p.started + ' started' : '') + (p.finished ? (p.started ? ' · ' : '') + p.finished + ' finished' : '') + (p.read_end ? ((p.started || p.finished) ? ' · ' : '') + p.read_end + ' read to the end' : '') || '<span class="muted">—</span>'; }
+    var KIND = { devotion: 'Devotion', reel: 'Reel', audio: 'Audio', verse: 'Verse', page: 'Page', game: 'Game update' };
     var notice = '';
-    if (I.connected === false) notice = '<div class="ins-note"><b>Analytics not connected yet.</b> Page views, countries, referrers and Core Web Vitals appear here once the site owner adds the Cloudflare Analytics token. Play and read counts below work without it.</div>';
+    if (I.connected === false) notice = '<div class="ins-note"><b>Visitor numbers aren’t switched on yet.</b> Visits, countries and sources appear here once the site owner adds the Cloudflare Analytics key. Plays and “read to the end” below already work.</div>';
     else if (I.error) notice = '<div class="ins-note err">' + esc(I.error) + '</div>';
-    if (plays === null) notice += '<div class="ins-note">Anonymous play and read counts start once the database update for them is approved and applied.</div>';
-    var v = I.vitals, stats = '';
-    if (I.connected) {
-      function rate(val, good, poor) { return val == null ? '' : val <= good ? ' ins-good' : val <= poor ? ' ins-ok' : ' ins-poor'; }
-      stats = '<div class="stats">' +
-        '<div class="stat"><b>' + ((I.total || {}).views || 0) + '</b><span>Page views</span></div>' +
-        '<div class="stat"><b>' + ((I.total || {}).visits || 0) + '</b><span>Visits</span></div>' +
-        '<div class="stat' + rate(v && v.lcp, 2500, 4000) + '"><b>' + (v && v.lcp != null ? (v.lcp / 1000).toFixed(2) + 's' : '—') + '</b><span>Largest paint (LCP, p75)</span></div>' +
-        '<div class="stat' + rate(v && v.inp, 200, 500) + '"><b>' + (v && v.inp != null ? v.inp + 'ms' : '—') + '</b><span>Responsiveness (INP, p75)</span></div>' +
-        '<div class="stat' + rate(v && v.cls, 0.1, 0.25) + '"><b>' + (v && v.cls != null ? (+v.cls).toFixed(2) : '—') + '</b><span>Layout shift (CLS, p75)</span></div></div>';
-    }
-    var body = order.length ? '<div class="list ins-table" role="table" aria-label="Insights per post">' +
-      '<div class="ins-row ins-h" role="row"><span role="columnheader">Post</span><span role="columnheader">Views</span><span role="columnheader">Top countries</span><span role="columnheader">Top referrers</span><span role="columnheader">Plays &amp; reads</span></div>' +
-      order.map(function (k) { var r = rows[k];
-        return '<div class="ins-row" role="row"><span role="cell"><small class="muted">' + esc(KIND[r.kind] || r.kind) + '</small><br>' + esc(r.kind === 'page' ? r.slug : insightTitle(r.kind, r.slug)) + '</span>' +
-          '<span role="cell"><b>' + (I.connected ? r.views : '—') + '</b></span><span role="cell">' + chips(r.countries) + '</span><span role="cell">' + chips(r.referrers) + '</span><span role="cell">' + playsCell(r.plays) + '</span></div>';
-      }).join('') + '</div>'
-      : '<div class="list"><div class="empty">Nothing to show for the last ' + days + ' days yet.</div></div>';
-    return head + notice + stats + body;
+    if (plays === null) notice += '<div class="ins-note">Play and reading counts start once the database update for them is applied.</div>';
+    var T = I.total || {}, P = I.previous || null, PT = I.playsTotal || null, PP = I.playsPrevious || null;
+    var cards = '<div class="stats icards">' +
+      card('insVisits', 'People visited', I.connected ? T.visits || 0 : null, 'Visits to the site. Someone who comes back on another day counts again.', I.connected && P ? change(T.visits || 0, P.visits, days) : '') +
+      card('insViews', 'Pages opened', I.connected ? T.views || 0 : null, 'Every time a page was opened, including going back to one.', I.connected && P ? change(T.views || 0, P.views, days) : '') +
+      card('insPlays', 'Videos & audio played', PT ? PT.started || 0 : null, 'Times someone pressed play on a reel, video or audio.', PT && PP ? change(PT.started || 0, PP.started, days) : '') +
+      card('insReads', 'Read to the end', PT ? PT.read_end || 0 : null, 'Times someone scrolled to the end of a devotion.', PT && PP ? change(PT.read_end || 0, PP.read_end, days) : '') +
+      '</div>';
+    var series = I.series && I.series.length ? I.series : null, chart;
+    if (series) chart = '<section class="ipanel"><h3>Visits per day</h3><p class="ihint">Each bar is one day. Point at a bar to see its number.</p>' + trend(series, 'visits', 'Visits per day') + '</section>';
+    else if (I.playsSeries && I.playsSeries.length) chart = '<section class="ipanel"><h3>Plays per day</h3><p class="ihint">Each bar is one day. Point at a bar to see its number.</p>' + trend(I.playsSeries, 'started', 'Plays per day') + '</section>';
+    else chart = '<section class="ipanel"><h3>Visits per day</h3><p class="iempty">No daily numbers yet for these ' + days + ' days. Once people visit, a small chart appears here.</p></section>';
+    var ranked = order.map(function (k) { return rows[k]; }).map(function (r) { r.score = (r.views || 0) + ((r.plays && r.plays.started) || 0); return r; })
+      .filter(function (r) { return r.score > 0 || (r.plays && r.plays.read_end); }).sort(function (a, b) { return b.score - a.score; });
+    var postsOnly = ranked.filter(function (r) { return r.kind !== 'page'; }).slice(0, 10), topMax = postsOnly.length ? postsOnly[0].score || 1 : 1;
+    var top = '<section class="ipanel"><h3>Top posts</h3><p class="ihint">Most opened and played posts in the last ' + days + ' days.</p>' +
+      (postsOnly.length ? '<ol class="toplist" id="topPosts">' + postsOnly.map(function (r, i) {
+        var pl = r.plays || {}, bits = [];
+        if (r.views) bits.push(r.views.toLocaleString() + (r.views === 1 ? ' view' : ' views'));
+        if (pl.started) bits.push(pl.started.toLocaleString() + (pl.started === 1 ? ' play' : ' plays'));
+        if (pl.finished) bits.push(pl.finished.toLocaleString() + ' watched to the end');
+        if (pl.read_end) bits.push(pl.read_end.toLocaleString() + ' read to the end');
+        var t = TYPES[r.kind];
+        return '<li><span class="rank">' + (i + 1) + '</span><span class="tp"><b>' + esc(insightTitle(r.kind, r.slug)) + '</b><small><span class="kind"><i style="background:' + (t ? t.color : 'var(--muted)') + '"></i>' + esc(KIND[r.kind] || r.kind) + '</span> · ' + bits.join(' · ') + '</small>' +
+          '<span class="bt"><i style="width:' + Math.max(2, Math.round(r.score / topMax * 100)) + '%"></i></span></span></li>';
+      }).join('') + '</ol>' : '<p class="iempty">No post has been opened or played in these ' + days + ' days yet. Share a favourite post with friends, then check back.</p>') + '</section>';
+    var pagesList = ranked.filter(function (r) { return r.kind === 'page' && r.views; }).slice(0, 6).map(function (r) { return { name: r.slug, views: r.views }; });
+    var where = '<div class="igrid">' +
+      '<section class="ipanel"><h3>Where visitors are</h3><p class="ihint">Countries, worked out roughly from the internet connection.</p>' + (I.connected ? bars(I.countries, countryLabel, null, 'No visits from any country yet in these ' + days + ' days.') : '<p class="iempty">Appears once visitor numbers are switched on.</p>') + '</section>' +
+      '<section class="ipanel"><h3>How they found us</h3><p class="ihint">The website or app people came from.</p>' + (I.connected ? bars(I.sources, function (n) { return n; }, function (n) { return SOURCE_HELP[n] || ''; }, 'No visits yet in these ' + days + ' days.') : '<p class="iempty">Appears once visitor numbers are switched on.</p>') +
+        '<p class="ihint small"><b>Direct</b> means a typed address, a bookmark, or a link from an app like WhatsApp that doesn’t say where it came from.</p></section>' +
+      (pagesList.length ? '<section class="ipanel"><h3>Most visited pages</h3><p class="ihint">Main pages of the site, not single posts.</p>' + bars(pagesList, pageLabel, null, '') + '</section>' : '') +
+      speedPanel(I.vitals) + '</div>';
+    return head + notice + cards + chart + top + where;
+  }
+  function speedPanel(v) {
+    var s = speedVerdict(v);
+    if (!s) return '';
+    return '<section class="ipanel"><h3>How fast the site feels</h3><p class="speed ' + s[0] + '"><b>' + s[1] + '</b> ' + s[2] + '</p>' +
+      '<details class="tech"><summary>Technical details</summary><ul>' +
+      '<li>Main content appears in <b>' + (v.lcp / 1000).toFixed(1) + 's</b> <small>(LCP; under 2.5s is good)</small></li>' +
+      (v.inp != null ? '<li>Responds to a tap in <b>' + v.inp + 'ms</b> <small>(INP; under 200ms is good)</small></li>' : '') +
+      (v.cls != null ? '<li>Page jumps around: <b>' + (+v.cls).toFixed(2) + '</b> <small>(CLS; under 0.1 is good)</small></li>' : '') +
+      '</ul><small>For 3 out of 4 visits (p75).</small></details></section>';
   }
   function resolveMediaElements() {
     Array.prototype.forEach.call(root.querySelectorAll('[data-src]'), function (el) {
@@ -597,7 +758,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     });
   }
   function refreshPreview() { var pv = document.getElementById('preview'); if (pv && state.editing) pv.innerHTML = preview(state.editing); }
-  function go(view) { if (view === 'insights' && !state.insights) loadInsights(7); state.view = view; state.editing = null; state.errors = {}; state.confirmDelete = false; render(); window.scrollTo(0, 0); }
+  function go(view) { if (view === 'insights' && !state.insights) loadInsights(30); state.view = view; state.editing = null; state.errors = {}; state.confirmDelete = false; render(); window.scrollTo(0, 0); }
 
   // ---------- validation and saving ----------
   function validate(p, publishing) {
@@ -801,7 +962,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   });
 
   root.addEventListener('click', function (ev) {
-    var b = ev.target.closest('button');
+    var b = ev.target.closest('button') || ev.target.closest('tr[data-edit]');
     if (!b) return;
     var d = b.dataset;
     if (b.id === 'back') { state.screen = 'signin'; render(); }
@@ -822,7 +983,15 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     else if (b.id === 'posterFrame' && state.editing && state.editing.media_url) S.resolveMedia(state.editing.media_url).then(function (u) { if (u) autoPoster(u); });
     else if (d.days) loadInsights(+d.days);
     else if (d.view) { state.pwOpen = false; go(d.view); }
-    else if (d.filter) { state.filter = d.filter; render(); }
+    else if (d.filter) { state.filter = d.filter; state.limit = PAGE_SIZE; render(); }
+    else if (d.sfilter) { state.statusFilter = d.sfilter; state.limit = PAGE_SIZE; render(); }
+    else if (d.sort) {
+      if ((state.sortKey || 'date') === d.sort) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+      else { state.sortKey = d.sort; state.sortDir = d.sort === 'date' || d.sort === 'views' ? 'desc' : 'asc'; }
+      render();
+    }
+    else if (b.id === 'loadMore') { state.limit = (state.limit || PAGE_SIZE) + PAGE_SIZE; refreshPostRows(); }
+    else if (b.id === 'clearFilters') { state.q = ''; state.filter = 'all'; state.statusFilter = 'all'; state.limit = PAGE_SIZE; render(); }
     else if (d.new) {
       state.editing = { type: d.new, status: 'draft', show_on_today: true, topics: [], translation: 'WEB', kind: 'Devotion', _mode: 'now' };
       state.view = 'edit'; state.errors = {}; state.confirmDelete = false; render(); window.scrollTo(0, 0);
@@ -873,6 +1042,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
 
   root.addEventListener('input', function (ev) {
     if (ev.target.id === 'newPassword') { var h = document.getElementById('pwHint'); if (h) h.textContent = pwStrength(ev.target.value); return; }
+    if (ev.target.id === 'postSearch') { state.q = ev.target.value; state.limit = PAGE_SIZE; refreshPostRows(); return; }
     if (!state.editing) return;
     if (ev.target.dataset.pick) { var tx = document.getElementById('f_' + ev.target.dataset.pick); state.editing[ev.target.dataset.pick] = ev.target.value; if (tx) tx.value = ev.target.value; refreshPreview(); return; }
     var f = ev.target.dataset.f;
@@ -901,6 +1071,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var again = document.getElementById('newTopic'); if (again) again.focus();
   }
   root.addEventListener('change', function (ev) {
+    if (ev.target.id === 'postSort') { var sv = ev.target.value.split('-'); state.sortKey = sv[0]; state.sortDir = sv[1]; render(); return; }
     if (!state.editing) return;
     if (ev.target.dataset.check) state.editing[ev.target.dataset.check] = ev.target.checked;
     if (ev.target.dataset.f) { state.editing[ev.target.dataset.f] = ev.target.value; refreshPreview(); }
