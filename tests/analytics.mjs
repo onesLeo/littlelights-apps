@@ -25,6 +25,7 @@ const cfDay = (date, views = 10, visits = 4) => ({
   check(acct.total[0].count === 16 && acct.total[0].sum.visits === 6 && acct.daily.length === 2, 'rows: totals add up over days');
   check(acct.countries[0].count === 16 && acct.referers[0].dimensions.refererHost === 'www.google.com', 'rows: countries and referrers per path survive');
   check(Math.abs(acct.vitals[0].quantiles.largestContentfulPaintP75 - 1500000) < 1 && Math.abs(acct.vitals[0].quantiles.cumulativeLayoutShiftP75 - 0.05) < 1e-9, 'rows: vitals round-trip');
+  check(!toRows({ vitals: [{ count: 1, dimensions: { date: '2026-10-18' }, quantiles: { interactionToNextPaintP75: -1 } }] }).some((r) => r.value < 0), 'rows: Cloudflare -1 (no data) vitals are skipped');
   const quiet = snapshotRows({ daily: [] }, '2026-10-05');
   check(quiet.length === 1 && storedDays(quiet).has('2026-10-05'), 'snapshot: a quiet day is still marked stored');
 }
