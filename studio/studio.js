@@ -670,15 +670,34 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
         '<span class="bt"><i style="width:' + Math.max(2, Math.round(x.views / max * 100)) + '%"></i></span></li>';
     }).join('') + '</ul>';
   }
-  // A simple bar chart of one number per day (inline SVG, no libraries).
+  // A simple bar chart of one number per day (plain HTML buttons, no libraries). Each bar is a
+  // full-height button, so it is easy to tap; tapping, hovering or focusing shows its number.
   function trend(series, key, label) {
     if (!series || !series.length) return '';
-    var max = Math.max.apply(null, series.map(function (d) { return d[key] || 0; })) || 1, n = series.length, w = 100 / n;
-    var fmt = function (d) { var dt = new Date(d + 'T00:00:00'); return isNaN(dt) ? d : dt.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); };
-    return '<figure class="trend" aria-label="' + esc(label) + '"><svg viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="' + esc(label + ': highest ' + max + ' in a day') + '">' +
-      series.map(function (d, i) { var h = Math.max(.6, (d[key] || 0) / max * 38); return '<rect x="' + (i * w + w * .12).toFixed(2) + '" y="' + (40 - h).toFixed(2) + '" width="' + (w * .76).toFixed(2) + '" height="' + h.toFixed(2) + '" rx=".6"><title>' + esc(fmt(d.date)) + ': ' + (d[key] || 0) + '</title></rect>'; }).join('') +
-      '</svg><figcaption><span>' + esc(fmt(series[0].date)) + '</span><span>Busiest day: ' + max.toLocaleString() + '</span><span>' + esc(fmt(series[n - 1].date)) + '</span></figcaption></figure>';
+    var unit = key === 'started' ? 'plays' : 'visits';
+    var vals = series.map(function (d) { return d[key] || 0; });
+    var max = Math.max.apply(null, vals), total = vals.reduce(function (t, v) { return t + v; }, 0), peak = vals.indexOf(max), n = series.length;
+    var fmt = function (d, long) { var dt = new Date(d + 'T00:00:00'); if (isNaN(dt)) return d; var dm = dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); return long ? dt.toLocaleDateString('en-GB', { weekday: 'short' }) + ' ' + dm : dm; };
+    var say = function (i) { return fmt(series[i].date, true) + ' · ' + vals[i].toLocaleString() + ' ' + (vals[i] === 1 ? unit.slice(0, -1) : unit); };
+    return '<figure class="trend" aria-label="' + esc(label) + '">' +
+      '<p class="tsum">Total ' + total.toLocaleString() + (max ? ' · Busiest day ' + esc(fmt(series[peak].date, true)) + ' (' + max.toLocaleString() + ')' : '') + '</p>' +
+      '<p class="tsel" id="trendSel" aria-live="polite">Tap a bar to see its number.</p>' +
+      '<div class="tbars" role="group" aria-label="' + esc(label) + '">' +
+      series.map(function (d, i) {
+        var h = max ? Math.max(1.5, vals[i] / max * 100) : 1.5;
+        return '<button type="button" class="tbar" data-bar="' + esc(say(i)) + '" aria-label="' + esc(say(i)) + '"><i style="height:' + h.toFixed(1) + '%"></i></button>';
+      }).join('') + '</div>' +
+      '<figcaption><span>' + esc(fmt(series[0].date)) + '</span><span>' + esc(fmt(series[n - 1].date)) + '</span></figcaption></figure>';
   }
+  function showBar(btn) {
+    var fig = btn.closest('.trend'), out = fig && fig.querySelector('.tsel');
+    if (!out) return;
+    fig.querySelectorAll('.tbar.on').forEach(function (x) { if (x !== btn) { x.classList.remove('on'); x.removeAttribute('aria-pressed'); } });
+    btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true');
+    out.textContent = btn.dataset.bar;
+  }
+  root.addEventListener('mouseover', function (ev) { var b = ev.target.closest && ev.target.closest('.tbar'); if (b) showBar(b); });
+  root.addEventListener('focusin', function (ev) { var b = ev.target.closest && ev.target.closest('.tbar'); if (b) showBar(b); });
   function pageLabel(path) {
     var P = { '/': 'Home (Today)', '/watch': 'Watch page', '/watch/': 'Watch page', '/read': 'Read page', '/read/': 'Read page', '/listen': 'Listen page', '/listen/': 'Listen page', '/verses': 'Verses page', '/verses/': 'Verses page' };
     return P[path] || path;
@@ -716,8 +735,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       card('insReads', 'Read to the end', PT ? PT.read_end || 0 : null, 'Times someone scrolled to the end of a devotion.', PT && PP ? change(PT.read_end || 0, PP.read_end, days) : '') +
       '</div>';
     var series = I.series && I.series.length ? I.series : null, chart;
-    if (series) chart = '<section class="ipanel"><h3>Visits per day</h3><p class="ihint">Each bar is one day. Point at a bar to see its number.</p>' + trend(series, 'visits', 'Visits per day') + '</section>';
-    else if (I.playsSeries && I.playsSeries.length) chart = '<section class="ipanel"><h3>Plays per day</h3><p class="ihint">Each bar is one day. Point at a bar to see its number.</p>' + trend(I.playsSeries, 'started', 'Plays per day') + '</section>';
+    if (series) chart = '<section class="ipanel"><h3>Visits per day</h3><p class="ihint">Each bar is one day. Tap a bar to see its number.</p>' + trend(series, 'visits', 'Visits per day') + '</section>';
+    else if (I.playsSeries && I.playsSeries.length) chart = '<section class="ipanel"><h3>Plays per day</h3><p class="ihint">Each bar is one day. Tap a bar to see its number.</p>' + trend(I.playsSeries, 'started', 'Plays per day') + '</section>';
     else chart = '<section class="ipanel"><h3>Visits per day</h3><p class="iempty">No daily numbers yet for these ' + days + ' days. Once people visit, a small chart appears here.</p></section>';
     var ranked = order.map(function (k) { return rows[k]; }).map(function (r) { r.score = (r.views || 0) + ((r.plays && r.plays.started) || 0); return r; })
       .filter(function (r) { return r.score > 0 || (r.plays && r.plays.read_end); }).sort(function (a, b) { return b.score - a.score; });
@@ -965,6 +984,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var b = ev.target.closest('button') || ev.target.closest('tr[data-edit]');
     if (!b) return;
     var d = b.dataset;
+    if (d.bar !== undefined && b.classList.contains('tbar')) { showBar(b); return; }
     if (b.id === 'back') { state.screen = 'signin'; render(); }
     else if (b.id === 'magicLink') {
       var em = document.getElementById('email').value.trim().toLowerCase();

@@ -421,7 +421,35 @@ await page.waitForTimeout(200);
   check((await text('#insReads')).includes('Read to the end') && (await text('#insReads')).includes('100% more'), 'insights: “Read to the end” card');
   check((await text('#insPlays')).includes('About the same'), 'insights: no change is said plainly');
   check(await page.$$eval('.icard', (c) => c.every((x) => x.title && x.querySelector('.ihelp').textContent.length > 10)), 'insights: every number has a one-line explanation');
-  check(await page.$$eval('.trend rect', (r) => r.length) === 2, 'insights: a bar per day in the trend chart');
+  check(await page.$$eval('.trend .tbar', (r) => r.length) === 2, 'insights: a bar per day in the trend chart');
+  const longDay = (n) => { const dt = new Date(day(n) + 'T00:00:00'); return dt.toLocaleDateString('en-GB', { weekday: 'short' }) + ' ' + dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); };
+  check((await text('.tsum')).includes('Total 120') && (await text('.tsum')).includes('Busiest day ' + longDay(1) + ' (70)'), 'chart: total and busiest day under the title');
+  check(await page.$$eval('.tbar', (b) => b.every((x) => /\d+ visits$/.test(x.getAttribute('aria-label')))), 'chart: every bar has an accessible label');
+  await page.hover('.tbar >> nth=0');
+  check((await text('#trendSel')) === longDay(2) + ' · 50 visits', 'chart: hovering a bar shows its number');
+  await page.focus('.tbar >> nth=1');
+  check((await text('#trendSel')) === longDay(1) + ' · 70 visits', 'chart: keyboard focus shows its number');
+  {
+    const ph = await context.newPage();
+    await ph.setViewportSize({ width: 390, height: 844 });
+    await ph.route('**/api/insights**', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ connected: true, days: 30, total: { views: 240, visits: 120 }, previous: { views: 200, visits: 100 },
+      series: [{ date: day(3), views: 10, visits: 7 }, { date: day(2), views: 100, visits: 50 }, { date: day(1), views: 140, visits: 70 }], pages: [], countries: [], sources: [], plays: {}, playsTotal: { started: 0, finished: 0, read_end: 0 }, playsPrevious: { started: 0, finished: 0, read_end: 0 } }) }));
+    await ph.goto(base + 'studio/');
+    await ph.waitForSelector('.shell');
+    await ph.evaluate(() => { window.LLStore.accessToken = () => Promise.resolve('test-token'); });
+    await ph.click('.side [data-view="insights"]');
+    await ph.waitForSelector('.tbar');
+    const box = await ph.$eval('.tbar >> nth=0', (b) => { const r = b.getBoundingClientRect(); return { w: r.width, h: r.height }; }).catch(async () => { const r = await (await ph.$$('.tbar'))[0].boundingBox(); return { w: r.width, h: r.height }; });
+    check(box.h >= 44, 'chart (phone): bars are tall enough to tap');
+    await (await ph.$$('.tbar'))[0].scrollIntoViewIfNeeded();
+    await (await ph.$$('.tbar'))[0].click();
+    const sel = await ph.$eval('#trendSel', (e) => ({ t: e.textContent, r: e.getBoundingClientRect().right, l: e.getBoundingClientRect().left }));
+    check(sel.t === longDay(3) + ' · 7 visits' && sel.l >= 0 && sel.r <= 390, 'chart (phone): tapping a bar shows its date and count on screen');
+    check(await ph.$eval('.tbar.on', (b) => b.getAttribute('aria-pressed') === 'true'), 'chart (phone): the tapped bar is highlighted');
+    await (await ph.$$('.tbar'))[0].evaluate((b) => { b.closest('.ipanel').scrollIntoView(); scrollBy(0, -130); });
+    await ph.screenshot({ path: 'test-results/studio-chart-390.png' });
+    await ph.close();
+  }
   check((await text('#topPosts li:first-child')).includes('Rest for the weary') && (await text('#topPosts')).includes('12 read to the end') && !(await text('#topPosts')).includes('Home'), 'insights: top posts use post titles and plain labels');
   const where = await text('.igrid');
   check(where.includes('Singapore') && where.includes('Indonesia') && where.includes('Google search') && where.includes('Direct') && where.includes('Home (Today)'), 'insights: countries, sources and pages have friendly names');
