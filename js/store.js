@@ -145,6 +145,7 @@
       if (!writeJSON(SETTINGS_KEY, all)) return Promise.reject(new Error('The browser’s storage is full.'));
       return Promise.resolve(value);
     },
+    accessToken: function () { return Promise.resolve(''); },
     listTeam: function () { return Promise.resolve(local._team()); },
     invite: function (email, role) {
       var team = local._team();
@@ -229,6 +230,10 @@
           return { email: email, role: r.data.role };
         });
       });
+    },
+    // The signed-in user's Supabase access token (for /api/insights), or '' when signed out.
+    accessToken: function () {
+      return loadClient().then(function (c) { return c.auth.getSession(); }).then(function (res) { var s = res.data && res.data.session; return s ? s.access_token : ''; });
     },
     signInWithEmail: function (email) {
       return loadClient().then(function (c) {

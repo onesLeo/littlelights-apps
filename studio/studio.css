@@ -278,3 +278,16 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .colorrow { display: flex; gap: 8px; align-items: center; }
 .colorrow input[type="color"] { width: 48px; height: 44px; padding: 2px; border-radius: 10px; border: 1px solid var(--line, #d9d2e6); background: #fff; cursor: pointer; flex: none; }
 .colorrow .input { flex: 1; min-width: 0; }
+
+/* Insights (solid, like the rest of the Studio) */
+.ins-note { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; margin: 0 0 12px; }
+.ins-note.err { border-color: #c0392b; }
+.ins-table { margin-top: 16px; }
+.ins-row { display: grid; grid-template-columns: 2fr .6fr 1.6fr 1.6fr 1.6fr; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--line); font-size: 14px; align-items: start; }
+.ins-row:first-child { border-top: 0; }
+.ins-h { font-weight: 600; color: var(--muted); font-size: 13px; }
+.ins-row .muted, .muted { color: var(--muted); }
+.stat.ins-good b { color: #2e8b57; }
+.stat.ins-ok b { color: #c98a00; }
+.stat.ins-poor b { color: #c0392b; }
+@media (max-width: 800px) { .ins-row { grid-template-columns: 1fr 1fr; } .ins-h { display: none; } }
