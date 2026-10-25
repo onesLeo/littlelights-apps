@@ -1,0 +1,11 @@
+# Separate tiny Worker (not part of the Pages build). Deploy only with approval:
+#   cd workers/analytics-snapshot && npx wrangler deploy
+#   npx wrangler secret put CF_ANALYTICS_TOKEN && npx wrangler secret put ANALYTICS_INGEST_SECRET
+name = "littlesaltandlight-analytics-snapshot"
+main = "index.js"
+compatibility_date = "2026-10-01"
+account_id = "1835673e1406fbb875ff4210741d90cc"
+workers_dev = false
+
+[triggers]
+crons = ["15 0 * * *"] # 00:15 UTC daily (08:15 Singapore)
