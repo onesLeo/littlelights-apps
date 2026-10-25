@@ -4,6 +4,7 @@
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { serve } from '../scripts/serve.mjs';
+import { friendlySource, shape, shapeStats } from '../functions/api/insights.js';
 
 const server = await serve(0);
 const base = `http://localhost:${server.address().port}/`;
@@ -36,6 +37,18 @@ function silentWav(seconds = 2, rate = 8000) {
   buf.writeUInt32LE(rate, 28); buf.writeUInt16LE(1, 32); buf.writeUInt16LE(8, 34); buf.write('data', 36); buf.writeUInt32LE(n, 40);
   buf.fill(128, 44);
   return buf;
+}
+
+// ---------- Insights API helpers (no network) ----------
+check(friendlySource('www.google.co.id') === 'Google search' && friendlySource('') === 'Direct' && friendlySource('Direct / none') === 'Direct' && friendlySource('l.facebook.com') === 'Facebook' && friendlySource('wa.me') === 'WhatsApp' && friendlySource('littlesaltandlight.com') === 'Within the site' && friendlySource('example.org') === 'example.org', 'insights api: referrers get friendly names');
+{
+  const out = shape({ total: [{ count: 9, sum: { visits: 5 } }], previous: [{ count: 4, sum: { visits: 2 } }], daily: [{ count: 9, sum: { visits: 5 }, dimensions: { date: '2026-10-20' } }],
+    paths: [{ count: 9, sum: { visits: 5 }, dimensions: { requestPath: '/read/a' } }, { count: 3, sum: { visits: 1 }, dimensions: { requestPath: '/studio/' } }],
+    countries: [{ count: 6, dimensions: { requestPath: '/read/a', countryName: 'SG' } }, { count: 3, dimensions: { requestPath: '/read/a', countryName: 'ID' } }, { count: 3, dimensions: { requestPath: '/studio/', countryName: 'US' } }],
+    referers: [{ count: 5, dimensions: { requestPath: '/read/a', refererHost: 'www.google.com' } }, { count: 4, dimensions: { requestPath: '/read/a', refererHost: 'google.com' } }] }, 7);
+  check(out.previous.visits === 2 && out.series[0].visits === 5 && out.countries.map((c) => c.name).join() === 'SG,ID' && out.sources[0].name === 'Google search' && out.sources[0].views === 9, 'insights api: previous period, daily series, site-wide countries and grouped sources (Studio visits left out)');
+  const st = shapeStats([{ post_id: 'reel:a', day: '2026-10-01', event: 'started', count: 2 }, { post_id: 'reel:a', day: '2026-10-24', event: 'started', count: 3 }, { post_id: 'devotion:b', day: '2026-10-24', event: 'read_end', count: 1 }], '2026-10-18T00:00:00Z');
+  check(st.plays['reel:a'].started === 3 && st.playsTotal.started === 3 && st.playsPrevious.started === 2 && st.playsTotal.read_end === 1 && st.playsSeries.length === 1, 'insights api: plays split into this period and the one before');
 }
 
 // ---------- sign in ----------
@@ -337,6 +350,91 @@ await page.click('[data-bhide="devotion:brave"]');
 await page.click('[data-bhide="reel:noah-kept-building"]');
 await page.click('#saveHidden');
 await page.waitForTimeout(200);
+
+// ---------- post list: search, filters, sorting, 20 at a time ----------
+{
+  const saved = await page.evaluate(() => localStorage.getItem('ll.posts.v1'));
+  await page.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('ll.posts.v1')), now = Date.now();
+    for (let i = 0; i < 30; i++) all.push({ id: 9000 + i, type: i % 2 ? 'audio' : 'reel', status: i % 3 ? 'published' : 'draft', title: 'Bulk post ' + String(i).padStart(2, '0'), slug: 'bulk-post-' + i,
+      show_on_today: false, publish_at: new Date(now - (i + 400) * 86400000).toISOString(), updated_at: new Date().toISOString(), fields: {}, media_url: '' });
+    localStorage.setItem('ll.posts.v1', JSON.stringify(all));
+  });
+  await page.reload();
+  await page.waitForSelector('.ptable');
+  const total = await page.evaluate(() => JSON.parse(localStorage.getItem('ll.posts.v1')).length);
+  check(await page.$$eval('.ptable tbody .row', (r) => r.length) === 20, 'posts: shows 20 at a time');
+  check((await text('.more')).includes('Showing 20 of ' + total), 'posts: says how many are shown');
+  await page.click('#loadMore');
+  check(await page.$$eval('.ptable tbody .row', (r) => r.length) === Math.min(40, total), 'posts: “Show more” adds the next 20');
+  check(await page.$$eval('.ptable thead th[aria-sort]', (h) => h.map((x) => x.textContent.replace(/[▲▼]/g, '')).join(',')) === 'Title,Type,Status,Date,Views', 'posts: table columns are Title, Type, Status, Date, Views');
+  await page.fill('#postSearch', 'bulk post 0');
+  check(await page.$$eval('.ptable tbody .row', (r) => r.length) === 10 && await page.evaluate(() => document.activeElement.id === 'postSearch'), 'posts: search filters as you type and keeps focus');
+  await page.fill('#postSearch', 'zzz nothing');
+  check((await text('#postResults')).includes('Nothing matches'), 'posts: a search with no results explains itself');
+  await page.click('#clearFilters');
+  check(await page.$eval('#postSearch', (i) => i.value) === '' && await page.$$eval('.ptable tbody .row', (r) => r.length) === 20, 'posts: “Show all posts” clears the search');
+  await page.click('[data-filter="audio"]');
+  await page.click('[data-sfilter="draft"]');
+  check(await page.$$eval('.ptable tbody .row', (r) => r.every((x) => x.querySelector('.kind').textContent === 'Audio' && x.querySelector('.pill').textContent === 'Draft')) && await page.$$eval('.ptable tbody .row', (r) => r.length) === 5, 'posts: type and status chips combine');
+  await page.click('[data-filter="all"]'); await page.click('[data-sfilter="all"]');
+  await page.click('[data-sort="title"]');
+  const titles = await page.$$eval('.ptable tbody .row b', (b) => b.map((x) => x.textContent));
+  check(titles.join('|') === titles.slice().sort((a, b) => a.toLowerCase() < b.toLowerCase() ? -1 : 1).join('|') && await page.$eval('th[aria-sort="ascending"]', (t) => t.textContent.startsWith('Title')), 'posts: a column title sorts A–Z');
+  await page.click('[data-sort="title"]');
+  check(await page.$eval('th[aria-sort="descending"]', (t) => t.textContent.startsWith('Title')), 'posts: pressing it again sorts Z–A');
+  await page.click('.ptable tbody .row .kind');
+  await page.waitForSelector('#postForm');
+  check(true, 'posts: tapping anywhere on a row opens the editor');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.click('.side [data-view="posts"]');
+  check(await page.$eval('.ptable thead', (h) => getComputedStyle(h).display === 'none') && await page.$eval('.ptable tbody .row', (r) => getComputedStyle(r).display === 'grid' && r.getBoundingClientRect().height < 90), 'posts (phone): compact rows instead of a wide table');
+  check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'posts (phone): nothing sticks out sideways');
+  await page.selectOption('#postSort', 'title-asc');
+  check(await page.$eval('th[aria-sort="ascending"]', (t) => t.textContent.startsWith('Title')), 'posts (phone): the Sort menu sorts');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.screenshot({ path: 'test-results/studio-posts-list.png' });
+  await page.evaluate((s) => localStorage.setItem('ll.posts.v1', s), saved);
+
+  // ---------- Insights: plain-language cards, chart, top posts, friendly sources (mocked API) ----------
+  const day = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+  let asked = [];
+  const restSlug = await page.evaluate(() => JSON.parse(localStorage.getItem('ll.posts.v1')).find((p) => p.title.startsWith('Rest for the weary')).slug);
+  await page.route('**/api/insights**', (r) => {
+    const d = +new URL(r.request().url()).searchParams.get('days'); asked.push(d);
+    r.fulfill({ contentType: 'application/json', body: JSON.stringify(d === 90 ? { connected: true, days: 90, total: { views: 0, visits: 0 }, previous: { views: 0, visits: 0 }, series: [], pages: [], countries: [], sources: [], plays: {}, playsTotal: { started: 0, finished: 0, read_end: 0 }, playsPrevious: { started: 0, finished: 0, read_end: 0 } } : {
+      connected: true, days: d, total: { views: 240, visits: 120 }, previous: { views: 200, visits: 100 },
+      series: [{ date: day(2), views: 100, visits: 50 }, { date: day(1), views: 140, visits: 70 }],
+      pages: [{ path: '/read/' + restSlug, views: 90, visits: 60, countries: [], referrers: [] }, { path: '/', views: 150, visits: 100, countries: [], referrers: [] }],
+      countries: [{ name: 'SG', views: 30 }, { name: 'ID', views: 10 }], sources: [{ name: 'Google search', views: 20 }, { name: 'Direct', views: 10 }],
+      vitals: { samples: 10, lcp: 1800, inp: 100, cls: 0.02 },
+      plays: { ['devotion:' + restSlug]: { started: 0, finished: 0, read_end: 12 } }, playsTotal: { started: 8, finished: 4, read_end: 12 }, playsPrevious: { started: 8, finished: 2, read_end: 6 } }) });
+  });
+  await page.reload();
+  await page.waitForSelector('.shell');
+  await page.evaluate(() => { window.LLStore.accessToken = () => Promise.resolve('test-token'); });
+  await page.click('.side [data-view="insights"]');
+  await page.waitForSelector('#insVisits');
+  check(asked.includes(30) && await page.$eval('[data-days="30"]', (b) => b.getAttribute('aria-pressed') === 'true'), 'insights: opens on the last 30 days');
+  check(await page.$$eval('[data-days]', (b) => b.map((x) => x.dataset.days).join()) === '7,30,90', 'insights: 7, 30 and 90 day chips');
+  check((await text('#insVisits')).includes('People visited') && (await text('#insVisits')).includes('120') && (await text('#insVisits')).includes('20% more than the 30 days before'), 'insights: “People visited” with a friendly change');
+  check((await text('#insReads')).includes('Read to the end') && (await text('#insReads')).includes('100% more'), 'insights: “Read to the end” card');
+  check((await text('#insPlays')).includes('About the same'), 'insights: no change is said plainly');
+  check(await page.$$eval('.icard', (c) => c.every((x) => x.title && x.querySelector('.ihelp').textContent.length > 10)), 'insights: every number has a one-line explanation');
+  check(await page.$$eval('.trend rect', (r) => r.length) === 2, 'insights: a bar per day in the trend chart');
+  check((await text('#topPosts li:first-child')).includes('Rest for the weary') && (await text('#topPosts')).includes('12 read to the end') && !(await text('#topPosts')).includes('Home'), 'insights: top posts use post titles and plain labels');
+  const where = await text('.igrid');
+  check(where.includes('Singapore') && where.includes('Indonesia') && where.includes('Google search') && where.includes('Direct') && where.includes('Home (Today)'), 'insights: countries, sources and pages have friendly names');
+  check((await text('.speed')).includes('Fast'), 'insights: site speed in one word, details tucked away');
+  await page.setViewportSize({ width: 390, height: 844 });
+  check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'insights (phone): nothing sticks out sideways');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.click('[data-days="90"]');
+  await page.waitForSelector('.iempty');
+  check((await text('#topPosts, .ipanel:nth-of-type(2)')).length > 0 && (await page.$$eval('.iempty', (e) => e.length)) >= 3, 'insights: helpful empty states when there is nothing yet');
+  await page.unroute('**/api/insights**');
+  await page.click('.side [data-view="posts"]');
+}
 
 // ---------- delete, sign out, strangers stay out ----------
 await page.click('.side [data-view="posts"]');
