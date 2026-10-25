@@ -72,10 +72,13 @@
     if (parts[0] === 'read' && parts[1]) return '/read/' + parts[1];
     return path(parts[0]);
   }
+  // Share image for a video: a Studio poster (a full storage URL on any host). Built-in reels (site paths,
+  // portrait) and posts without a poster keep the 1200x630 site image.
+  function posterImage(u) { u = String(u || ''); return /^https:\/\//i.test(u) ? u : ''; }
   // Head values for a screen. kind: 'page' | 'devotion' | 'reel' | 'series'.
   function meta(kind, x) {
     if (kind === 'devotion') return { path: path('read', x.slug), title: x.title + ' · ' + NAME, desc: clip(x.teaser || x.html || x.title), type: 'article' };
-    if (kind === 'reel') return { path: path('watch', reelSlug(x)), title: x.title + ' · Watch · ' + NAME, desc: clip(x.caption || x.topic || PAGES.watch.desc), type: 'video.other' };
+    if (kind === 'reel') return { path: path('watch', reelSlug(x)), title: x.title + ' · Watch · ' + NAME, desc: clip(x.caption || x.topic || PAGES.watch.desc), type: 'video.other', image: x.src ? posterImage(x.poster) : '' };
     if (kind === 'series') return { path: path('series', slugify(x.series)), title: x.series + ' · Bible story series · ' + NAME, desc: clip(x.desc || PAGES.watch.desc), type: 'website' };
     var p = PAGES[x] || PAGES.today;
     return { path: p.path, title: p.title, desc: p.desc, type: 'website' };

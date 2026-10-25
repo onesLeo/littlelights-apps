@@ -31,7 +31,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     verse: ['verse', 'ref', 'translation', 'topics'],
     devotion: ['teaser', 'body', 'ref', 'family', 'prayer', 'audioId'],
     audio: ['kind', 'minutes', 'seconds', 'file', 'transcript'],
-    reel: ['caption', 'youtube', 'minutes', 'seconds', 'file', 'series', 'episode', 'series_description', 'page_style', 'page_color'],
+    reel: ['caption', 'youtube', 'minutes', 'seconds', 'file', 'poster', 'poster_auto', 'series', 'episode', 'series_description', 'page_style', 'page_color'],
     game: ['text', 'button']
   };
   // Desktop caption page (book spread) for reels: fields.page_style and fields.page_color; empty colour = from the reel.
@@ -101,7 +101,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   var LABEL = { title: 'Title', status: 'Status', publish_at: 'Publish time', show_on_today: 'Show on Today', media_url: 'File',
     verse: 'Verse text', ref: 'Reference', translation: 'Translation', topics: 'Topics', teaser: 'Summary', body: 'Reading',
     family: 'For families', prayer: 'Prayer', audioId: 'Audio version', kind: 'Kind', minutes: 'Length', caption: 'Caption',
-    youtube: 'YouTube link', text: 'Text', button: 'Button label', series: 'Series', episode: 'Episode', series_description: 'Series description', page_style: 'Page style', page_color: 'Page colour' };
+    youtube: 'YouTube link', text: 'Text', button: 'Button label', series: 'Series', episode: 'Episode', series_description: 'Series description', page_style: 'Page style', page_color: 'Page colour', poster: 'Poster', poster_auto: 'Poster made from the video' };
   // One flat list of what a reader would notice, from a stored post.
   function flat(p) {
     var out = { status: p.status, publish_at: p.publish_at, show_on_today: p.show_on_today, media_url: p.media_url };
@@ -311,6 +311,21 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       (state.errors.file ? '<span class="errmsg" role="alert">' + state.errors.file + '</span>' : '') + '</div>';
   }
 
+  // Poster (thumbnail) for a video reel, stored in fields.poster (a URL like media_url, so any storage
+  // host works). Optional: without one, a frame about 1 s in is taken from the video and saved as WebP.
+  var POSTER_TYPES = ['image/jpeg', 'image/png', 'image/webp'], POSTER_MAX = 5 * 1024 * 1024;
+  function posterField() {
+    var e = state.editing, busy = state.uploading === 'poster';
+    if (!e.media_url && !e.poster) return '';
+    return '<div class="field"><span>Poster image (optional)</span><div class="poster-row">' +
+      (e.poster ? '<img class="poster-pv" id="posterPv" alt="Poster preview" width="90" height="160" data-src="' + esc(e.poster) + '">' : '<div class="poster-pv empty" id="posterPv">No poster</div>') +
+      '<div class="poster-acts"><label class="upload' + (busy ? ' busy' : '') + '" data-drop="poster"><b>' + (busy ? 'Saving poster…' : 'Choose a poster image') + '</b>' +
+      '<small>JPG, PNG or WebP, up to 5 MB. Vertical 9:16 looks best. ' + (e.poster ? (e.poster_auto ? 'Now using a frame from the video.' : 'Now using your image.') : 'Without one, a frame from the video is used.') + '</small>' +
+      '<input class="sr" type="file" accept="' + POSTER_TYPES.join(',') + '" data-file="poster" id="f_poster"></label>' +
+      (e.media_url ? '<button class="btn soft small" type="button" id="posterFrame"' + (busy ? ' disabled' : '') + '>Use a frame from the video</button>' : '') +
+      '</div></div>' + (state.errors.poster ? '<span class="errmsg" role="alert">' + state.errors.poster + '</span>' : '') + '</div>';
+  }
+
   function editView() {
     var p = state.editing, t = TYPES[p.type], f = '';
     if (p.type === 'verse') {
@@ -341,6 +356,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       f = field('title', 'Title', p.title, { ph: 'Noah kept building' }) +
         field('caption', 'Caption', p.caption, { textarea: true, ph: 'What the reel is about, with the Bible reference' }) +
         uploadField('Video', 'video/*', 'Vertical 9:16 MP4, up to 60 seconds and 50 MB. Or paste a YouTube Shorts link below.') +
+        posterField() +
         '<div class="two">' + field('youtube', 'YouTube link (optional)', p.youtube, { ph: 'https://youtube.com/shorts/…', type: 'url' }) + field('minutes', 'Length', p.minutes, { ph: '0:52' }) + '</div>' +
         // Series: reels with the same series name are grouped on the Watch page, ordered by episode number.
         '<div class="two">' + field('series', 'Series (optional)', p.series, { ph: 'Leave empty for a standalone reel', list: 'seriesList', help: 'Reels with the same series name are shown together.' }) +
@@ -489,7 +505,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     else {
       var v = state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : state.view === 'site' ? siteView() : state.view === 'builtins' ? builtinsView() : state.view === 'insights' ? insightsView() : teamView();
       root.innerHTML = shell(v);
-      if (state.view === 'media') resolveMediaElements();
+      if (state.view === 'media' || state.view === 'edit' || state.view === 'new') resolveMediaElements();
     }
   }
   // ---------- Insights: Cloudflare Web Analytics + anonymous play/read counts (functions/api/insights.js) ----------
@@ -639,7 +655,61 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       state.uploading = '';
       render(); refreshPreview();
       toast('Uploaded ' + file.name);
+      // Every new video gets a poster: keep one the author chose, otherwise take a frame from this file.
+      if (wantVideo && (!state.editing.poster || state.editing.poster_auto)) autoPoster(file);
     }).catch(function (err) { state.uploading = ''; state.errors.file = 'Upload failed: ' + err.message; render(); });
+  }
+
+  // A still from the video (about 1 s in, or the middle of a shorter clip), as WebP (JPEG where the
+  // browser can't encode WebP). `src` is a File/Blob or a URL; remote files need CORS (public buckets have it).
+  function grabFrame(src) {
+    return new Promise(function (resolve, reject) {
+      var v = document.createElement('video'), url = typeof src === 'string' ? src : URL.createObjectURL(src), done = false;
+      var finish = function (err, blob) { if (done) return; done = true; clearTimeout(timer); if (typeof src !== 'string') URL.revokeObjectURL(url); v.removeAttribute('src'); v.load(); if (err) reject(err); else resolve(blob); };
+      var timer = setTimeout(function () { finish(new Error('The video took too long to read.')); }, 20000);
+      v.muted = true; v.playsInline = true; v.preload = 'auto';
+      if (typeof src === 'string' && /^https?:/i.test(src)) v.crossOrigin = 'anonymous';
+      v.onerror = function () { finish(new Error('This browser can’t read the video.')); };
+      v.onloadedmetadata = function () { var d = v.duration; v.currentTime = isFinite(d) && d > 0 ? Math.min(1, d / 2) : 1; };
+      v.onseeked = function () {
+        var w = v.videoWidth, h = v.videoHeight;
+        if (!w || !h) return finish(new Error('The video has no picture.'));
+        var k = Math.min(1, 1080 / Math.max(w, h)), c = document.createElement('canvas');
+        c.width = Math.round(w * k); c.height = Math.round(h * k);
+        try { c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); } catch (err) { return finish(err); }
+        var out = function (type, q, next) {
+          try { c.toBlob(function (b) { if (b && b.type === type) finish(null, b); else if (next) next(); else finish(new Error('Couldn’t make an image.')); }, type, q); } catch (err) { finish(err); }
+        };
+        out('image/webp', 0.82, function () { out('image/jpeg', 0.85); });
+      };
+      v.src = url;
+    });
+  }
+  function posterName(e) { return (S.slugify((e.file || e.title || 'video').replace(/\.[^.]+$/, '')) || 'video') + '-poster'; }
+  function savePoster(blob, name, auto) {
+    var e = state.editing;
+    state.uploading = 'poster'; delete state.errors.poster; render();
+    var file = blob instanceof File ? blob : new File([blob], name + (blob.type === 'image/webp' ? '.webp' : '.jpg'), { type: blob.type });
+    return S.uploadMedia(file).then(function (url) {
+      if (state.editing === e) { e.poster = url; e.poster_auto = auto || undefined; }
+      state.uploading = ''; render();
+    }).catch(function (err) { state.uploading = ''; state.errors.poster = 'Poster upload failed: ' + err.message; render(); });
+  }
+  function autoPoster(src) {
+    var e = state.editing;
+    syncFields();
+    state.uploading = 'poster'; render();
+    return grabFrame(src).then(function (blob) {
+      if (state.editing !== e) return;
+      return savePoster(blob, posterName(e), true).then(function () { toast('Poster made from the video. Choose an image to use your own.'); });
+    }).catch(function (err) { state.uploading = ''; state.errors.poster = 'Couldn’t make a poster from the video (' + err.message + '). Choose an image instead.'; render(); });
+  }
+  function handlePoster(file) {
+    if (!file) return;
+    syncFields();
+    if (POSTER_TYPES.indexOf(file.type) < 0) { state.errors.poster = 'Choose a JPG, PNG or WebP image.'; render(); return; }
+    if (file.size > POSTER_MAX) { state.errors.poster = 'This image is ' + (file.size / 1048576).toFixed(1) + ' MB. The limit is 5 MB.'; render(); return; }
+    savePoster(file, '', false).then(function () { if (!state.errors.poster) toast('Poster saved: ' + file.name); });
   }
 
   // ---------- events ----------
@@ -700,6 +770,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var d = b.dataset;
     if (b.id === 'back') { state.screen = 'signin'; render(); }
     else if (b.id === 'signout') S.signOut().then(function () { state.session = null; state.screen = 'signin'; state.view = 'posts'; render(); });
+    else if (b.id === 'posterFrame' && state.editing && state.editing.media_url) S.resolveMedia(state.editing.media_url).then(function (u) { if (u) autoPoster(u); });
     else if (d.days) loadInsights(+d.days);
     else if (d.view) go(d.view);
     else if (d.filter) { state.filter = d.filter; render(); }
@@ -783,11 +854,12 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (!state.editing) return;
     if (ev.target.dataset.check) state.editing[ev.target.dataset.check] = ev.target.checked;
     if (ev.target.dataset.f) { state.editing[ev.target.dataset.f] = ev.target.value; refreshPreview(); }
-    if (ev.target.dataset.file) handleFile(ev.target.files[0]);
+    if (ev.target.dataset.file === 'poster') handlePoster(ev.target.files[0]);
+    else if (ev.target.dataset.file) handleFile(ev.target.files[0]);
   });
   root.addEventListener('dragover', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); z.classList.add('drag'); } });
   root.addEventListener('dragleave', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) z.classList.remove('drag'); });
-  root.addEventListener('drop', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); handleFile(ev.dataTransfer.files[0]); } });
+  root.addEventListener('drop', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); (z.dataset.drop === 'poster' ? handlePoster : handleFile)(ev.dataTransfer.files[0]); } });
 
   boot();
 })();

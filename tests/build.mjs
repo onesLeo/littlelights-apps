@@ -51,6 +51,7 @@ const csp = (headers.match(/^\s+Content-Security-Policy: (.+)$/m) || [])[1] || '
 const supabaseUrl = (readFileSync(join(root, 'js', 'config.js'), 'utf8').match(/supabaseUrl:\s*'([^']*)'/) || [])[1];
 const directive = (name) => (csp.split(';').map((d) => d.trim().split(/\s+/)).find((d) => d[0] === name) || []).slice(1);
 check(!supabaseUrl || ['connect-src', 'img-src', 'media-src'].every((d) => directive(d).includes(supabaseUrl)), `_headers: the policy allows ${supabaseUrl} for data and media`);
+check(directive('img-src').includes('https://media.littlesaltandlight.com'), '_headers: video posters may load from the media host (R2) as images');
 check(directive('script-src').join(' ') === "'self' https://static.cloudflareinsights.com" && directive('default-src').join(' ') === "'self'", '_headers: scripts only from this site and the Cloudflare Web Analytics beacon, no inline scripts');
 check(directive('connect-src').includes('https://cloudflareinsights.com'), '_headers: the analytics beacon may report to cloudflareinsights.com');
 check(directive('frame-ancestors').join(' ') === "'none'", '_headers: the site cannot be framed');

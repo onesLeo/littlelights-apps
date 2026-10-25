@@ -14,6 +14,7 @@ check(config.includes(`supabaseUrl: '${SUPABASE_URL}'`) && config.includes(`supa
 const shell = readFileSync(new URL('../index.html', import.meta.url), 'utf8').replace('class="p-view v-today on"', 'class="p-view v-today"').replace('class="p-view v-read"', 'class="p-view v-read on"');
 const posts = [
   { id: 41, type: 'devotion', status: 'published', publish_at: '2026-10-01T00:00:00Z', title: 'A new devotion', slug: 'a-new-devotion', fields: { teaser: 'Fresh from the Studio.', body: 'Hello **families**.', prayer: 'Amen.' } },
+  { id: 43, type: 'reel', status: 'published', publish_at: '2026-10-03T00:00:00Z', title: 'A video with a poster', slug: 'a-video-with-a-poster', media_url: 'https://media.example.com/v2.mp4', fields: { caption: 'Has a poster.', poster: 'https://media.example.com/v2-poster.webp' } },
   { id: 42, type: 'reel', status: 'published', publish_at: '2026-10-02T00:00:00Z', title: 'A new video', slug: 'a-new-video', media_url: 'https://x.supabase.co/v.mp4', fields: { caption: 'A video caption.', minutes: '0:30' } },
 ];
 const asked = [];
@@ -43,6 +44,15 @@ check(asked.every((u) => u.includes('status=in.(published,scheduled)') && u.incl
 res = await postPage(ctx('/watch/a-new-video'), 'reel', fakeFetch);
 html = await res.text();
 check(res.status === 200 && html.includes('<title>A new video · Watch · Salt and Light</title>') && html.includes('"@type":"VideoObject"'), 'a video published after the build gets its page and VideoObject JSON-LD');
+
+check(html.includes('<meta property="og:image" content="https://littlesaltandlight.com/og-image.png">') || /<meta property="og:image" content="[^"]*og-image[^"]*">/.test(html), 'a video without a poster keeps the site share image');
+check(!/rel="preload" as="image" fetchpriority="high"/.test(html), 'a video without a poster has no poster preload');
+
+res = await postPage(ctx('/watch/a-video-with-a-poster'), 'reel', fakeFetch);
+html = await res.text();
+check(html.includes('<meta property="og:image" content="https://media.example.com/v2-poster.webp">') && html.includes('<meta name="twitter:image" content="https://media.example.com/v2-poster.webp">') && !html.includes('og:image:width'), 'a video with a poster shares it as og:image / twitter:image (any storage host)');
+check(html.includes('"thumbnailUrl":"https://media.example.com/v2-poster.webp"'), 'its VideoObject thumbnailUrl is the poster');
+check(html.includes('<link rel="preload" as="image" fetchpriority="high" href="https://media.example.com/v2-poster.webp">'), 'its poster is preloaded first');
 
 res = await postPage(ctx('/read/no-such-post'), 'devotion', fakeFetch);
 check(res.status === 404 && (await res.text()) === 'not found page', 'an unknown devotion stays a real 404');
