@@ -753,7 +753,10 @@
   var reelsEl = $('#pReels');
   function rIcon(d) { return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + d + '"/></svg>'; }
   // Each reel (episode) plays alone with one progress bar. The old `parts` field is no longer read.
-  function partsOf(r) { return [{ src: r.src || '', youtube: r.youtube || '', len: r.len || '', kind: r.kind, bg: r.bg, poster: r.poster || '' }]; }
+  // Built-in reels (the ones with made thumbnails) have a WebP copy of their poster (scripts/make-thumbs.py),
+  // a third of the JPEG's size; the player shows that. The JPEG stays for link previews and JSON-LD.
+  function playerPoster(r) { return r.poster && r.thumb && /-poster\.jpg$/.test(r.poster) ? r.poster.replace(/\.jpg$/, '.webp') : (r.poster || ''); }
+  function partsOf(r) { return [{ src: r.src || '', youtube: r.youtube || '', len: r.len || '', kind: r.kind, bg: r.bg, poster: playerPoster(r) }]; }
   // Series: reels sharing `series` (fields.series) are grouped and ordered by `episode` (fields.episode).
   // A unit is one series or one standalone reel. Cover art = first episode's art; description =
   // fields.series_description from any episode, otherwise the first episode's caption.
@@ -810,7 +813,7 @@
     reelsEl.innerHTML = parts.map(function (pt, k) {
       var yid = ytId(pt.youtube);
       var scene = pt.src
-        ? '<video src="' + esc(pt.src) + '"' + (pt.poster ? ' poster="' + esc(pt.poster) + '"' : '') + ' playsinline muted preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
+        ? '<video src="' + esc(pt.src) + '"' + (pt.poster ? ' poster="' + esc(pt.poster) + '"' : '') + ' width="1080" height="1920" playsinline muted preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
         : yid ? '<div class="p-yt-slot" data-yt="' + yid + '" style="position:absolute;inset:0;background:#000"></div>'
         : reelScene(pt.kind);
       return '<article class="p-reel' + (pt.src ? ' is-video' : '') + '" data-i="' + i + '" data-p="' + k + '" style="--rc:' + esc(pt.bg) + ';background:' + esc(pt.bg) + '" aria-label="' + esc(r.title) + (many ? ', part ' + (k + 1) + ' of ' + parts.length : '') + '">' +
@@ -1110,25 +1113,31 @@
   function watchOrder() { return [].concat.apply([], unitOrder().map(function (u) { return u.eps; })); }
   function tickHtml(on) { return on ? '<span class="p-wwatched"><span aria-hidden="true">✓</span> Watched</span>' : ''; }
   function unitAttrs(u) { return u.series ? 'data-series="' + esc(u.series) + '"' : 'data-watch="' + u.eps[0] + '"'; }
-  // The name starts with the title the card shows (WCAG 2.5.3, label in name), then what tapping does.
-  function unitLabel(u) { var r = u.cover; return u.series ? u.title + ', series of ' + u.eps.length + ' episodes' + (unitWatched(u) ? ', watched' : '') + ', open' : r.title + (r.len ? ', ' + r.len : '') + (unitWatched(u) ? ', watched' : '') + ', play'; }
+  // The buttons are named by the text they show (so the name always contains the visible words, WCAG
+  // 2.5.3), plus a hidden note saying what tapping does.
+  function unitAction(u) { return '<span class="p-vh">, ' + (u.series ? 'series, open' : 'play') + '</span>'; }
   function renderWatch() {
     wGal.removeAttribute('aria-busy');
+    // One <h1> per page: the prerendered page says which level the "Watch" title is (data-h: h1 on
+    // /watch, h2 where the page already has its own h1, e.g. a video's title on /watch/<slug>). The
+    // hidden .p-seo block (the post's h1 and text) is kept.
+    var seoBlock = wGal.querySelector('.p-seo'), hTag = wGal.getAttribute('data-h') === 'h1' && !seoBlock ? 'h1' : 'h2';
     if (!C.reels.length) { wGal.innerHTML = '<div class="p-wempty glass glass--dark"><b>No videos yet</b><p>New Bible story videos are on their way. Check back soon.</p></div>'; return; }
     var order = unitOrder(), h = order[0], hr = h.cover, anyW = C.reels.some(function (_, k) { return isWatched(k); });
     var focusWas = document.activeElement && wGal.contains(document.activeElement) ? (document.activeElement.dataset.watch || document.activeElement.dataset.series) : null;
     var badge = function (u) { return u.series ? '<span class="p-weps">' + u.eps.length + ' episode' + (u.eps.length === 1 ? '' : 's') + '</span>' : (u.cover.len ? '<span class="p-wdur">' + esc(u.cover.len) + '</span>' : ''); };
-    wGal.innerHTML = '<div class="p-wtop"><h1 class="p-wtitle">Watch</h1>' + (anyW ? '<button type="button" class="p-wclear" data-clear-watched>Clear watched</button>' : '') + '</div>' +
+    wGal.innerHTML = '<div class="p-wtop"><' + hTag + ' class="p-wtitle">Watch</' + hTag + '>' + (anyW ? '<button type="button" class="p-wclear" data-clear-watched>Clear watched</button>' : '') + '</div>' +
       filterBar('watch', order.length, []) +
-      '<button type="button" class="p-whero glass glass--dark' + (unitWatched(h) ? ' watched' : '') + (h.series ? ' is-series' : '') + '" ' + unitAttrs(h) + ' style="--bg:' + esc(hr.bg) + '" aria-label="' + esc(unitLabel(h)) + '">' +
+      '<button type="button" class="p-whero glass glass--dark' + (unitWatched(h) ? ' watched' : '') + (h.series ? ' is-series' : '') + '" ' + unitAttrs(h) + ' style="--bg:' + esc(hr.bg) + '">' +
       '<span class="p-wthumb">' + thumb(hr, true) + '</span><span class="p-wshade"></span>' + playIcon() +
-      '<span class="p-winfo"><span class="p-kicker">' + (h.series ? 'Series · ' + h.eps.length + ' episode' + (h.eps.length === 1 ? '' : 's') : (unitWatched(h) ? 'Watched' : 'Featured') + (hr.len ? ' · ' + esc(hr.len) : '')) + '</span><b>' + esc(h.title) + '</b>' + (h.desc ? '<small>' + esc(h.desc) + '</small>' : '') + '</span>' + tickHtml(unitWatched(h)) + '</button>' +
+      '<span class="p-winfo"><span class="p-kicker">' + (h.series ? 'Series · ' + h.eps.length + ' episode' + (h.eps.length === 1 ? '' : 's') : (unitWatched(h) ? 'Watched' : 'Featured') + (hr.len ? ' · ' + esc(hr.len) : '')) + '</span><b>' + esc(h.title) + '</b>' + unitAction(h) + (h.desc ? '<small aria-hidden="true">' + esc(h.desc) + '</small>' : '') + '</span>' + tickHtml(unitWatched(h)) + '</button>' +
       (order.length > 1 ? '<h2 class="p-wsub">More videos</h2><div class="p-wgrid">' + order.slice(1).map(function (u) {
         var r = u.cover;
-        return '<button type="button" class="p-wcard' + (unitWatched(u) ? ' watched' : '') + (u.series ? ' is-series' : '') + '" ' + unitAttrs(u) + ' style="--bg:' + esc(r.bg) + '" aria-label="' + esc(unitLabel(u)) + '">' +
+        return '<button type="button" class="p-wcard' + (unitWatched(u) ? ' watched' : '') + (u.series ? ' is-series' : '') + '" ' + unitAttrs(u) + ' style="--bg:' + esc(r.bg) + '">' +
           '<span class="p-wthumb">' + thumb(r) + (u.series ? '' : playIcon()) + badge(u) + tickHtml(unitWatched(u)) + '</span>' +
-          '<b>' + esc(u.title) + '</b>' + (u.series ? '<small class="p-wkind">Series</small>' : '') + '</button>';
+          '<b>' + esc(u.title) + '</b>' + (u.series ? '<small class="p-wkind">Series</small>' : '') + unitAction(u) + '</button>';
       }).join('') + '</div>' : '');
+    if (seoBlock) wGal.appendChild(seoBlock);
     if (focusWas != null) { var f = wGal.querySelector('[data-watch="' + focusWas + '"], [data-series="' + focusWas.replace(/"/g, '\\"') + '"]'); if (f) f.focus(); }
     if (seriesOpen) renderSeries(seriesOpen);
   }

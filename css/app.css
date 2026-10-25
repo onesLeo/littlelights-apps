@@ -47,7 +47,7 @@ img, svg { max-width: 100%; }
 
 /* shared header for list pages */
 .p-head { position: sticky; top: 0; z-index: 3; padding: 22px 18px 12px; display: flex; align-items: center; justify-content: space-between; background: inherit; }
-.p-head :is(h1, h3) { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
+.p-head :is(h1, h2, h3) { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
 .p-logo { display: flex; align-items: center; gap: 7px; font-weight: 800; font-size: 14px; }
 
 /* Calligraphy wordmark: "Salt and" + "Light" with a candle for the i.
@@ -220,10 +220,10 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .p-app.p-boot .p-article.on { animation: none; }
 @keyframes slidein { from { transform: translateX(100%); } to { transform: none; } }
 .p-article .hero { padding: 64px 20px 22px; display: grid; gap: 8px; }
-.p-article .hero h2 { margin: 0; font-size: 26px; line-height: 1.05; font-weight: 800; }
+.p-article .hero :is(h1, h2) { margin: 0; font-size: 26px; line-height: 1.05; font-weight: 800; }
 /* Text written into the page by the build for search engines (title and caption of /watch/<video>);
    the gallery replaces it as soon as the app starts. */
-.p-seo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.p-seo, .p-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .p-article .back { position: absolute; top: 16px; left: 14px; z-index: 2; border: 0; border-radius: 999px; background: rgba(0,0,0,.7); color: #fff; font-size: 12px; font-weight: 700; padding: 8px 12px; cursor: pointer; }
 .p-article .body { padding: 18px 20px 30px; }
 .p-article .listen { margin: 0 20px; }
@@ -663,7 +663,7 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 @media (min-width: 900px) {
   .v-today.on { grid-template-columns: minmax(0, 1fr) 290px; grid-template-rows: auto 1fr; align-content: start; gap: 24px; padding: 28px max(28px, calc((100vw - 1260px) / 2)); overflow-y: auto; }
   .p-welcome { display: block; grid-column: 1 / -1; }
-  .p-welcome h1 { margin: 4px 0; font-size: 36px; line-height: 1.15; letter-spacing: -.025em; }
+  .p-welcome :is(h1, h2) { margin: 4px 0; font-size: 36px; line-height: 1.15; letter-spacing: -.025em; }
   .p-welcome p { font-size: 16px; }
   .v-today .p-sky { position: fixed; top: var(--navh); bottom: var(--minih); opacity: 1; }
   .p-app:not(.night) .p-welcome { color: #26384b; }
@@ -1165,6 +1165,7 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
 .p-app.calm .p-filter button { transition: none; }
 @media (prefers-reduced-motion: reduce) { .p-filter button { transition: none; } }
 .v-watch .p-filter { margin: 0; }
+.p-fskel { opacity: .5; pointer-events: none; }
 .v-today .p-filter { margin: 0 0 16px; }
 .v-today .p-slide.s1 .p-filter { margin: 18px 0 0; position: relative; z-index: 3; }
 @media (max-width: 899px) { .p-filter { border-radius: 22px; } }

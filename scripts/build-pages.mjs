@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { access, cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { transform } from 'esbuild';
 import { prerender } from './prerender.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -49,6 +50,9 @@ for (const file of FINGERPRINTED) {
   let body = await readFile(resolve(root, file), 'utf8');
   // fonts.css names its fonts relative to /fonts/.
   if (file === 'fonts/fonts.css') body = body.replace(/url\((?![a-z]+:|\/)([^)]+)\)/g, 'url(/fonts/$1)');
+  // Minified (whitespace, comments, local names): the source files stay readable, the copies are smaller.
+  // Top-level names are kept, because these are classic scripts that share globals (LL_CONFIG, LLStore).
+  body = (await transform(body, { loader: file.endsWith('.css') ? 'css' : 'js', minify: true, legalComments: 'none', charset: 'utf8' })).code;
   const hash = createHash('sha256').update(body).digest('hex').slice(0, 10);
   const name = file.split('/').pop().replace(/\.(\w+)$/, `.${hash}.$1`);
   await writeFile(resolve(output, 'assets', name), body);
@@ -69,7 +73,11 @@ async function htmlFiles(dir) {
 // accepts an inline <style> if the policy lists its hash, so the hash goes into _headers.
 const fontsCss = (await readFile(resolve(output, 'assets', renamed['fonts/fonts.css'].split('/').pop()), 'utf8')).replace(/\/\*[\s\S]*?\*\//g, '').trim();
 const critical = (await readFile(resolve(root, 'css/critical.css'), 'utf8')).replace(/^\/\*[\s\S]*?\*\/\n/, '');
-export const inlineCss = fontsCss + '\n' + critical;
+// Rules the prerendered markup needs before the stylesheet arrives: the hidden post title/text on
+// /watch/<slug> (.p-seo) and the hidden "play" note in gallery buttons (.p-vh) must not take up room,
+// and the sort-bar placeholder is dimmed (without these the page jumps when app.css loads).
+const prerenderCss = '.p-seo,.p-vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.p-fskel{opacity:.5;pointer-events:none}';
+export const inlineCss = (await transform(fontsCss + '\n' + critical + '\n' + prerenderCss, { loader: 'css', minify: true, legalComments: 'none', charset: 'utf8' })).code.trim();
 const inlineHash = 'sha256-' + createHash('sha256').update(inlineCss).digest('base64');
 for (const path of await htmlFiles(output)) {
   let html = await readFile(path, 'utf8');
