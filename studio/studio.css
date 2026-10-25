@@ -362,9 +362,13 @@ th.c-views { text-align: right; }
 .iempty { color: var(--muted); font-size: 14px; padding: 14px; background: var(--surface-2); border-radius: 12px; }
 .igrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
 .trend { margin: 4px 0 0; }
-.trend svg { width: 100%; height: 140px; display: block; }
-.trend rect { fill: var(--audio); }
-.trend rect:hover { fill: var(--focus); }
+.tsum { font-size: 13px; color: var(--muted); margin: 0 0 4px; }
+.tsel { font-size: 14px; font-weight: 700; color: var(--ink); min-height: 1.4em; margin: 0 0 6px; }
+.tbars { display: flex; align-items: stretch; gap: 2px; height: 150px; }
+.tbar { flex: 1 1 0; min-width: 0; height: 100%; padding: 0; border: 0; background: none; cursor: pointer; display: flex; align-items: flex-end; border-radius: 6px; -webkit-tap-highlight-color: transparent; }
+.tbar i { display: block; width: 100%; background: var(--audio); border-radius: 4px 4px 1px 1px; }
+.tbar:hover i, .tbar.on i { background: var(--focus); }
+.tbar:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .trend figcaption { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 6px; }
 .toplist { list-style: none; margin: 0; padding: 0; display: grid; }
 .toplist li { display: grid; grid-template-columns: 32px 1fr; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); align-items: start; }
