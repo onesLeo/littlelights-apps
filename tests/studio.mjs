@@ -354,6 +354,95 @@ await page.click('#signinForm button[type=submit]');
 await page.waitForSelector('.errmsg');
 check((await text('.errmsg')).includes('isn’t on the Salt and Light team'), 'sign-in: people not on the team are turned away');
 
+// ---------- Supabase mode: password sign-in and change password (Supabase is faked) ----------
+const sctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' });
+await sctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+await sctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript',
+  body: "window.LL_CONFIG = { supabaseUrl: 'https://fake-project.supabase.co', supabaseAnonKey: 'sb_publishable_test' };" }));
+await sctx.route('https://fake-project.supabase.co/**', (r) => r.fulfill({ contentType: 'application/json', body: '[]' }));
+await sctx.addInitScript(() => {
+  const TEAM = { 'owner@example.org': 'owner' }, PW = { 'owner@example.org': 'correct horse battery', 'stranger@example.org': 'stranger password 1' };
+  const log = window.__auth = { otp: [], updates: [], session: null };
+  const q = (table) => {
+    const b = { _eq: null, select() { return b; }, eq(_, v) { b._eq = v; return b; }, order() { return b; },
+      maybeSingle() { return Promise.resolve({ data: TEAM[b._eq] ? { role: TEAM[b._eq] } : null, error: null }); },
+      then(res, rej) { return Promise.resolve({ data: [], error: null }).then(res, rej); } };
+    return b;
+  };
+  const client = {
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: log.session } }),
+      signInWithPassword: ({ email, password }) => {
+        if (PW[email] !== password) return Promise.resolve({ data: null, error: { message: 'Invalid login credentials' } });
+        log.session = { user: { email }, access_token: 't' }; return Promise.resolve({ data: { session: log.session }, error: null });
+      },
+      signInWithOtp: (o) => { log.otp.push(o); return Promise.resolve({ data: {}, error: null }); },
+      updateUser: (u) => { log.updates.push(u.password.length); return Promise.resolve({ data: {}, error: null }); },
+      signOut: () => { log.session = null; return Promise.resolve({ error: null }); },
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+    },
+    from: q,
+    storage: { from: () => ({ list: () => Promise.resolve({ data: [], error: null }) }) },
+  };
+  window.supabase = { createClient: () => client };
+});
+const sp = await sctx.newPage();
+const consoleText = [];
+sp.on('console', (m) => consoleText.push(m.text()));
+sp.on('pageerror', (e) => errors.push('supabase mode: ' + e.message));
+const stext = (sel) => sp.$eval(sel, (el) => el.textContent);
+await sp.goto(base + 'studio/');
+await sp.waitForSelector('#signinForm #password');
+check(await sp.$eval('#password', (i) => i.type === 'password' && i.autocomplete === 'current-password'), 'password: sign-in asks for email and password');
+check(!/sign up|create account|register/i.test(await stext('#signinForm')), 'password: there is no sign-up option');
+check(await sp.$('#magicLink') !== null, 'password: the email link is only a small secondary option');
+await sp.fill('#email', 'owner@example.org');
+await sp.click('#signinForm button[type=submit]');
+check((await stext('.errmsg')).includes('Enter your password'), 'password: an empty password is explained');
+await sp.fill('#password', 'wrong password here');
+await sp.click('#signinForm button[type=submit]');
+await sp.waitForFunction(() => /don’t match/.test(document.querySelector('.errmsg')?.textContent || ''));
+check(true, 'password: a wrong password gets a friendly message');
+await sp.fill('#email', 'stranger@example.org');
+await sp.fill('#password', 'stranger password 1');
+await sp.click('#signinForm button[type=submit]');
+await sp.waitForFunction(() => /isn’t on the Salt and Light team/.test(document.querySelector('.errmsg')?.textContent || ''));
+check(await sp.evaluate(() => window.__auth.session === null), 'password: a valid account not on the team is signed straight back out');
+await sp.fill('#email', 'owner@example.org');
+await sp.click('#magicLink');
+await sp.waitForSelector('#back');
+check(await sp.evaluate(() => window.__auth.otp.length === 1 && window.__auth.otp[0].options.shouldCreateUser === false), 'magic link: still available, and never creates new users');
+await sp.click('#back');
+await sp.fill('#email', 'owner@example.org');
+await sp.fill('#password', 'correct horse battery');
+await sp.click('#signinForm button[type=submit]');
+await sp.waitForSelector('.shell');
+check((await stext('.me')).includes('owner@example.org'), 'password: a team member signs in with a password');
+await sp.click('#changePw');
+await sp.waitForSelector('#pwForm');
+await sp.fill('#newPassword', 'short');
+check((await stext('#pwHint')).includes('Too short'), 'change password: strength hint flags a short password');
+await sp.fill('#newPassword', 'Gentle-River-42-Lamp');
+check((await stext('#pwHint')).startsWith('Strong'), 'change password: strength hint praises a strong one');
+await sp.fill('#newPassword', 'elevenchars');
+await sp.fill('#newPassword2', 'elevenchars');
+await sp.click('#pwForm button[type=submit]');
+check((await stext('#pwForm .errmsg')).includes('at least 12'), 'change password: fewer than 12 characters is refused');
+await sp.fill('#newPassword', 'Gentle-River-42-Lamp');
+await sp.fill('#newPassword2', 'Gentle-River-42-Lam');
+await sp.click('#pwForm button[type=submit]');
+check((await stext('#pwForm .errmsg')).includes('don’t match'), 'change password: mismatched passwords are caught');
+check(await sp.evaluate(() => window.__auth.updates.length === 0), 'change password: nothing is sent until it is valid');
+// Fields are cleared after an error on purpose: passwords are never kept in app state.
+await sp.fill('#newPassword', 'Gentle-River-42-Lamp');
+await sp.fill('#newPassword2', 'Gentle-River-42-Lamp');
+await sp.click('#pwForm button[type=submit]');
+await sp.waitForSelector('#pwForm', { state: 'detached' });
+check(await sp.evaluate(() => window.__auth.updates.length === 1 && window.__auth.updates[0] === 20), 'change password: updateUser is called with the new password');
+const stored = await sp.evaluate(() => JSON.stringify(localStorage) + JSON.stringify(sessionStorage) + document.documentElement.outerHTML);
+check(!/correct horse battery|Gentle-River-42-Lamp/.test(stored + consoleText.join(' ')), 'passwords: never stored, logged or left in the page');
+await sctx.close();
+
 check(errors.length === 0, `no script errors ${errors.join(' | ')}`);
 await browser.close();
 server.close();

@@ -231,16 +231,37 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       : '';
   }
   function signin() {
-    var err = state.authError;
+    var err = state.authError, pw = S.mode !== 'local';
     return '<main class="auth"><form class="auth-card" id="signinForm" novalidate>' +
       '<div class="brand">' + wordmark('wms1') + '<small class="wm-tag">Studio</small></div>' +
       '<div><h1>Sign in to post</h1><p style="margin-top:6px">For the Salt and Light team. Visitors never need an account.</p></div>' +
       modeBar() +
-      '<label class="field"><span>Email</span><input class="input' + (err ? ' err' : '') + '" id="email" type="email" autocomplete="email" placeholder="you@example.com" value="' + esc(state.email) + '">' +
-      (err ? '<span class="errmsg" role="alert">' + esc(err) + '</span>' : '<small>' + (S.mode === 'local' ? 'The first email to sign in becomes the owner.' : 'We’ll email you a one-time sign-in link. No password to remember.') + '</small>') + '</label>' +
-      '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>' + (S.mode === 'local' ? 'Sign in' : state.busy ? 'Sending…' : 'Email me a sign-in link') + '</button>' +
-      '<div class="note">Only people on the team can sign in. Anyone else sees “This email isn’t on the Salt and Light team.”</div>' +
+      '<label class="field"><span>Email</span><input class="input' + (err ? ' err' : '') + '" id="email" type="email" autocomplete="username" placeholder="you@example.com" value="' + esc(state.email) + '"></label>' +
+      (pw ? '<label class="field"><span>Password</span><input class="input' + (err ? ' err' : '') + '" id="password" type="password" autocomplete="current-password"></label>' : '') +
+      (err ? '<span class="errmsg" role="alert">' + esc(err) + '</span>' : (pw ? '' : '<small>The first email to sign in becomes the owner.</small>')) +
+      '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>' + (state.busy ? 'Signing in…' : 'Sign in') + '</button>' +
+      (pw ? '<button class="btn ghost" type="button" id="magicLink" style="font-size:12.5px"' + (state.busy ? ' disabled' : '') + '>No password yet? Email me a one-time sign-in link</button>' : '') +
+      '<div class="note">Only people on the team can sign in. There is no sign-up: the owner adds team members.</div>' +
       '</form></main>';
+  }
+  // Rough strength hint only; Supabase does the real checking. Never logged or stored.
+  function pwStrength(p) {
+    if (!p) return '';
+    if (p.length < 12) return 'Too short: ' + p.length + ' of at least 12 characters.';
+    var kinds = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter(function (r) { return r.test(p); }).length;
+    if (p.length >= 16 && kinds >= 3) return 'Strong.';
+    if (kinds >= 3 || p.length >= 16) return 'Good. Longer or more varied is even better.';
+    return 'Weak: mix upper and lower case, numbers and symbols, or make it longer.';
+  }
+  function passwordView() {
+    var e = state.pwError;
+    return '<div class="head"><div><h1>Change password</h1><p>Signed in as ' + esc(state.email) + '. Use at least 12 characters; a short phrase of random words works well.</p></div></div>' +
+      '<form id="pwForm" class="auth-card" novalidate style="margin:0">' +
+      '<label class="field"><span>New password</span><input class="input' + (e ? ' err' : '') + '" id="newPassword" type="password" autocomplete="new-password" minlength="12"><small id="pwHint" aria-live="polite"></small></label>' +
+      '<label class="field"><span>Repeat new password</span><input class="input' + (e ? ' err' : '') + '" id="newPassword2" type="password" autocomplete="new-password"></label>' +
+      (e ? '<span class="errmsg" role="alert">' + esc(e) + '</span>' : '') +
+      '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>' + (state.busy ? 'Saving…' : 'Save new password') + '</button>' +
+      '<button class="btn ghost" type="button" id="pwCancel">Cancel</button></form>';
   }
   function checkEmail() {
     return '<main class="auth"><div class="auth-card">' +
@@ -258,6 +279,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
           (n[0] === 'posts' ? '<span class="count">' + state.posts.length + '</span>' : '') + '</button>';
       }).join('') + '<a class="nav" href="../" target="_blank" rel="noopener">' + ICON.site + 'View the app</a></nav>' +
       '<div class="me"><div class="who"><span class="avatar">' + esc(state.email[0] || '?').toUpperCase() + '</span><span>' + esc(state.email) + '<small>' + esc(cap(state.session.role)) + '</small></span></div>' +
+      (S.mode !== 'local' ? '<button class="btn ghost" type="button" id="changePw" style="justify-content:flex-start;padding-left:0">Change password</button>' : '') +
       '<button class="btn ghost" type="button" id="signout" style="justify-content:flex-start;padding-left:0">Sign out</button></div>' +
       '</aside><main class="main">' + modeBar() + inner + '</main></div>';
   }
@@ -503,7 +525,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (state.screen === 'signin') root.innerHTML = signin();
     else if (state.screen === 'check') root.innerHTML = checkEmail();
     else {
-      var v = state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : state.view === 'site' ? siteView() : state.view === 'builtins' ? builtinsView() : state.view === 'insights' ? insightsView() : teamView();
+      var v = state.pwOpen ? passwordView() : state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : state.view === 'site' ? siteView() : state.view === 'builtins' ? builtinsView() : state.view === 'insights' ? insightsView() : teamView();
       root.innerHTML = shell(v);
       if (state.view === 'media' || state.view === 'edit' || state.view === 'new') resolveMediaElements();
     }
@@ -718,14 +740,28 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var id = ev.target.id;
     if (id === 'signinForm') {
       var email = document.getElementById('email').value.trim().toLowerCase();
+      var pwBox = document.getElementById('password'), password = pwBox ? pwBox.value : '';
       state.email = email; state.authError = '';
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { state.authError = 'Enter an email address like name@example.com.'; render(); document.getElementById('email').focus(); return; }
+      if (pwBox && !password) { state.authError = 'Enter your password.'; render(); document.getElementById('password').focus(); return; }
       state.busy = true; render();
-      S.signInWithEmail(email).then(function (res) {
+      S.signInWithPassword(email, password).then(function (res) {
         state.busy = false;
-        if (res.signedIn) return enter(res.session);
-        state.screen = 'check'; render();
+        if (res.signedIn && res.session) return enter(res.session);
+        state.screen = 'signin'; render();
       }).catch(function (err) { state.busy = false; state.authError = err.message; render(); });
+      password = '';
+    } else if (id === 'pwForm') {
+      var p1 = document.getElementById('newPassword').value, p2 = document.getElementById('newPassword2').value;
+      state.pwError = '';
+      if (p1.length < 12) state.pwError = 'Use at least 12 characters.';
+      else if (p1 !== p2) state.pwError = 'The two passwords don’t match.';
+      if (state.pwError) { render(); document.getElementById('newPassword').focus(); return; }
+      state.busy = true; render();
+      S.updatePassword(p1).then(function () {
+        state.busy = false; state.pwOpen = false; render(); toast('Password changed. Use it next time you sign in.');
+      }).catch(function (err) { state.busy = false; state.pwError = err.message; render(); });
+      p1 = p2 = '';
     } else if (id === 'postForm') {
       if (!canPublish()) return save('draft');
       save(state.editing._mode === 'schedule' ? 'scheduled' : 'published');
@@ -769,10 +805,23 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (!b) return;
     var d = b.dataset;
     if (b.id === 'back') { state.screen = 'signin'; render(); }
-    else if (b.id === 'signout') S.signOut().then(function () { state.session = null; state.screen = 'signin'; state.view = 'posts'; render(); });
+    else if (b.id === 'magicLink') {
+      var em = document.getElementById('email').value.trim().toLowerCase();
+      state.email = em; state.authError = '';
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { state.authError = 'Enter your email above first, then ask for a link.'; render(); return; }
+      state.busy = true; render();
+      S.signInWithEmail(em).then(function (res) {
+        state.busy = false;
+        if (res.signedIn) return enter(res.session);
+        state.screen = 'check'; render();
+      }).catch(function (err) { state.busy = false; state.authError = err.message; render(); });
+    }
+    else if (b.id === 'changePw') { state.pwOpen = true; state.pwError = ''; render(); var np = document.getElementById('newPassword'); if (np) np.focus(); }
+    else if (b.id === 'pwCancel') { state.pwOpen = false; state.pwError = ''; render(); }
+    else if (b.id === 'signout') S.signOut().then(function () { state.session = null; state.pwOpen = false; state.screen = 'signin'; state.view = 'posts'; render(); });
     else if (b.id === 'posterFrame' && state.editing && state.editing.media_url) S.resolveMedia(state.editing.media_url).then(function (u) { if (u) autoPoster(u); });
     else if (d.days) loadInsights(+d.days);
-    else if (d.view) go(d.view);
+    else if (d.view) { state.pwOpen = false; go(d.view); }
     else if (d.filter) { state.filter = d.filter; render(); }
     else if (d.new) {
       state.editing = { type: d.new, status: 'draft', show_on_today: true, topics: [], translation: 'WEB', kind: 'Devotion', _mode: 'now' };
@@ -823,6 +872,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   });
 
   root.addEventListener('input', function (ev) {
+    if (ev.target.id === 'newPassword') { var h = document.getElementById('pwHint'); if (h) h.textContent = pwStrength(ev.target.value); return; }
     if (!state.editing) return;
     if (ev.target.dataset.pick) { var tx = document.getElementById('f_' + ev.target.dataset.pick); state.editing[ev.target.dataset.pick] = ev.target.value; if (tx) tx.value = ev.target.value; refreshPreview(); return; }
     var f = ev.target.dataset.f;
