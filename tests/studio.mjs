@@ -441,6 +441,20 @@ await sp.waitForSelector('#pwForm', { state: 'detached' });
 check(await sp.evaluate(() => window.__auth.updates.length === 1 && window.__auth.updates[0] === 20), 'change password: updateUser is called with the new password');
 const stored = await sp.evaluate(() => JSON.stringify(localStorage) + JSON.stringify(sessionStorage) + document.documentElement.outerHTML);
 check(!/correct horse battery|Gentle-River-42-Lamp/.test(stored + consoleText.join(' ')), 'passwords: never stored, logged or left in the page');
+// Account buttons must be on screen when signed in, on desktop and on a phone.
+const onScreen = (sel) => sp.$eval(sel, (el) => { const r = el.getBoundingClientRect();
+  return getComputedStyle(el).display !== 'none' && r.width > 0 && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; }).catch(() => false);
+for (const [w, h] of [[1280, 900], [1280, 600], [390, 844]]) {
+  await sp.setViewportSize({ width: w, height: h });
+  await sp.evaluate(() => scrollTo(0, 0));
+  const ok = await onScreen('#signout') && await onScreen('#changePw') && await sp.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
+  check(ok, `account: Sign out and Change password are visible at ${w}x${h}`);
+  if (w === 390) await sp.screenshot({ path: 'test-results/studio-account-390.png' });
+}
+await sp.setViewportSize({ width: 390, height: 844 });
+await sp.click('#signout');
+await sp.waitForSelector('#signinForm #password');
+check(await sp.evaluate(() => window.__auth.session === null), 'account: Sign out works on a phone and returns to the sign-in screen');
 await sctx.close();
 
 check(errors.length === 0, `no script errors ${errors.join(' | ')}`);
