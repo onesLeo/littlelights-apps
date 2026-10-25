@@ -798,7 +798,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
   await ctx.addInitScript((t) => { localStorage.setItem('ll.theme', t); }, theme);
   const pg = await ctx.newPage(); await pg.goto(base + '#read'); await pg.waitForSelector('#pCards .p-card'); await pg.waitForTimeout(600);
   const r = await pg.evaluate(() => { const R = (e) => e.getBoundingClientRect(); const h = document.querySelector('.v-read .p-head'); const c = document.querySelector('#pCards .p-card.feat'); const f = document.querySelector('.v-read .p-filter');
-    const t = h.querySelector('h1, h3') || h; const tr = document.createRange(); tr.selectNodeContents(t);
+    const t = h.querySelector('h1, h2, h3') || h; const tr = document.createRange(); tr.selectNodeContents(t);
     return { title: Math.round(tr.getBoundingClientRect().left), card: Math.round(R(c).left), filt: f ? Math.round(R(f).left) : null, headBg: getComputedStyle(h).backgroundColor, gap: R(c.querySelector('.p-kicker')).top - R(c).top,
       hair: [...document.querySelectorAll('#pCards .p-card')].every((x) => { const a = getComputedStyle(x, '::after'); return parseFloat(a.height) >= 1.5 && parseFloat(a.height) <= 2 && /gradient/.test(a.backgroundImage); }) }; });
   check(Math.abs(r.title - r.card) <= 2 && (r.filt === null || Math.abs(r.filt - r.card) <= 2), `read ${w} ${theme}: title/filter aligned with cards (${r.title}/${r.filt}/${r.card})`);
@@ -821,7 +821,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
   };
   const TEXT = '.p-rsheet-in .bk-kick, .p-rsheet-in h3, .p-rsheet-in p, .p-rsheet-in .bk-acts span';
   for (const theme of ['night', 'day']) for (const [name, open] of [['robe', '.p-whero'], ['noah', '.p-wcard >> nth=0'], ['jonah', '.p-wcard >> nth=1']]) {
-    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } }); await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
     await ctx.addInitScript((t) => { localStorage.setItem('ll.theme', t); localStorage.setItem('ll.calm', '1'); }, theme);
     const pg = await ctx.newPage(); await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.waitForTimeout(500);
     await pg.click(open); await pg.waitForTimeout(700); await pg.click('.p-reel.on .more'); await pg.waitForTimeout(300);
@@ -847,17 +847,17 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
     await ctx.close();
   }
   // reduced motion (no calm): instant; phone keeps the bottom sheet
-  { const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 }, reducedMotion: 'reduce' }); const pg = await ctx.newPage();
+  { const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 }, reducedMotion: 'reduce' }); await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' })); const pg = await ctx.newPage();
     await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.click('.p-whero'); await pg.waitForTimeout(700); await pg.click('.p-reel.on .more'); await pg.waitForTimeout(100);
     check(await pg.evaluate(() => { const i = document.querySelector('.p-rsheet-in'), f = document.querySelector('.p-wplayer .p-feed'); return getComputedStyle(i).animationName === 'none' && /^0s/.test(getComputedStyle(f).transitionDuration); }), 'book: reduced motion opens instantly (no slide)');
     await ctx.close(); }
-  { const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } }); const pg = await ctx.newPage();
+  { const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } }); await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' })); const pg = await ctx.newPage();
     await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.click('.p-whero'); await pg.waitForTimeout(700); await pg.click('.p-reel.on .more'); await pg.waitForTimeout(200);
     check(await pg.evaluate(() => !document.querySelector('.p-wplayer').classList.contains('book') && getComputedStyle(document.querySelector('.bk-acts')).display === 'flex' && getComputedStyle(document.querySelector('.p-rsheet-in .handle')).display !== 'none'), 'book: phones keep the bottom sheet (with Save/Share and a grab handle)');
     await ctx.close(); }
   // phone sheet: same reel-coloured glass at 390px, all reels, day and night
   for (const theme of ['night', 'day']) for (const [name, open] of [['robe', '.p-whero'], ['noah', '.p-wcard >> nth=0'], ['jonah', '.p-wcard >> nth=1']]) {
-    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } }); await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
     await ctx.addInitScript((t) => { localStorage.setItem('ll.theme', t); localStorage.setItem('ll.calm', '1'); }, theme);
     const pg = await ctx.newPage(); await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.waitForTimeout(500);
     await pg.click(open); await pg.waitForTimeout(700); await pg.click('.p-reel.on .more'); await pg.waitForTimeout(300);
@@ -876,14 +876,14 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
       check(await pg.evaluate(() => document.getElementById('pReelSheet').hidden && document.activeElement.classList.contains('more')), 'sheet: Esc closes and returns focus to "more"'); }
     await ctx.close();
   }
-  { const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' }); const pg = await ctx.newPage();
+  { const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' }); await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' })); const pg = await ctx.newPage();
     await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.click('.p-whero'); await pg.waitForTimeout(700); await pg.click('.p-reel.on .more'); await pg.waitForTimeout(100);
     check(await pg.$eval('.p-rsheet-in', (i) => getComputedStyle(i).animationName === 'none'), 'sheet: reduced motion shows it instantly');
     await ctx.close(); }
   // LED running light on the hairline: runs only while the reel plays; static in calm / reduced motion
   for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     const tag = vp.width > 900 ? 'desktop' : 'phone';
-    const ctx = await browser.newContext({ viewport: vp }); const pg = await ctx.newPage();
+    const ctx = await browser.newContext({ viewport: vp }); await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' })); const pg = await ctx.newPage();
     await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.click('.p-whero'); await pg.waitForTimeout(800);
     const led = () => pg.evaluate(() => { const l = document.querySelector('.p-rsheet-in .bk-led'), a = l.getAnimations()[0];
       return { x: new DOMMatrix(getComputedStyle(l).transform).m41, state: a ? a.playState : 'none', props: a ? [...new Set(a.effect.getKeyframes().flatMap((k) => Object.keys(k)).filter((k) => !['offset', 'easing', 'composite', 'computedOffset'].includes(k)))] : [] }; });
@@ -902,7 +902,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
     check(p1.state === 'paused' && Math.abs(p2.x - p1.x) < 0.5, `led ${tag}: the light stops in place while the reel is paused`);
     await ctx.close();
   }
-  { const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } }); const pg = await ctx.newPage();
+  { const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } }); await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' })); const pg = await ctx.newPage();
     await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.click('.p-whero'); await pg.waitForTimeout(800);
     // Merged with #26: reel videos never carry native controls (the app's own sound toggle replaces the
     // mute pill), so nothing can sit on top of the caption sheet, open or closed.
@@ -912,7 +912,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
     check(await pg.evaluate(() => [...document.querySelectorAll('.p-wplayer .p-reel video')].every((v) => !v.hasAttribute('controls')) && !!document.querySelector('.p-reel.on .p-rsound')), 'led: after closing, still no native controls; the sound toggle is the control');
     await ctx.close(); }
   for (const [label, opts, init] of [['calm', {}, true], ['reduced motion', { reducedMotion: 'reduce' }, false]]) {
-    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, ...opts }); if (init) await ctx.addInitScript(() => localStorage.setItem('ll.calm', '1'));
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, ...opts }); await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' })); if (init) await ctx.addInitScript(() => localStorage.setItem('ll.calm', '1'));
     const pg = await ctx.newPage(); await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.click('.p-whero'); await pg.waitForTimeout(800);
     await pg.click('.p-reel.on .more'); await pg.waitForTimeout(150);
     const s = await pg.evaluate(() => { const l = document.querySelector('.p-rsheet-in .bk-led'); return { n: l.getAnimations().length, x: new DOMMatrix(getComputedStyle(l).transform).m41, w: l.getBoundingClientRect().width, glow: getComputedStyle(l).boxShadow }; });
@@ -920,7 +920,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
     await ctx.close();
   }
   // any picked colour: text, accent and button text pass AA on the page colour
-  { const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } }); const pg = await ctx.newPage(); await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero');
+  { const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } }); await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' })); const pg = await ctx.newPage(); await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero');
     const worst = await pg.evaluate(() => { const lum = (h) => [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16) / 255).map((v) => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4).reduce((a, v, k) => a + v * [0.2126, 0.7152, 0.0722][k], 0);
       const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
       let w = 99, at = ''; for (let n = 0; n < 400; n++) { const c = '#' + [0, 0, 0].map(() => ('0' + Math.floor(Math.random() * 256).toString(16)).slice(-2)).join('');
@@ -933,7 +933,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
 {
   const sizes = [{ width: 412, height: 915, fs: 21, dayFs: 22 }, { width: 340, height: 700, fs: 18, dayFs: 18 }];
   for (const v of sizes) {
-    const ctx = await browser.newContext({ viewport: { width: v.width, height: v.height }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
+    const ctx = await browser.newContext({ viewport: { width: v.width, height: v.height }, isMobile: true, hasTouch: true, serviceWorkers: 'block' }); await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
     const page = await ctx.newPage(); await page.goto(base); await page.waitForSelector('#app[data-ready]');
     for (const night of [false, true]) {
       if ((await page.$eval('#app', (a) => a.classList.contains('night'))) !== night) { await page.click('.p-rings [data-mode]'); await page.waitForTimeout(300); }
@@ -958,7 +958,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
     }
     await ctx.close();
   }
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' }); await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
   const page = await ctx.newPage(); await page.goto(base); await page.waitForSelector('#app[data-ready]');
   const d = await page.evaluate(() => ({ phoneRow: getComputedStyle(document.querySelector('.p-rwm')).display, brand: document.querySelector('.p-brand .wm').getBoundingClientRect().width }));
   check(d.phoneRow === 'none' && d.brand > 60, 'desktop: the wordmark stays in the top bar and the phone row is hidden');

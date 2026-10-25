@@ -3,7 +3,7 @@
 // through untouched (unknown stays a 404). Supabase and Cloudflare are faked. No browser needed.
 // Run: npm test
 import { readFileSync } from 'node:fs';
-import { postPage, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/edge.mjs';
+import { postPage, sitemap, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/edge.mjs';
 
 let failures = 0;
 function check(ok, label) { console.log(`${ok ? 'ok  ' : 'FAIL'} ${label}`); if (!ok) failures++; }
@@ -50,6 +50,19 @@ res = await postPage(ctx('/read/Bad%20Slug!'), 'devotion', fakeFetch);
 check(res.status === 404, 'a malformed address stays a 404 without asking the database');
 res = await postPage(ctx('/read/a-new-devotion'), 'devotion', async () => { throw new Error('down'); });
 check(res.status === 404, 'if the database is down the visitor gets the normal 404 page, not an error');
+
+// /sitemap.xml: posts published after the build are added (with lastmod), listed ones are not repeated.
+{
+  const built = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url>\n    <loc>https://littlesaltandlight.com/watch</loc>\n    <lastmod>2026-10-24</lastmod>\n  </url>\n  <url>\n    <loc>https://littlesaltandlight.com/read</loc>\n    <lastmod>2026-10-24</lastmod>\n  </url>\n  <url>\n    <loc>https://littlesaltandlight.com/watch/the-whisper</loc>\n    <lastmod>2026-10-18</lastmod>\n  </url>\n</urlset>\n';
+  const rows = [{ type: 'reel', title: 'A new video', slug: 'a-new-video', publish_at: '2026-10-26T00:00:00Z', updated_at: '2026-10-27T00:00:00Z' }, { type: 'reel', title: 'The Whisper', slug: 'the-whisper', publish_at: '2026-10-18T00:00:00Z' }, { type: 'devotion', title: 'A new devotion', slug: 'a-new-devotion', publish_at: '2026-10-25T00:00:00Z' }];
+  const sctx = { request: new Request('https://littlesaltandlight.com/sitemap.xml'), next: async () => new Response(built, { status: 200, headers: { 'content-type': 'application/xml' } }) };
+  let r = await sitemap(sctx, async (url) => { check(/type=in\.\(reel,devotion\)/.test(url) && url.includes('publish_at=lte.'), 'the sitemap asks only for live videos and devotions'); return new Response(JSON.stringify(rows)); });
+  const x = await r.text();
+  check(r.status === 200 && x.includes('<loc>https://littlesaltandlight.com/watch/a-new-video</loc>\n    <lastmod>2026-10-27</lastmod>') && x.includes('<loc>https://littlesaltandlight.com/read/a-new-devotion</loc>'), 'sitemap.xml adds posts published after the build, with lastmod');
+  check(x.split('/watch/the-whisper<').length === 2 && x.trim().endsWith('</urlset>'), 'sitemap.xml does not repeat posts the build already listed');
+  r = await sitemap(sctx, async () => { throw new Error('down'); });
+  check(r.status === 200 && (await r.text()) === built, 'if the database is down the built sitemap is served as it is');
+}
 
 console.log(failures ? `\n${failures} edge check(s) failed` : '\nAll edge checks passed');
 process.exit(failures ? 1 : 0);
