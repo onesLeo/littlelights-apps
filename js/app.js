@@ -105,6 +105,7 @@
       return Promise.all(posts.map(function (p) {
         var f = p.fields || {}, jobs = [];
         if (p.media_url) jobs.push(S.resolveMedia(p.media_url).then(function (u) { p._src = u; }));
+        if (p.type === 'reel' && f.poster) jobs.push(S.resolveMedia(f.poster).then(function (u) { p._poster = u; }));
         return Promise.all(jobs);
       })).then(function () { return posts; });
     }).then(function (posts) {
@@ -136,7 +137,7 @@
           if (p.show_on_today) today.push({ type: 'devotion', i: devs.length - 1 });
         } else if (p.type === 'reel') {
           var look = reelLook.filter(function (l) { return l[1] === f.look; })[0] || reelLook[reels.length % 3];
-          reels.push({ title: p.title, slug: p.slug || '', len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '', date: p.publish_at || p.created_at || '', series: f.series || '', episode: +f.episode || 0, seriesDesc: f.series_description || '', pageStyle: f.page_style || '', pageColor: /^#[0-9a-f]{6}$/i.test(f.page_color || '') ? f.page_color : '' });
+          reels.push({ title: p.title, slug: p.slug || '', len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', poster: p._poster || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '', date: p.publish_at || p.created_at || '', series: f.series || '', episode: +f.episode || 0, seriesDesc: f.series_description || '', pageStyle: f.page_style || '', pageColor: /^#[0-9a-f]{6}$/i.test(f.page_color || '') ? f.page_color : '' });
           if (f.builtin) copyOf[f.builtin] = reels.length - 1;
           if (p.show_on_today) today.push({ type: 'reel', i: reels.length - 1 });
         } else if (p.type === 'verse') {
@@ -450,6 +451,10 @@
     set('meta[property="og:description"]', 'content', m.desc);
     set('meta[name="twitter:title"]', 'content', m.title);
     set('meta[name="twitter:description"]', 'content', m.desc);
+    // A video's own poster when it has a web address (Studio posts), else the site's share image.
+    var img = m.image && /^https?:/i.test(m.image) ? m.image : SEO.IMAGE;
+    set('meta[property="og:image"]', 'content', img);
+    set('meta[name="twitter:image"]', 'content', img);
   }
   function pageHead(tab) { if (SEO) setHead(SEO.meta('page', tab)); }
   // Changes the address without a page load. replace: no new history entry (overlays, fixes).

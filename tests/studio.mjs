@@ -2,7 +2,7 @@
 // manage the team, then check the posts appear in the app.
 // Run: npm test   (screenshots go to test-results/)
 import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { serve } from '../scripts/serve.mjs';
 
 const server = await serve(0);
@@ -99,6 +99,51 @@ await page.click('[data-new="reel"]');
 check(await page.$$eval('#seriesList option', (o) => o.map((x) => x.value).includes('Test series')), 'reel: existing series names are suggested');
 await page.click('.side [data-view="posts"]').catch(() => {});
 
+// ---------- reel: video poster (thumbnail) ----------
+{
+  const tinyReel = readFileSync(new URL('./fixtures/tiny-reel.webm', import.meta.url));
+  const png1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  await page.click('.side [data-view="new"]');
+  await page.click('[data-new="reel"]');
+  check(!(await page.$('#f_poster')), 'poster: no poster picker before a video is uploaded');
+  await page.fill('#f_title', 'Poster test video');
+  await page.setInputFiles('#f_file', { name: 'poster-test.webm', mimeType: 'video/webm', buffer: tinyReel });
+  await page.waitForFunction(() => { const i = document.querySelector('img#posterPv'); return i && i.src && i.naturalWidth > 0; }, null, { timeout: 20000 }).catch(() => {});
+  const auto = await page.evaluate(async () => {
+    const i = document.querySelector('img#posterPv');
+    if (!i) return null;
+    const b = await (await fetch(i.src)).blob();
+    return { w: i.naturalWidth, h: i.naturalHeight, type: b.type };
+  });
+  check(auto && auto.type === 'image/webp' && auto.w === 180 && auto.h === 320, `poster: without a chosen image, a WebP frame is taken from the video (${JSON.stringify(auto)})`);
+  check(await page.$eval('#posterFrame', (b) => b.textContent.includes('frame')), 'poster: the author can take a frame again');
+  await page.setInputFiles('#f_poster', { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hi') });
+  check((await text('.errmsg')).includes('JPG, PNG or WebP'), 'poster: a non-image file is refused');
+  await page.setInputFiles('#f_poster', { name: 'big.png', mimeType: 'image/png', buffer: Buffer.alloc(5 * 1024 * 1024 + 10) });
+  check((await text('.errmsg')).includes('limit is 5 MB'), 'poster: an image over 5 MB is refused');
+  await page.click('#postForm button[type=submit]');
+  await page.waitForSelector('.list .row');
+  let pv = await page.evaluate(async () => (await window.LLStore.publishedPosts()).filter((p) => p.title === 'Poster test video')[0]);
+  check(pv && /^local-media:/.test(pv.fields.poster || '') && pv.fields.poster_auto === true && pv.fields.poster !== pv.media_url, `poster: the made poster is saved in fields.poster (${JSON.stringify(pv && pv.fields.poster)})`);
+  const autoUrl = pv && pv.fields.poster;
+  // The author's own image replaces it and is kept when the post is edited again.
+  await page.click('.row >> text=Poster test video');
+  await page.waitForSelector('#f_poster', { state: 'attached' });
+  await page.setInputFiles('#f_poster', { name: 'cover.png', mimeType: 'image/png', buffer: png1 });
+  await page.waitForFunction((a) => { const i = document.querySelector('img#posterPv'); return i && i.dataset.src && i.dataset.src !== a && !document.querySelector('.upload.busy'); }, autoUrl, { timeout: 10000 }).catch(() => {});
+  await page.click('#postForm button[type=submit]');
+  await page.waitForSelector('.list .row');
+  pv = await page.evaluate(async () => (await window.LLStore.publishedPosts()).filter((p) => p.title === 'Poster test video')[0]);
+  check(pv && pv.fields.poster && pv.fields.poster !== autoUrl && !pv.fields.poster_auto, 'poster: a chosen image replaces the made poster');
+  // The app uses it: <video poster> and the Watch card.
+  const app = await context.newPage();
+  await app.goto(base + '#watch');
+  await app.waitForFunction(() => window.LL_CONTENT && window.LL_CONTENT.reels.some((r) => r.title === 'Poster test video'), null, { timeout: 10000 }).catch(() => {});
+  const r = await app.evaluate(() => { const r = window.LL_CONTENT.reels.find((x) => x.title === 'Poster test video'); return r && { poster: r.poster, src: r.src }; });
+  check(r && /^blob:/.test(r.poster) && r.poster !== r.src, `app: the Studio poster is on the video (${JSON.stringify(r)})`);
+  await app.close();
+}
+
 // ---------- devotion: draft, then publish after fixing ----------
 await page.click('.side [data-view="new"]');
 await page.click('[data-new="devotion"]');
@@ -150,7 +195,7 @@ await page.screenshot({ path: 'test-results/studio-posts.png', fullPage: true })
 
 // ---------- media and team ----------
 await page.click('.side [data-view="media"]');
-check((await page.$$('.media')).length === 1, 'media: the uploaded recording is listed');
+check((await page.$$eval('.media b', (b) => b.map((x) => x.textContent))).includes('evening-prayer.wav'), 'media: the uploaded recording is listed');
 await page.click('.side [data-view="team"]');
 await page.fill('#inviteEmail', 'helper@example.org');
 await page.selectOption('#inviteRole', 'contributor');
