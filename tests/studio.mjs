@@ -106,6 +106,14 @@ await page.click('.side [data-view="posts"]').catch(() => {});
   await page.click('.side [data-view="new"]');
   await page.click('[data-new="reel"]');
   check(!(await page.$('#f_poster')), 'poster: no poster picker before a video is uploaded');
+  // Phone width: the preview is above the form and must not stay stuck over it while scrolling.
+  for (const [w, h] of [[390, 844], [1280, 900]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.$eval('#f_caption', (e) => e.scrollIntoView({ block: 'center' }));
+    const reachable = await page.$eval('#f_caption', (e) => { const r = e.getBoundingClientRect(), x = document.elementFromPoint(r.left + 10, r.top + r.height / 2); return x === e || e.contains(x); });
+    check(reachable, `editor: the form is not covered by the preview when scrolled (${w}px)`);
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.fill('#f_title', 'Poster test video');
   await page.setInputFiles('#f_file', { name: 'poster-test.webm', mimeType: 'video/webm', buffer: tinyReel });
   await page.waitForFunction(() => { const i = document.querySelector('img#posterPv'); return i && i.src && i.naturalWidth > 0; }, null, { timeout: 20000 }).catch(() => {});
