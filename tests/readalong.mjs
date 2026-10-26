@@ -19,8 +19,8 @@ const x = C.bedtimeStories.find((s) => s.slug === 'jonah-and-the-whale-bedtime-s
 const T = JSON.parse(await readFile(x.timings, 'utf8'));
 const parts = [...x.story.map((t, i) => ({ key: 'story-' + i, text: t })), { key: 'prayer', text: x.prayer }, { key: 'goodnight', text: x.goodnight }];
 const m = S.raMatch(parts, T);
-check(m && m.count === T.length - 1, `stub timings match the story text (${m && m.count} sentences; "Let’s pray." spoken, not shown)`);
-check(T.every((s) => s.end <= x.dur && s.words.length && s.words.every((w) => w.start >= s.start && w.end <= s.end + 0.01)), 'stub timings fit the placeholder length and words sit inside their sentence');
+check(m && m.count === T.length - 1, `timings match the story text (${m && m.count} sentences; "Let’s pray." spoken, not shown)`);
+check(T.every((s) => s.end <= x.dur && s.words.length && s.words.every((w) => w.start >= s.start && w.end <= s.end + 0.01)), 'timings fit the audio length and words sit inside their sentence');
 check(m && m.sentences.filter((s) => s.start != null).every((s) => s.words), 'every sentence has word timings');
 // Shape and fallbacks of the matcher.
 check(S.raMatch(parts, []) === null && S.raMatch(parts, null) === null, 'empty timings: no read-along');
@@ -42,6 +42,14 @@ async function open(opts = {}) {
   await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: "window.LL_CONFIG = { supabaseUrl: 'https://fake-project.supabase.co', supabaseAnonKey: 'sb_publishable_test' };" }));
   const outside = [];
   await context.route(/^https?:\/\/(?!localhost)/, (r) => { outside.push(r.request().url()); r.abort(); });
+  // The narration lives on R2; tests use a silent stand-in of the same length (with byte ranges, like R2).
+  const silent = await readFile('tests/fixtures/silence-100s.mp3');
+  await context.route(/media\.littlesaltandlight\.com\/audio\/.*\.mp3/, (r) => {
+    const m = /bytes=(\d+)-(\d*)/.exec(r.request().headers().range || '');
+    if (!m) return r.fulfill({ status: 200, contentType: 'audio/mpeg', headers: { 'accept-ranges': 'bytes' }, body: silent });
+    const a = +m[1], b = m[2] ? Math.min(+m[2], silent.length - 1) : silent.length - 1;
+    return r.fulfill({ status: 206, contentType: 'audio/mpeg', headers: { 'accept-ranges': 'bytes', 'content-range': `bytes ${a}-${b}/${silent.length}` }, body: silent.subarray(a, b + 1) });
+  });
   if (opts.timings) await context.route('**/jonah-and-the-whale-timings.json', opts.timings);
   if (opts.init) await context.addInitScript(opts.init);
   const page = await context.newPage();
@@ -112,7 +120,7 @@ const textOf = (p) => p.$$eval('#pEpisode [data-ra^="story-"]', (e) => e.map((n)
   await page.waitForTimeout(600);
   check(playing && await page.$eval('#pEpisode', (e) => e.scrollTop) < 100, 'playing just after the reader scrolled: the page is not pulled away');
   await page.waitForTimeout(5200);
-  await page.$eval('#pEpisode audio', (a, t) => { a.currentTime = t; }, T[18].start + 0.1);
+  await page.$eval('#pEpisode audio', (a, t) => { a.currentTime = t; }, T[20].start + 0.1);
   await page.waitForTimeout(800);
   const vis = await page.$eval('.p-sen.on', (e) => { const r = e.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; });
   check(vis, 'playing (reader idle): the current sentence is brought into view');

@@ -51,7 +51,8 @@ existing key with different bytes.
 ## Bedtime story audio (`/listen/<slug>`)
 
 Bedtime story pages (`bedtimeStories` in `js/content.js`) play their narration from the same bucket, under
-`audio/`. Until the real file arrives an entry points at a small silent placeholder in
+`audio/`. **Jonah now:** `audio/jonah-and-the-whale.fe8ea840.mp3` (v2 narration, 99.84 s, uploaded 27 Oct 2026).
+Until the real file arrives an entry points at a small silent placeholder in
 `media/audio/<name>-placeholder.mp3` and has `placeholder: true` (the page then shows a
 "[PLACEHOLDER AUDIO]" note). To swap in the real narration:
 
@@ -82,7 +83,7 @@ Shape, times in seconds from the start of the audio, one entry per spoken senten
 [{"text":"Hi, little light.","start":0.5,"end":2.24,"words":[{"text":"Hi,","start":0.5,"end":0.77}, …]}, …]
 ```
 
-- The file now is a **stub** spread evenly over the 90 s silent placeholder (`npm run stub-timings -- <slug>`). It is not real narration timing.
+- Jonah's file is Audio Bot's word alignment of the v2 recording (24 spoken sentences; "Let’s pray." is spoken but is the heading, so 23 are highlighted). `npm run stub-timings -- <slug>` can write an evenly spread stub for a story that only has placeholder audio.
 - Text and timings change together. When the narration is re-recorded: (1) update `story`, `prayer`, `goodnight` in `js/content.js` if the words changed, (2) swap the audio (`src`/`dur`, section above), (3) replace the timings file with real timings for that recording (e.g. a forced-alignment export converted to the shape above), keeping the same file name, or change `timings:` **and** the matching line in `sw.js` `SHELL` (the test checks they agree), (4) run `npm test`.
 - Matching ignores case, punctuation and curly/straight quotes. Spoken lines that aren't on the page (e.g. "Let’s pray.") are skipped. A narration line may cover two shown sentences. If anything else doesn't line up (missing file, broken JSON, changed or missing sentence, times out of order), the page quietly stays plain text with no toggle. If only a sentence's words don't line up, that sentence still highlights without the word underline.
 - Offline: `sw.js` precaches the timings file (SHELL), and it is also kept by the normal same-site cache. The file is served from the site, not R2, and nothing else is fetched.

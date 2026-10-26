@@ -38,7 +38,8 @@ check(['Who trusted God?', 'How did God help?', 'How can we be like that tomorro
 }
   check((await fetch(cover.replace('https://littlesaltandlight.com', base))).status === 200, 'cover file is in the build');
 }
-check(/<audio controls[^>]+src="\/media\/audio\//.test(raw), 'an <audio> player with a file');
+check(/<audio controls[^>]+src="https:\/\/media\.littlesaltandlight\.com\/audio\/jonah-and-the-whale\.[0-9a-f]{8}\.mp3"/.test(raw), 'an <audio> player with the v2 narration on R2 (content-hashed name)');
+check(!raw.includes('data-placeholder-audio') && !raw.includes('PLACEHOLDER AUDIO'), 'no placeholder-audio note now the narration is real');
 check(raw.includes('href="/join"') && raw.includes('Next story'), 'Next story and Join testers cards');
 check((raw.match(/<h1[\s>]/g) || []).length === 1, 'exactly one <h1>');
 check(!/<script[^>]+src="https?:/.test(raw), 'no third-party scripts in the page (Cloudflare Web Analytics is added by Cloudflare)');
@@ -79,7 +80,7 @@ check(rpc.length === 0, 'playing the story audio sends no counting request');
 const ratio = () => page.evaluate(() => {
   const lum = (c) => { const m = c.match(/[\d.]+/g).map(Number); const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(m[0]) + 0.7152 * f(m[1]) + 0.0722 * f(m[2]); };
   const bgOf = (el) => { while (el) { const b = getComputedStyle(el).backgroundColor; const al = /rgba/.test(b) ? +b.match(/[\d.]+/g)[3] : 1; if (b && b !== 'transparent' && al >= 0.5) return b; el = el.parentElement; } return 'rgb(255,255,255)'; };
-  return ['#pEpisode .body > p', '#pEpisode .p-ep-note', '#pEpisode .pray', '#pEpisode .p-ep-word', '#pEpisode .p-ep-card', '#pEpisode .p-ep-card.join', '#pEpisode .hero h1', '#pEpisode .p-word'].map((sel) => {
+  return ['#pEpisode .body > p', '#pEpisode .pray', '#pEpisode .p-ep-word', '#pEpisode .p-ep-card', '#pEpisode .p-ep-card.join', '#pEpisode .hero h1', '#pEpisode .p-word'].map((sel) => {
     const el = document.querySelector(sel); const a = lum(getComputedStyle(el).color), b = lum(bgOf(el));
     return [sel, (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)];
   });

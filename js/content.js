@@ -67,10 +67,8 @@ window.LL_CONTENT = {
   // Bedtime Bible Stories: one page each at /listen/<slug> (written by scripts/prerender.mjs, opened by
   // js/app.js). Wording comes from littlelights-growth content/2026-11-content-plan.md; do not edit it here
   // without updating the plan. Jonah 2:2 is WEB (with "Yahweh" explained), per plan commit 7ca1d09.
-  // AUDIO: `src` is a 90-second silent PLACEHOLDER (same length as `dur`, so the stub read-along timings play through). When the real narration arrives, upload it to R2 as
-  // audio/<slug>.<hash>.mp3 (docs/media-r2.md, "Bedtime story audio"), set
-  // src: MEDIA_BASE + 'audio/jonah-and-the-whale-bedtime-story.<hash>.mp3', set `dur` to its length in
-  // seconds, delete `placeholder`, and bump VERSION in sw.js.
+  // AUDIO: v2 narration on R2 (docs/media-r2.md, "Bedtime story audio"). A new recording gets a new
+  // audio/<name>.<sha8>.mp3 key; set `src`, `dur` (seconds) and the timings file together, then bump VERSION in sw.js.
   bedtimeStories: [
     {
       slug: 'jonah-and-the-whale-bedtime-story',
@@ -79,20 +77,21 @@ window.LL_CONTENT = {
       seoTitle: 'Jonah and the Whale | Bedtime Bible Story for Kids #1',
       desc: 'A gentle bedtime Bible story about Jonah and the great fish, with a short prayer.',
       narrator: 'Mr. Ginting',
-      src: 'media/audio/jonah-and-the-whale-placeholder.mp3', placeholder: true, dur: 90,
+      src: MEDIA_BASE + 'audio/jonah-and-the-whale.fe8ea840.mp3', placeholder: false, dur: 99.84,
       // Read-along timings: [{text,start,end,words:[{text,start,end}]}] in seconds, one entry per spoken sentence.
       // Swap it together with the audio and the text above (docs/media-r2.md, "Read-along timings").
-      // The current file is a stub spread evenly over the 90 s placeholder (npm run stub-timings).
+      // Current file: Audio Bot's alignment of the v2 recording (jonah-01/v2).
       timings: 'media/audio/jonah-and-the-whale-timings.json',
       color: '#a07fd6', ink: '#1d1233',
-      // Narration, split into paragraphs (wording unchanged). The word in `word` is highlighted in the text.
+      // Narration v2 (jonah-01/v2/narration-v2.txt, with the 3 interaction lines), split into paragraphs.
+      // The word in `word` is highlighted in the text.
       story: [
         'Hi, little light. It\u2019s bedtime story time. Snuggle in.',
-        'Once there was a man named Jonah. God asked him to go to the city of Nineveh, but Jonah went the other way and got on a boat. A big wind blew, and the boat rocked up and down. Then Jonah was swallowed by a great big fish!',
-        'It was dark inside the fish, but Jonah wasn\u2019t alone. He prayed. Later he said, \u2018I called because of my affliction to Yahweh. He answered me.\u2019 Affliction means big trouble, and Yahweh is God\u2019s special name. And God did answer.',
+        'Once there was a man named Jonah. God asked him to go to the city of Nineveh, but Jonah went the other way and got on a boat. A big wind blew, and the boat rocked up and down. Can you make the sound of the wind with me? Whoooosh\u2026 Then Jonah was swallowed by a great big fish!',
+        'It was dark inside the fish, but Jonah wasn\u2019t alone. Let\u2019s close our eyes, just like Jonah\u2026 He prayed. Later he said, \u2018I called because of my affliction to Yahweh. He answered me.\u2019 Affliction means big trouble, and Yahweh is God\u2019s special name. And God did answer.',
         'The fish brought Jonah safely to the land, and this time Jonah said yes to God. So remember: wherever you are, you can always talk to God, and He always hears you.'
       ],
-      prayer: 'Dear Jesus, thank You that You always hear me. When I\u2019m scared, help me talk to You. Amen.',
+      prayer: 'Let\u2019s fold our hands together. Dear Jesus, thank You that You always hear me. When I\u2019m scared, help me talk to You. Amen.',
       goodnight: 'Goodnight, little light. \u{1F319}',
       verse: { text: 'I called because of my affliction to Yahweh. He answered me.', ref: 'Jonah 2:2', version: 'WEB' },
       word: { word: 'affliction', meaning: 'Affliction means big trouble, and Yahweh is God\u2019s special name.' },
