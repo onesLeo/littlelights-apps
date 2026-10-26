@@ -2,14 +2,15 @@
 // 1. Verifies the caller's Supabase session token (Authorization: Bearer <jwt>) with Supabase Auth.
 // 2. Checks team membership the same way js/store.js does: reading team_members as that user
 //    (RLS "Team sees the team" only returns rows to team members).
-// 3. Reads Cloudflare Web Analytics (RUM) for the site from the GraphQL Analytics API using
-//    env.CF_ANALYTICS_TOKEN (Account Analytics Read). Without the token it answers { connected: false }.
+// 3. Visitor numbers by UTC day: finished days come from our own copy, public.site_daily_stats
+//    (team-only read via RLS, filled nightly by workers/analytics-snapshot). Today, and any past day
+//    not stored yet, are read live from Cloudflare Web Analytics (GraphQL Analytics API, using
+//    env.CF_ANALYTICS_TOKEN). With neither stored days nor the token it answers { connected: false }.
 // 4. Adds the anonymous play/read counts from public.post_stats (team-only read via RLS).
-// Nothing here stores anything; responses are private and never cached.
+// This endpoint itself stores nothing; responses are private and never cached.
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../../lib/edge.mjs';
-
-export const CF_ACCOUNT_ID = '1835673e1406fbb875ff4210741d90cc';
-export const CF_SITE_TAG = '9b7ae97446344441b89852635cb617e9'; // Web Analytics site for littlesaltandlight.com
+import { CF_ACCOUNT_ID, CF_SITE_TAG, fetchDays, toRows, rowsToAcct, storedDays, dayOf, addDays } from '../../lib/site-analytics.mjs';
+export { CF_ACCOUNT_ID, CF_SITE_TAG };
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store' }
@@ -51,20 +52,22 @@ async function postStats(token, since, prevSince, fetchImpl) {
   } catch { return null; }
 }
 
-const QUERY = `query($account: String!, $filter: AccountRumPageloadEventsAdaptiveGroupsFilter_InputObject, $pfilter: AccountRumPageloadEventsAdaptiveGroupsFilter_InputObject, $vfilter: AccountRumWebVitalsEventsAdaptiveGroupsFilter_InputObject) {
-  viewer { accounts(filter: { accountTag: $account }) {
-    total: rumPageloadEventsAdaptiveGroups(filter: $filter, limit: 1) { count sum { visits } }
-    previous: rumPageloadEventsAdaptiveGroups(filter: $pfilter, limit: 1) { count sum { visits } }
-    daily: rumPageloadEventsAdaptiveGroups(filter: $filter, limit: 100, orderBy: [date_ASC]) { count sum { visits } dimensions { date } }
-    paths: rumPageloadEventsAdaptiveGroups(filter: $filter, limit: 200, orderBy: [count_DESC]) { count sum { visits } dimensions { requestPath } }
-    countries: rumPageloadEventsAdaptiveGroups(filter: $filter, limit: 2000, orderBy: [count_DESC]) { count dimensions { requestPath countryName } }
-    referers: rumPageloadEventsAdaptiveGroups(filter: $filter, limit: 2000, orderBy: [count_DESC]) { count dimensions { requestPath refererHost } }
-    vitals: rumWebVitalsEventsAdaptiveGroups(filter: $vfilter, limit: 1) {
-      count
-      quantiles { largestContentfulPaintP75 interactionToNextPaintP75 cumulativeLayoutShiftP75 firstContentfulPaintP75 timeToFirstByteP75 }
+// Our stored daily totals for [fromDay, toDayExclusive), read as the signed-in user (RLS: team only).
+// PostgREST returns at most 1000 rows per request, so page through. Missing table = no rows.
+export async function storedRows(token, fromDay, toDayExclusive, fetchImpl) {
+  const out = [], size = 1000;
+  try {
+    for (let offset = 0; offset < 500000; offset += size) {
+      const r = await fetchImpl(SUPABASE_URL + '/rest/v1/site_daily_stats?select=day,metric,dimension,key,value&day=gte.' + fromDay + '&day=lt.' + toDayExclusive +
+        '&order=day,metric,dimension,key&limit=' + size + '&offset=' + offset, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token } });
+      if (!r.ok) return out;
+      const page = await r.json();
+      out.push(...page);
+      if (page.length < size) break;
     }
-  } }
-}`;
+  } catch { /* fall back to live */ }
+  return out;
+}
 
 function top(map, n = 5) {
   return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, n).map(([name, views]) => ({ name, views }));
@@ -129,30 +132,33 @@ export async function insights(context, fetchImpl = fetch) {
 
   const asked = Number(new URL(request.url).searchParams.get('days'));
   const days = [7, 30, 90].includes(asked) ? asked : 7;
-  const since = new Date(Date.now() - days * 86400000).toISOString();
-  const prevSince = new Date(Date.now() - 2 * days * 86400000).toISOString();
+  const now = Date.now(), today = dayOf(now);
+  const start = addDays(today, -(days - 1)), prevStart = addDays(start, -days);
+  const since = start + 'T00:00:00Z', prevSince = prevStart + 'T00:00:00Z';
   const stats = await postStats(token, since, prevSince, fetchImpl);
   const plays = stats ? stats.plays : null, extra = stats ? { playsTotal: stats.playsTotal, playsPrevious: stats.playsPrevious, playsSeries: stats.playsSeries } : {};
-  if (!env || !env.CF_ANALYTICS_TOKEN) return json({ connected: false, days, plays, ...extra });
 
-  const filter = { AND: [{ siteTag: CF_SITE_TAG }, { datetime_geq: since }, { bot: 0 }] };
-  const pfilter = { AND: [{ siteTag: CF_SITE_TAG }, { datetime_geq: prevSince }, { datetime_lt: since }, { bot: 0 }] };
-  try {
-    const r = await fetchImpl('https://api.cloudflare.com/client/v4/graphql', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + env.CF_ANALYTICS_TOKEN },
-      body: JSON.stringify({ query: QUERY, variables: { account: CF_ACCOUNT_ID, filter, pfilter, vfilter: { AND: [{ siteTag: CF_SITE_TAG }, { datetime_geq: since }] } } })
-    });
-    const body = await r.json().catch(() => ({}));
-    const acct = body && body.data && body.data.viewer && body.data.viewer.accounts && body.data.viewer.accounts[0];
-    if (!r.ok || !acct) {
-      const msg = (body.errors && body.errors[0] && body.errors[0].message) || ('HTTP ' + r.status);
-      return json({ connected: true, error: 'Cloudflare Analytics didn’t answer: ' + String(msg).slice(0, 200), days, plays, ...extra }, 502);
-    }
-    return json({ ...shape(acct, days), plays, ...extra });
-  } catch {
-    return json({ connected: true, error: 'Couldn’t reach Cloudflare Analytics. Try again in a minute.', days, plays, ...extra }, 502);
+  const stored = await storedRows(token, prevStart, today, fetchImpl);
+  const have = storedDays(stored);
+  let liveFrom = today; // first finished day we don't have; live covers it up to now
+  for (let d = prevStart; d < today; d = addDays(d, 1)) if (!have.has(d)) { liveFrom = d; break; }
+  // Cloudflare answers at most ~93 days per query; older gaps simply stay empty.
+  if (liveFrom < addDays(today, -92)) liveFrom = addDays(today, -92);
+  const hasToken = !!(env && env.CF_ANALYTICS_TOKEN);
+  if (!hasToken && !have.size) return json({ connected: false, days, plays, ...extra });
+
+  let rows = stored.filter((r) => r.day < liveFrom || (r.day < today && !hasToken)), liveError = null;
+  if (hasToken) {
+    try { rows = rows.concat(toRows(await fetchDays(env.CF_ANALYTICS_TOKEN, liveFrom, addDays(today, 1), fetchImpl, new Date(now).toISOString()))); }
+    catch (e) { liveError = e; }
   }
+  if (liveError && !have.size) {
+    return json({ connected: true, error: 'Cloudflare Analytics didn’t answer: ' + String(liveError.message || 'error').slice(0, 200), days, plays, ...extra }, 502);
+  }
+  const acct = rowsToAcct(rows, start, addDays(today, 1));
+  acct.previous = rowsToAcct(rows, prevStart, start).total;
+  return json({ ...shape(acct, days), storedDays: [...have].filter((d) => d >= start).length, live: hasToken && !liveError,
+    ...(liveError ? { note: 'Showing saved days only; today’s live numbers didn’t load.' } : {}), plays, ...extra });
 }
 
 export const onRequestGet = (context) => insights(context);
