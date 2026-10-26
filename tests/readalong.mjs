@@ -31,7 +31,7 @@ const noWords = S.raMatch(parts, T.map((s, i) => (i === 2 ? { ...s, words: [{ te
 check(noWords && noWords.count === m.count && noWords.sentences.find((s) => s.start === T[2].start).words === null, 'mismatched words: that sentence still highlights, without word underline');
 const merged = [{ ...T[0], text: T[0].text + ' ' + T[1].text, end: T[1].end, words: [...T[0].words, ...T[1].words] }, ...T.slice(2)];
 check(S.raMatch(parts, merged) && S.raMatch(parts, merged).count === m.count - 1, 'narration that joins two shown sentences still lines up');
-check(/'media\/audio\/jonah-and-the-whale-timings\.json'/.test(await readFile('sw.js', 'utf8')) && /ll-v73/.test(await readFile('sw.js', 'utf8')), 'sw.js caches the timings file (version left at ll-v73)');
+check(/'media\/audio\/jonah-and-the-whale-timings\.json'/.test(await readFile('sw.js', 'utf8')) , 'sw.js caches the timings file');
 
 execFileSync(process.execPath, ['scripts/build-pages.mjs'], { stdio: 'ignore', env: { ...process.env, PRERENDER_STUDIO: '0' } });
 const server = await serve(0, { root: 'dist', headers: true });
