@@ -8,7 +8,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import vm from 'node:vm';
-import { SEO, renderPage, audioFromPost, devotionFromPost, reelFromPost } from '../lib/head.mjs';
+import { SEO, renderPage, audioFromPost, devotionFromPost, reelFromPost, playerPoster } from '../lib/head.mjs';
 
 // Loads js/config.js, js/content.js and js/store.js in a small sandbox, so the build uses the app's own
 // rules (slugs, hidden built-ins, menu settings).
@@ -65,7 +65,32 @@ export function siteContent({ C, S }, { posts, settings }) {
   const seriesMap = new Map();
   for (const r of reels) if (r.series) { const s = seriesMap.get(r.series) || { series: r.series, desc: '', reels: [] }; s.reels.push(r); if (r.seriesDesc && !s.desc) s.desc = r.seriesDesc; seriesMap.set(r.series, s); }
   for (const s of seriesMap.values()) s.reels.sort((a, b) => a.episode - b.episode);
-  return { nav, episodes, devotions, reels, series: [...seriesMap.values()] };
+  return { nav, episodes, devotions, reels, series: [...seriesMap.values()], stories: C.bedtimeStories || [] };
+}
+
+// The Watch gallery (js/app.js renderWatch/units) leads with its newest video or series, the biggest
+// picture on every Watch address (/watch, /watch/<slug>, /watch/series/<name>): start loading it with
+// the HTML. Same grouping as units(): a series is dated by its newest episode, its cover is episode 1.
+export function watchHero(site) {
+  const units = [];
+  const by = new Map();
+  for (const r of site.reels) {
+    const s = String(r.series || '').trim();
+    if (!s) { units.push({ eps: [r] }); continue; }
+    if (!by.has(s)) { const u = { eps: [] }; by.set(s, u); units.push(u); }
+    by.get(s).eps.push(r);
+  }
+  for (const u of units) {
+    u.eps.sort((a, b) => (a.episode || 999) - (b.episode || 999));
+    u.date = u.eps.reduce((m, r) => (Date.parse(r.date || '') || 0) > (Date.parse(m || '') || 0) ? r.date : m, '');
+  }
+  units.sort((a, b) => (Date.parse(b.date || '') || 0) - (Date.parse(a.date || '') || 0));
+  const cover = units[0] && units[0].eps[0];
+  const out = { watchUnits: units.length };
+  if (cover && cover.src && cover.poster && cover.thumb) out.heroImage = '/' + String(cover.thumb).replace(/^\//, '');
+  // No made thumbnails (a Studio post): the gallery shows the poster itself (thumb() in js/app.js).
+  else if (cover && cover.src && cover.poster) out.heroPoster = /^https?:/.test(cover.poster) ? cover.poster : '/' + String(cover.poster).replace(/^\//, '');
+  return out;
 }
 
 // Every address, with the file it is written to.
@@ -77,28 +102,50 @@ export function pageList(site) {
     const meta = SEO.meta('page', tab);
     // Screens that are switched off or "coming soon" still answer (old links), but stay out of search.
     const page = { tab, meta, file: fileFor(meta.path), noindex: !on(tab), episodes: site.episodes, reels: site.reels.filter((r) => !r.series), devotions: site.devotions };
-    // Watch opens on its newest video, the biggest picture on the page: start loading it with the HTML.
-    if (tab === 'watch') {
-      const newest = [...site.reels].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))[0];
-      if (newest && newest.thumb && newest.src) page.heroImage = '/' + String(newest.thumb).replace(/^\//, '');
-    }
+    if (tab === 'watch') Object.assign(page, watchHero(site));
+    if (tab === 'listen') page.stories = site.stories;
     pages.push(page);
   }
   pages.push({ tab: 'today', meta: { ...SEO.meta('page', 'today') }, file: 'today.html', alias: true });
+  if (on('listen')) for (const x of site.stories || []) { const meta = SEO.meta('story', x); pages.push({ tab: 'listen', kind: 'story', item: x, meta, file: fileFor(meta.path), stories: site.stories }); }
   if (on('read')) for (const d of site.devotions) { const meta = SEO.meta('devotion', d); pages.push({ tab: 'read', kind: 'devotion', item: d, meta, file: fileFor(meta.path) }); }
   if (on('watch')) {
-    for (const r of site.reels) { const meta = SEO.meta('reel', r); pages.push({ tab: 'watch', kind: 'reel', item: r, meta, file: fileFor(meta.path) }); }
-    for (const s of site.series) { const meta = SEO.meta('series', s); pages.push({ tab: 'watch', kind: 'series', item: s, meta, file: fileFor(meta.path) }); }
+    for (const r of site.reels) { const meta = SEO.meta('reel', r); pages.push({ tab: 'watch', kind: 'reel', item: r, meta, file: fileFor(meta.path), ...watchHero(site), ...playerPoster(r) }); }
+    for (const s of site.series) { const meta = SEO.meta('series', s); pages.push({ tab: 'watch', kind: 'series', item: s, meta, file: fileFor(meta.path), ...watchHero(site) }); }
   }
   return pages;
 }
 
-export function sitemapXml(pages) {
-  const urls = pages.filter((p) => !p.noindex && !p.alias).map((p) => {
-    const last = p.item && (p.item.date || '');
-    return `  <url>\n    <loc>${SEO.SITE}${p.meta.path === '/' ? '/' : p.meta.path}</loc>\n${last ? `    <lastmod>${new Date(last).toISOString().slice(0, 10)}</lastmod>\n` : ''}  </url>`;
-  });
+// <lastmod> for every address: a post's own date (its last edit when the Studio has one), a series'
+// newest episode, a screen's newest post, Today the newest of all. Built-in posts without a date and
+// screens without posts use `fallback` (when js/content.js last changed, else the build date).
+const day = (d) => { const t = Date.parse(d || ''); return Number.isFinite(t) ? t : 0; };
+const newest = (dates) => dates.reduce((m, d) => Math.max(m, day(d)), 0);
+const itemDate = (x) => Math.max(day(x.date), day(x.updated));
+export function lastmodFor(p, pages, fallback) {
+  let t = 0;
+  if (p.kind === 'series') t = Math.max(...p.item.reels.map(itemDate), 0);
+  else if (p.item) t = itemDate(p.item);
+  else {
+    const posts = pages.filter((q) => q.item && !q.noindex);
+    const of = (tab) => posts.filter((q) => q.tab === tab && q.kind !== 'series').map((q) => itemDate(q.item));
+    if (p.tab === 'today') t = Math.max(0, ...posts.filter((q) => q.kind !== 'series').map((q) => itemDate(q.item)), newest((p.episodes || []).map((e) => e.date)));
+    else if (p.tab === 'listen') t = newest((p.episodes || []).map((e) => e.date));
+    else t = Math.max(0, ...of(p.tab));
+  }
+  return new Date(t || day(fallback) || Date.now()).toISOString().slice(0, 10);
+}
+export function sitemapXml(pages, fallback = '') {
+  const urls = pages.filter((p) => !p.noindex && !p.alias).map((p) =>
+    `  <url>\n    <loc>${SEO.SITE}${p.meta.path === '/' ? '/' : p.meta.path}</loc>\n    <lastmod>${lastmodFor(p, pages, fallback)}</lastmod>\n  </url>`);
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`;
+}
+// When the built-in content last changed (git), for posts and screens that carry no date of their own.
+export async function contentDate(root) {
+  try {
+    const { execFileSync } = await import('node:child_process');
+    return execFileSync('git', ['log', '-1', '--format=%cI', '--', 'js/content.js', 'index.html'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch (err) { return ''; }
 }
 
 export async function prerender(root, output, { fetchImpl = fetch, log = console.log } = {}) {
@@ -114,7 +161,7 @@ export async function prerender(root, output, { fetchImpl = fetch, log = console
     await mkdir(dirname(file), { recursive: true });
     await writeFile(file, renderPage(template, page));
   }
-  await writeFile(resolve(output, 'sitemap.xml'), sitemapXml(pages));
+  await writeFile(resolve(output, 'sitemap.xml'), sitemapXml(pages, await contentDate(root)));
   log(`prerender: ${pages.length} pages (${site.devotions.length} devotions, ${site.reels.length} videos, ${site.series.length} series, ${site.episodes.length} audio)${data.ok ? ', Studio posts included' : ''}.`);
   return { pages, site, studio: data.ok };
 }

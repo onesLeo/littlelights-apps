@@ -1,6 +1,6 @@
 // Offline support: the app shell is cached on install; fonts are cached the first time they load.
 // Bump VERSION whenever a cached file changes so visitors get the new one.
-const VERSION = 'll-v73';
+const VERSION = 'll-v75';
 const SHELL = [
   './',
   'index.html',
@@ -23,6 +23,8 @@ const SHELL = [
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
+  // Bedtime story read-along timings (js/content.js bedtimeStories[].timings), so the highlight works offline.
+  'media/audio/jonah-and-the-whale-timings.json',
 ];
 
 self.addEventListener('install', (event) => {
@@ -41,6 +43,8 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+  // Private, live data (Studio Insights): never cached.
+  if (url.origin === location.origin && url.pathname.startsWith('/api/')) return;
 
   // Pages (/, /watch, /read/brave, ...): network first so new posts appear; each page is kept for
   // offline use. Offline, an app address without its own copy gets the app shell, which routes by path.

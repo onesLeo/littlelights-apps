@@ -53,6 +53,7 @@
     if (!rest.length) return { tab: m[1] };
     if (m[1] === 'read' && rest.length === 1) return { tab: 'read', slug: rest[0] };
     if (m[1] === 'watch' && rest.length === 1) return { tab: 'watch', slug: rest[0] };
+    if (m[1] === 'listen' && rest.length === 1) return { tab: 'listen', slug: rest[0] };
     if (m[1] === 'watch' && rest.length === 2 && rest[0] === 'series') return { tab: 'watch', series: rest[1] };
     return null;
   }
@@ -60,6 +61,7 @@
   function path(tab, item) {
     if (tab === 'read' && item) return '/read/' + item;
     if (tab === 'watch' && item) return '/watch/' + item;
+    if (tab === 'listen' && item) return '/listen/' + item;
     if (tab === 'series' && item) return '/watch/series/' + item;
     return (PAGES[tab] || PAGES.today).path;
   }
@@ -72,13 +74,146 @@
     if (parts[0] === 'read' && parts[1]) return '/read/' + parts[1];
     return path(parts[0]);
   }
+  // Share image for a video: a Studio poster (a full storage URL on any host). Built-in reels (site paths,
+  // portrait) and posts without a poster keep the 1200x630 site image.
+  function posterImage(u) { u = String(u || ''); return /^https:\/\//i.test(u) ? u : ''; }
   // Head values for a screen. kind: 'page' | 'devotion' | 'reel' | 'series'.
   function meta(kind, x) {
     if (kind === 'devotion') return { path: path('read', x.slug), title: x.title + ' · ' + NAME, desc: clip(x.teaser || x.html || x.title), type: 'article' };
-    if (kind === 'reel') return { path: path('watch', reelSlug(x)), title: x.title + ' · Watch · ' + NAME, desc: clip(x.caption || x.topic || PAGES.watch.desc), type: 'video.other' };
+    if (kind === 'reel') return { path: path('watch', reelSlug(x)), title: x.title + ' · Watch · ' + NAME, desc: clip(x.caption || x.topic || PAGES.watch.desc), type: 'video.other', image: x.src ? posterImage(x.poster) : '' };
+    if (kind === 'story') return { path: path('listen', x.slug), title: (x.seoTitle || x.title) + ' · ' + NAME, desc: clip(x.desc || x.title), type: 'article', image: storyImage(x), imageWidth: x.image ? x.imageWidth : 0, imageHeight: x.image ? x.imageHeight : 0, imageAlt: x.image ? x.title + ', ' + (x.series || 'bedtime Bible story') : '' };
     if (kind === 'series') return { path: path('series', slugify(x.series)), title: x.series + ' · Bible story series · ' + NAME, desc: clip(x.desc || PAGES.watch.desc), type: 'website' };
     var p = PAGES[x] || PAGES.today;
     return { path: p.path, title: p.title, desc: p.desc, type: 'website' };
   }
-  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta };
+  // Body of a bedtime story page (/listen/<slug>), shared by the build (scripts/prerender.mjs, so the
+  // text is in the HTML search engines receive) and the app (js/app.js). Plain <audio controls>: no
+  // play counting or other tracking on this page.
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function mark(text, w) {
+    var t = esc(text);
+    if (!w || !w.word) return t;
+    return t.replace(new RegExp('\\b(' + w.word + ')\\b', 'i'), '<mark class="p-word">$1</mark>');
+  }
+  // A bedtime story's share image: its own `image` (js/content.js bedtimeStories) when set, else none
+  // (the site's default share image is used).
+  function storyImage(x) { var u = String((x && x.image) || ''); return !u ? '' : /^https:\/\//i.test(u) ? u : SITE + '/' + u.replace(/^\/+/, ''); }
+  // Rows for the "Goodnight Little Light" section on /listen: each opens the story's own page.
+  function storyRowsHtml(list) {
+    return (list || []).map(function (x) {
+      var m = Math.floor((x.dur || 0) / 60), s = Math.round((x.dur || 0) % 60);
+      return '<a class="p-row p-gnrow" href="' + esc(path('listen', x.slug)) + '"><span class="p-art" style="background:' + esc(x.color || '#a07fd6') + '"><i></i></span>' +
+        '<span><b>' + esc(x.title) + '</b><small>Bedtime Bible story' + (x.episode ? ' #' + x.episode : '') + ' \u00b7 ' + m + ':' + (s < 10 ? '0' : '') + s + '</small></span>' +
+        '<span class="p-pp" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>';
+    }).join('');
+  }
+  function storyHtml(x, h) {
+    h = h || 'h1';
+    var src = /^https?:/i.test(x.src || '') ? x.src : '/' + String(x.src || '').replace(/^\/+/, '');
+    var mins = Math.floor((x.dur || 0) / 60), secs = Math.round((x.dur || 0) % 60);
+    var qs = x.questions && x.questions.length === 3 ? x.questions : null;
+    return '<a class="back" href="/listen" data-ep-back>← Listen</a>' +
+      '<div class="hero" style="background:' + esc(x.color || '#a07fd6') + ';color:' + esc(x.ink || '#1d1233') + '">' +
+        '<span class="p-kicker">' + esc(x.series) + (x.episode ? ' · #' + x.episode : '') + '</span>' +
+        '<' + h + '>' + esc(x.title) + '</' + h + '>' +
+        '<span class="p-ep-by">Bedtime Bible story' + (x.narrator ? ', read by ' + esc(x.narrator) : '') + ' · about ' + (mins ? mins + ' min ' : '') + (secs ? secs + ' s' : '') + '</span>' +
+      '</div>' +
+      '<div class="body p-txt p-sbody">' +
+        '<div class="p-ep-player">' +
+          '<audio controls preload="none" src="' + esc(src) + '">Your browser can\u2019t play this audio.</audio>' +
+          (x.placeholder ? '<p class="p-ep-note" data-placeholder-audio>[PLACEHOLDER AUDIO: the narration is coming soon]</p>' : '') +
+        '</div>' +
+        '<h2>The story</h2>' + (x.story || []).map(function (p, i) { return '<p data-ra="story-' + i + '">' + mark(p, x.word) + '</p>'; }).join('') +
+        '<h2>Bible verse</h2>' +
+        '<blockquote class="p-ep-verse">\u201c' + mark(x.verse.text, x.word) + '\u201d<br><span class="meta">' + esc(x.verse.ref) + ' (' + esc(x.verse.version) + ')</span></blockquote>' +
+        (x.word ? '<p class="p-ep-word"><span aria-hidden="true">\u{1F4A1} </span><b>Word to know:</b> ' + esc(x.word.meaning) + '</p>' : '') +
+        '<h2>Let\u2019s pray</h2><div class="pray" data-ra="prayer">' + esc(x.prayer) + '</div>' +
+        (x.goodnight ? '<p class="p-ep-night" data-ra="goodnight">' + esc(x.goodnight) + '</p>' : '') +
+        '<h2>3 questions to ask afterwards</h2>' +
+        (qs ? '<ol class="p-ep-qs">' + qs.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join('') + '</ol>'
+          : '<ol class="p-ep-qs" data-placeholder-questions><li>[PLACEHOLDER: question 1 not in the content plan yet]</li><li>[PLACEHOLDER: question 2 not in the content plan yet]</li><li>[PLACEHOLDER: question 3 not in the content plan yet]</li></ol>') +
+        '<div class="p-ep-cards">' +
+          (x.next ? '<a class="p-ep-card" href="' + esc(x.next.href || '/listen') + '"><span class="p-kicker">Next story' + (x.next.when ? ' · ' + esc(x.next.when) : '') + '</span><b>' + esc(x.next.title) + '</b><span>More bedtime stories on Listen \u2192</span></a>' : '') +
+          '<a class="p-ep-card join" href="/join"><span class="p-kicker">Join the testers</span><b>Little Light is a free Bible adventure game for kids 5\u20138, coming to Android.</b><span>Join the test families \u2192</span></a>' +
+        '</div>' +
+      '</div>';
+  }
+
+  // ---------- read-along (bedtime stories) ----------
+  // The text on the page is split into sentences and words, then lined up with the timings file
+  // ([{text,start,end,words:[{text,start,end}]}]). Matching ignores case, punctuation and curly vs straight
+  // quotes. Narration that isn't on the page (e.g. "Let's pray.") is allowed and skipped; anything else that
+  // doesn't line up returns null, and the page stays plain text.
+  function raNorm(t) {
+    return String(t || '').toLowerCase().replace(/[\u2018\u2019\u02bc]/g, "'").replace(/[^a-z0-9' ]+/g, ' ')
+      .replace(/(^|\s)'+|'+(?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+  function raSentences(text) {
+    return String(text || '').split(/(?<=[.!?\u2026][\u2019\u201d'"]?)\s+/).filter(function (x) { return x.trim(); });
+  }
+  // parts: [{key, text}] in reading order. Returns {sentences:[{part, text, start, end, words|null}], count} or null.
+  function raMatch(parts, timings) {
+    if (!Array.isArray(timings) || !timings.length) return null;
+    var shown = [];
+    parts.forEach(function (p) {
+      raSentences(p.text).forEach(function (t) { shown.push({ part: p.key, text: t, n: raNorm(t) }); });
+    });
+    var all = shown.map(function (x) { return x.n; }).join(' ');
+    var out = [], i = 0, last = -1;
+    for (var k = 0; k < timings.length; k++) {
+      var tm = timings[k];
+      if (!tm || typeof tm.start !== 'number' || typeof tm.end !== 'number' || !(tm.end >= tm.start) || tm.start < last) return null;
+      last = tm.start;
+      var n = raNorm(tm.text);
+      while (i < shown.length && !shown[i].n) out.push(shown[i++]); // e.g. an emoji on its own: never timed
+      // The narration may group sentences differently ("Go!" he said.): join shown pieces of one part until they match.
+      var j = i, acc = '';
+      while (j < shown.length && shown[j].part === (shown[i] || {}).part) {
+        acc = acc ? acc + ' ' + shown[j].n : shown[j].n; j++;
+        if (acc === n || n.indexOf(acc + ' ') !== 0) break;
+      }
+      if (i < shown.length && n && acc === n) {
+        var x = shown[i];
+        if (j - i > 1) x = { part: x.part, text: shown.slice(i, j).map(function (y) { return y.text; }).join(' '), n: n };
+        i = j;
+        x.start = tm.start; x.end = tm.end; x.words = raWords(x.text, tm.words);
+        out.push(x);
+      } else if (n && all.indexOf(n) === -1) {
+        continue; // spoken but not shown
+      } else return null;
+    }
+    while (i < shown.length && !shown[i].n) out.push(shown[i++]);
+    if (i < shown.length) return null;
+    return { sentences: out, count: out.filter(function (x) { return x.start != null; }).length };
+  }
+  function raWords(text, words) {
+    var toks = text.split(/\s+/).filter(Boolean);
+    if (!Array.isArray(words)) return null;
+    var spoken = toks.filter(function (t) { return raNorm(t); });
+    if (spoken.length !== words.length) return null;
+    for (var j = 0; j < words.length; j++) {
+      var w = words[j];
+      if (!w || raNorm(w.text) !== raNorm(spoken[j]) || typeof w.start !== 'number' || typeof w.end !== 'number') return null;
+    }
+    return words;
+  }
+  // HTML for one part, sentence spans first (data-si = index into match.sentences), word spans inside.
+  function raHtml(match, key, word) {
+    var key2 = word && raNorm(word.word);
+    return match.sentences.map(function (x, si) {
+      if (x.part !== key) return '';
+      var wi = 0;
+      var inner = x.text.split(/(\s+)/).map(function (t) {
+        if (!t.trim()) return t;
+        var n = raNorm(t);
+        if (!n || !x.words) return esc(t);
+        var h = '<span class="p-w" data-wi="' + (wi++) + '">' + esc(t) + '</span>';
+        return key2 && n === key2 ? '<mark class="p-word">' + h + '</mark>' : h;
+      }).join('');
+      if (x.start == null) return inner + ' ';
+      return '<span class="p-sen" data-si="' + si + '" role="button" tabindex="0">' + inner + '</span> ';
+    }).filter(Boolean).join('').trim();
+  }
+
+  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml };
 })(typeof window !== 'undefined' ? window : globalThis);

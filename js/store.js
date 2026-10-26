@@ -87,6 +87,9 @@
       writeJSON(SESSION_KEY, s);
       return Promise.resolve({ signedIn: true, session: s });
     },
+    // Local mode has no passwords: the browser's own team list is the only gate.
+    signInWithPassword: function (email) { return local.signInWithEmail(email); },
+    updatePassword: function () { return Promise.reject(new Error('Passwords need Supabase mode. In local mode there is no password to change.')); },
     signInWithGoogle: function () { return Promise.reject(new Error('Google sign-in needs Supabase mode. In local mode, sign in with your email.')); },
     signOut: function () { try { localStorage.removeItem(SESSION_KEY); } catch (err) {} return Promise.resolve(); },
     onAuthChange: function () {},
@@ -145,6 +148,7 @@
       if (!writeJSON(SETTINGS_KEY, all)) return Promise.reject(new Error('The browser’s storage is full.'));
       return Promise.resolve(value);
     },
+    accessToken: function () { return Promise.resolve(''); },
     listTeam: function () { return Promise.resolve(local._team()); },
     invite: function (email, role) {
       var team = local._team();
@@ -189,6 +193,12 @@
   function friendly(msg) {
     msg = String(msg || '');
     if (/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) return 'Could not reach the database. Check your internet connection and try again.';
+    if (/invalid login credentials|invalid_credentials/i.test(msg)) return 'That email and password don’t match. Check them and try again.';
+    if (/email not confirmed/i.test(msg)) return 'This email isn’t confirmed yet. Ask the owner to confirm it in Supabase.';
+    if (/should be different|same.*password|same_password/i.test(msg)) return 'Pick a new password that’s different from your current one.';
+    if (/weak|password should|pwned|leaked/i.test(msg)) return 'That password is too weak. Use at least 12 characters, mixing words, numbers and symbols.';
+    if (/reauthenticat|session.*(missing|expired)|jwt expired/i.test(msg)) return 'Your sign-in has expired. Sign out, sign in again, then change your password.';
+    if (/signups not allowed|user not found/i.test(msg)) return 'This email isn’t on the Salt and Light team.';
     if (/rate limit|too many/i.test(msg)) return 'Too many sign-in emails were sent just now. Please wait a few minutes and try again.';
     return msg;
   }
@@ -230,9 +240,26 @@
         });
       });
     },
+    // The signed-in user's Supabase access token (for /api/insights), or '' when signed out.
+    accessToken: function () {
+      return loadClient().then(function (c) { return c.auth.getSession(); }).then(function (res) { var s = res.data && res.data.session; return s ? s.access_token : ''; });
+    },
+    // Main sign-in: email + password. Sends no email, so it never touches Supabase's email limit.
+    // The password goes straight to Supabase and is never logged or stored here. The team check
+    // happens in session(), which signs anyone not on the team straight back out.
+    signInWithPassword: function (email, password) {
+      return loadClient().then(function (c) { return c.auth.signInWithPassword({ email: email, password: password }); })
+        .then(function (res) { must(res); return supa.session(); })
+        .then(function (s) { return { signedIn: true, session: s }; });
+    },
+    updatePassword: function (password) {
+      return loadClient().then(function (c) { return c.auth.updateUser({ password: password }); })
+        .then(function (res) { must(res); return true; });
+    },
+    // Secondary: one-time email link. Never creates new users (sign-ups stay closed).
     signInWithEmail: function (email) {
       return loadClient().then(function (c) {
-        return c.auth.signInWithOtp({ email: email, options: { emailRedirectTo: redirectTo(), shouldCreateUser: true } });
+        return c.auth.signInWithOtp({ email: email, options: { emailRedirectTo: redirectTo(), shouldCreateUser: false } });
       }).then(function (res) { must(res); return { signedIn: false }; });
     },
     signInWithGoogle: function () {

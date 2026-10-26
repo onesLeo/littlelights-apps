@@ -2,8 +2,9 @@
 // manage the team, then check the posts appear in the app.
 // Run: npm test   (screenshots go to test-results/)
 import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { serve } from '../scripts/serve.mjs';
+import { friendlySource, shape, shapeStats } from '../functions/api/insights.js';
 
 const server = await serve(0);
 const base = `http://localhost:${server.address().port}/`;
@@ -36,6 +37,18 @@ function silentWav(seconds = 2, rate = 8000) {
   buf.writeUInt32LE(rate, 28); buf.writeUInt16LE(1, 32); buf.writeUInt16LE(8, 34); buf.write('data', 36); buf.writeUInt32LE(n, 40);
   buf.fill(128, 44);
   return buf;
+}
+
+// ---------- Insights API helpers (no network) ----------
+check(friendlySource('www.google.co.id') === 'Google search' && friendlySource('') === 'Direct' && friendlySource('Direct / none') === 'Direct' && friendlySource('l.facebook.com') === 'Facebook' && friendlySource('wa.me') === 'WhatsApp' && friendlySource('littlesaltandlight.com') === 'Within the site' && friendlySource('example.org') === 'example.org', 'insights api: referrers get friendly names');
+{
+  const out = shape({ total: [{ count: 9, sum: { visits: 5 } }], previous: [{ count: 4, sum: { visits: 2 } }], daily: [{ count: 9, sum: { visits: 5 }, dimensions: { date: '2026-10-20' } }],
+    paths: [{ count: 9, sum: { visits: 5 }, dimensions: { requestPath: '/read/a' } }, { count: 3, sum: { visits: 1 }, dimensions: { requestPath: '/studio/' } }],
+    countries: [{ count: 6, dimensions: { requestPath: '/read/a', countryName: 'SG' } }, { count: 3, dimensions: { requestPath: '/read/a', countryName: 'ID' } }, { count: 3, dimensions: { requestPath: '/studio/', countryName: 'US' } }],
+    referers: [{ count: 5, dimensions: { requestPath: '/read/a', refererHost: 'www.google.com' } }, { count: 4, dimensions: { requestPath: '/read/a', refererHost: 'google.com' } }] }, 7);
+  check(out.previous.visits === 2 && out.series[0].visits === 5 && out.countries.map((c) => c.name).join() === 'SG,ID' && out.sources[0].name === 'Google search' && out.sources[0].views === 9, 'insights api: previous period, daily series, site-wide countries and grouped sources (Studio visits left out)');
+  const st = shapeStats([{ post_id: 'reel:a', day: '2026-10-01', event: 'started', count: 2 }, { post_id: 'reel:a', day: '2026-10-24', event: 'started', count: 3 }, { post_id: 'devotion:b', day: '2026-10-24', event: 'read_end', count: 1 }], '2026-10-18T00:00:00Z');
+  check(st.plays['reel:a'].started === 3 && st.playsTotal.started === 3 && st.playsPrevious.started === 2 && st.playsTotal.read_end === 1 && st.playsSeries.length === 1, 'insights api: plays split into this period and the one before');
 }
 
 // ---------- sign in ----------
@@ -99,6 +112,59 @@ await page.click('[data-new="reel"]');
 check(await page.$$eval('#seriesList option', (o) => o.map((x) => x.value).includes('Test series')), 'reel: existing series names are suggested');
 await page.click('.side [data-view="posts"]').catch(() => {});
 
+// ---------- reel: video poster (thumbnail) ----------
+{
+  const tinyReel = readFileSync(new URL('./fixtures/tiny-reel.webm', import.meta.url));
+  const png1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  await page.click('.side [data-view="new"]');
+  await page.click('[data-new="reel"]');
+  check(!(await page.$('#f_poster')), 'poster: no poster picker before a video is uploaded');
+  // Phone width: the preview is above the form and must not stay stuck over it while scrolling.
+  for (const [w, h] of [[390, 844], [1280, 900]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.$eval('#f_caption', (e) => e.scrollIntoView({ block: 'center' }));
+    const reachable = await page.$eval('#f_caption', (e) => { const r = e.getBoundingClientRect(), x = document.elementFromPoint(r.left + 10, r.top + r.height / 2); return x === e || e.contains(x); });
+    check(reachable, `editor: the form is not covered by the preview when scrolled (${w}px)`);
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.fill('#f_title', 'Poster test video');
+  await page.setInputFiles('#f_file', { name: 'poster-test.webm', mimeType: 'video/webm', buffer: tinyReel });
+  await page.waitForFunction(() => { const i = document.querySelector('img#posterPv'); return i && i.src && i.naturalWidth > 0; }, null, { timeout: 20000 }).catch(() => {});
+  const auto = await page.evaluate(async () => {
+    const i = document.querySelector('img#posterPv');
+    if (!i) return null;
+    const b = await (await fetch(i.src)).blob();
+    return { w: i.naturalWidth, h: i.naturalHeight, type: b.type };
+  });
+  check(auto && auto.type === 'image/webp' && auto.w === 180 && auto.h === 320, `poster: without a chosen image, a WebP frame is taken from the video (${JSON.stringify(auto)})`);
+  check(await page.$eval('#posterFrame', (b) => b.textContent.includes('frame')), 'poster: the author can take a frame again');
+  await page.setInputFiles('#f_poster', { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hi') });
+  check((await text('.errmsg')).includes('JPG, PNG or WebP'), 'poster: a non-image file is refused');
+  await page.setInputFiles('#f_poster', { name: 'big.png', mimeType: 'image/png', buffer: Buffer.alloc(5 * 1024 * 1024 + 10) });
+  check((await text('.errmsg')).includes('limit is 5 MB'), 'poster: an image over 5 MB is refused');
+  await page.click('#postForm button[type=submit]');
+  await page.waitForSelector('.list .row');
+  let pv = await page.evaluate(async () => (await window.LLStore.publishedPosts()).filter((p) => p.title === 'Poster test video')[0]);
+  check(pv && /^local-media:/.test(pv.fields.poster || '') && pv.fields.poster_auto === true && pv.fields.poster !== pv.media_url, `poster: the made poster is saved in fields.poster (${JSON.stringify(pv && pv.fields.poster)})`);
+  const autoUrl = pv && pv.fields.poster;
+  // The author's own image replaces it and is kept when the post is edited again.
+  await page.click('.row >> text=Poster test video');
+  await page.waitForSelector('#f_poster', { state: 'attached' });
+  await page.setInputFiles('#f_poster', { name: 'cover.png', mimeType: 'image/png', buffer: png1 });
+  await page.waitForFunction((a) => { const i = document.querySelector('img#posterPv'); return i && i.dataset.src && i.dataset.src !== a && !document.querySelector('.upload.busy'); }, autoUrl, { timeout: 10000 }).catch(() => {});
+  await page.click('#postForm button[type=submit]');
+  await page.waitForSelector('.list .row');
+  pv = await page.evaluate(async () => (await window.LLStore.publishedPosts()).filter((p) => p.title === 'Poster test video')[0]);
+  check(pv && pv.fields.poster && pv.fields.poster !== autoUrl && !pv.fields.poster_auto, 'poster: a chosen image replaces the made poster');
+  // The app uses it: <video poster> and the Watch card.
+  const app = await context.newPage();
+  await app.goto(base + '#watch');
+  await app.waitForFunction(() => window.LL_CONTENT && window.LL_CONTENT.reels.some((r) => r.title === 'Poster test video'), null, { timeout: 10000 }).catch(() => {});
+  const r = await app.evaluate(() => { const r = window.LL_CONTENT.reels.find((x) => x.title === 'Poster test video'); return r && { poster: r.poster, src: r.src }; });
+  check(r && /^blob:/.test(r.poster) && r.poster !== r.src, `app: the Studio poster is on the video (${JSON.stringify(r)})`);
+  await app.close();
+}
+
 // ---------- devotion: draft, then publish after fixing ----------
 await page.click('.side [data-view="new"]');
 await page.click('[data-new="devotion"]');
@@ -150,7 +216,7 @@ await page.screenshot({ path: 'test-results/studio-posts.png', fullPage: true })
 
 // ---------- media and team ----------
 await page.click('.side [data-view="media"]');
-check((await page.$$('.media')).length === 1, 'media: the uploaded recording is listed');
+check((await page.$$eval('.media b', (b) => b.map((x) => x.textContent))).includes('evening-prayer.wav'), 'media: the uploaded recording is listed');
 await page.click('.side [data-view="team"]');
 await page.fill('#inviteEmail', 'helper@example.org');
 await page.selectOption('#inviteRole', 'contributor');
@@ -285,6 +351,129 @@ await page.click('[data-bhide="reel:noah-kept-building"]');
 await page.click('#saveHidden');
 await page.waitForTimeout(200);
 
+// ---------- post list: search, filters, sorting, 20 at a time ----------
+{
+  const saved = await page.evaluate(() => localStorage.getItem('ll.posts.v1'));
+  await page.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('ll.posts.v1')), now = Date.now();
+    for (let i = 0; i < 30; i++) all.push({ id: 9000 + i, type: i % 2 ? 'audio' : 'reel', status: i % 3 ? 'published' : 'draft', title: 'Bulk post ' + String(i).padStart(2, '0'), slug: 'bulk-post-' + i,
+      show_on_today: false, publish_at: new Date(now - (i + 400) * 86400000).toISOString(), updated_at: new Date().toISOString(), fields: {}, media_url: '' });
+    localStorage.setItem('ll.posts.v1', JSON.stringify(all));
+  });
+  await page.reload();
+  await page.waitForSelector('.ptable');
+  const total = await page.evaluate(() => JSON.parse(localStorage.getItem('ll.posts.v1')).length);
+  check(await page.$$eval('.ptable tbody .row', (r) => r.length) === 20, 'posts: shows 20 at a time');
+  check((await text('.more')).includes('Showing 20 of ' + total), 'posts: says how many are shown');
+  await page.click('#loadMore');
+  check(await page.$$eval('.ptable tbody .row', (r) => r.length) === Math.min(40, total), 'posts: “Show more” adds the next 20');
+  check(await page.$$eval('.ptable thead th[aria-sort]', (h) => h.map((x) => x.textContent.replace(/[▲▼]/g, '')).join(',')) === 'Title,Type,Status,Date,Views', 'posts: table columns are Title, Type, Status, Date, Views');
+  await page.fill('#postSearch', 'bulk post 0');
+  check(await page.$$eval('.ptable tbody .row', (r) => r.length) === 10 && await page.evaluate(() => document.activeElement.id === 'postSearch'), 'posts: search filters as you type and keeps focus');
+  await page.fill('#postSearch', 'zzz nothing');
+  check((await text('#postResults')).includes('Nothing matches'), 'posts: a search with no results explains itself');
+  await page.click('#clearFilters');
+  check(await page.$eval('#postSearch', (i) => i.value) === '' && await page.$$eval('.ptable tbody .row', (r) => r.length) === 20, 'posts: “Show all posts” clears the search');
+  await page.click('[data-filter="audio"]');
+  await page.click('[data-sfilter="draft"]');
+  check(await page.$$eval('.ptable tbody .row', (r) => r.every((x) => x.querySelector('.kind').textContent === 'Audio' && x.querySelector('.pill').textContent === 'Draft')) && await page.$$eval('.ptable tbody .row', (r) => r.length) === 5, 'posts: type and status chips combine');
+  await page.click('[data-filter="all"]'); await page.click('[data-sfilter="all"]');
+  await page.click('[data-sort="title"]');
+  const titles = await page.$$eval('.ptable tbody .row b', (b) => b.map((x) => x.textContent));
+  check(titles.join('|') === titles.slice().sort((a, b) => a.toLowerCase() < b.toLowerCase() ? -1 : 1).join('|') && await page.$eval('th[aria-sort="ascending"]', (t) => t.textContent.startsWith('Title')), 'posts: a column title sorts A–Z');
+  await page.click('[data-sort="title"]');
+  check(await page.$eval('th[aria-sort="descending"]', (t) => t.textContent.startsWith('Title')), 'posts: pressing it again sorts Z–A');
+  await page.click('.ptable tbody .row .kind');
+  await page.waitForSelector('#postForm');
+  check(true, 'posts: tapping anywhere on a row opens the editor');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.click('.side [data-view="posts"]');
+  check(await page.$eval('.ptable thead', (h) => getComputedStyle(h).display === 'none') && await page.$eval('.ptable tbody .row', (r) => getComputedStyle(r).display === 'grid' && r.getBoundingClientRect().height < 90), 'posts (phone): compact rows instead of a wide table');
+  check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'posts (phone): nothing sticks out sideways');
+  await page.selectOption('#postSort', 'title-asc');
+  check(await page.$eval('th[aria-sort="ascending"]', (t) => t.textContent.startsWith('Title')), 'posts (phone): the Sort menu sorts');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.screenshot({ path: 'test-results/studio-posts-list.png' });
+  await page.evaluate((s) => localStorage.setItem('ll.posts.v1', s), saved);
+
+  // ---------- Insights: plain-language cards, chart, top posts, friendly sources (mocked API) ----------
+  const day = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+  let asked = [];
+  const restSlug = await page.evaluate(() => JSON.parse(localStorage.getItem('ll.posts.v1')).find((p) => p.title.startsWith('Rest for the weary')).slug);
+  await page.route('**/api/insights**', (r) => {
+    const d = +new URL(r.request().url()).searchParams.get('days'); asked.push(d);
+    r.fulfill({ contentType: 'application/json', body: JSON.stringify(d === 90 ? { connected: true, days: 90, total: { views: 0, visits: 0 }, previous: { views: 0, visits: 0 }, series: [], pages: [], countries: [], sources: [], plays: {}, playsTotal: { started: 0, finished: 0, read_end: 0 }, playsPrevious: { started: 0, finished: 0, read_end: 0 } } : {
+      connected: true, days: d, total: { views: 240, visits: 120 }, previous: { views: 200, visits: 100 },
+      series: [{ date: day(2), views: 100, visits: 50 }, { date: day(1), views: 140, visits: 70 }],
+      pages: [{ path: '/read/' + restSlug, views: 90, visits: 60, countries: [], referrers: [] }, { path: '/', views: 150, visits: 100, countries: [], referrers: [] }],
+      countries: [{ name: 'SG', views: 30 }, { name: 'ID', views: 10 }], sources: [{ name: 'Google search', views: 20 }, { name: 'Direct', views: 10 }],
+      vitals: { samples: 10, lcp: 1800, inp: 100, cls: 0.02 },
+      plays: { ['devotion:' + restSlug]: { started: 0, finished: 0, read_end: 12 } }, playsTotal: { started: 8, finished: 4, read_end: 12 }, playsPrevious: { started: 8, finished: 2, read_end: 6 } }) });
+  });
+  await page.reload();
+  await page.waitForSelector('.shell');
+  await page.evaluate(() => { window.LLStore.accessToken = () => Promise.resolve('test-token'); });
+  await page.click('.side [data-view="insights"]');
+  await page.waitForSelector('#insVisits');
+  check(asked.includes(30) && await page.$eval('[data-days="30"]', (b) => b.getAttribute('aria-pressed') === 'true'), 'insights: opens on the last 30 days');
+  check(await page.$$eval('[data-days]', (b) => b.map((x) => x.dataset.days).join()) === '7,30,90', 'insights: 7, 30 and 90 day chips');
+  check((await text('#insVisits')).includes('People visited') && (await text('#insVisits')).includes('120') && (await text('#insVisits')).includes('20% more than the 30 days before'), 'insights: “People visited” with a friendly change');
+  check((await text('#insReads')).includes('Read to the end') && (await text('#insReads')).includes('100% more'), 'insights: “Read to the end” card');
+  check((await text('#insPlays')).includes('About the same'), 'insights: no change is said plainly');
+  check(await page.$$eval('.icard', (c) => c.every((x) => x.title && x.querySelector('.ihelp').textContent.length > 10)), 'insights: every number has a one-line explanation');
+  check(await page.$$eval('.trend .tbar', (r) => r.length) === 2, 'insights: a bar per day in the trend chart');
+  const longDay = (n) => { const dt = new Date(day(n) + 'T00:00:00'); return dt.toLocaleDateString('en-GB', { weekday: 'short' }) + ' ' + dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); };
+  check((await text('.tsum')).includes('Total 120') && (await text('.tsum')).includes('Busiest day ' + longDay(1) + ' (70)'), 'chart: total and busiest day under the title');
+  check(await page.$$eval('.tbar', (b) => b.every((x) => /\d+ visits$/.test(x.getAttribute('aria-label')))), 'chart: every bar has an accessible label');
+  await page.hover('.tbar >> nth=0');
+  check((await text('#trendSel')) === longDay(2) + ' · 50 visits', 'chart: hovering a bar shows its number');
+  await page.focus('.tbar >> nth=1');
+  check((await text('#trendSel')) === longDay(1) + ' · 70 visits', 'chart: keyboard focus shows its number');
+  {
+    const ph = await context.newPage();
+    await ph.setViewportSize({ width: 390, height: 844 });
+    await ph.route('**/api/insights**', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ connected: true, days: 30, total: { views: 240, visits: 120 }, previous: { views: 200, visits: 100 },
+      series: [{ date: day(3), views: 10, visits: 7 }, { date: day(2), views: 100, visits: 50 }, { date: day(1), views: 140, visits: 70 }], pages: [], countries: [], sources: [], plays: {}, playsTotal: { started: 0, finished: 0, read_end: 0 }, playsPrevious: { started: 0, finished: 0, read_end: 0 } }) }));
+    await ph.goto(base + 'studio/');
+    await ph.waitForSelector('.shell');
+    await ph.evaluate(() => { window.LLStore.accessToken = () => Promise.resolve('test-token'); });
+    await ph.click('.side [data-view="insights"]');
+    await ph.waitForSelector('.tbar');
+    const box = await ph.$eval('.tbar >> nth=0', (b) => { const r = b.getBoundingClientRect(); return { w: r.width, h: r.height }; }).catch(async () => { const r = await (await ph.$$('.tbar'))[0].boundingBox(); return { w: r.width, h: r.height }; });
+    check(box.h >= 44, 'chart (phone): bars are tall enough to tap');
+    await (await ph.$$('.tbar'))[0].scrollIntoViewIfNeeded();
+    await (await ph.$$('.tbar'))[0].click();
+    const sel = await ph.$eval('#trendSel', (e) => ({ t: e.textContent, r: e.getBoundingClientRect().right, l: e.getBoundingClientRect().left }));
+    check(sel.t === longDay(3) + ' · 7 visits' && sel.l >= 0 && sel.r <= 390, 'chart (phone): tapping a bar shows its date and count on screen');
+    check(await ph.$eval('.tbar.on', (b) => b.getAttribute('aria-pressed') === 'true'), 'chart (phone): the tapped bar is highlighted');
+    await (await ph.$$('.tbar'))[0].evaluate((b) => { b.closest('.ipanel').scrollIntoView(); scrollBy(0, -130); });
+    await ph.screenshot({ path: 'test-results/studio-chart-390.png' });
+    await ph.close();
+  }
+  check((await text('#topPosts li:first-child')).includes('Rest for the weary') && (await text('#topPosts')).includes('12 read to the end') && !(await text('#topPosts')).includes('Home'), 'insights: top posts use post titles and plain labels');
+  const where = await text('.igrid');
+  check(where.includes('Singapore') && where.includes('Indonesia') && where.includes('Google search') && where.includes('Direct') && where.includes('Home (Today)'), 'insights: countries, sources and pages have friendly names');
+  check((await text('.speed')).includes('Fast'), 'insights: site speed in one word, details tucked away');
+  await page.setViewportSize({ width: 390, height: 844 });
+  check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'insights (phone): nothing sticks out sideways');
+  await page.evaluate(() => scrollTo(0, 0));
+  check(await page.$eval('#signout', (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.right <= innerWidth && r.top >= 0; }), 'insights (phone): Sign out is still visible');
+  check(!/\b[A-Z]{2} \d+\b|ID \d+ ·/.test(await text('.igrid')), 'insights (phone): no raw country codes like “ID 42 · US 11”');
+  await page.screenshot({ path: 'test-results/studio-insights-390.png', fullPage: true });
+  await page.click('.side [data-view="posts"]');
+  await page.waitForSelector('.list .row, .ptable, table');
+  check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'posts (phone): list fits the screen');
+  await page.screenshot({ path: 'test-results/studio-posts-390.png', fullPage: true });
+  await page.click('.side [data-view="insights"]');
+  await page.waitForSelector('#insVisits');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.click('[data-days="90"]');
+  await page.waitForSelector('.iempty');
+  check((await text('#topPosts, .ipanel:nth-of-type(2)')).length > 0 && (await page.$$eval('.iempty', (e) => e.length)) >= 3, 'insights: helpful empty states when there is nothing yet');
+  await page.unroute('**/api/insights**');
+  await page.click('.side [data-view="posts"]');
+}
+
 // ---------- delete, sign out, strangers stay out ----------
 await page.click('.side [data-view="posts"]');
 await page.click('.row >> text=Jonah is coming soon');
@@ -300,6 +489,109 @@ await page.fill('#email', 'stranger@example.org');
 await page.click('#signinForm button[type=submit]');
 await page.waitForSelector('.errmsg');
 check((await text('.errmsg')).includes('isn’t on the Salt and Light team'), 'sign-in: people not on the team are turned away');
+
+// ---------- Supabase mode: password sign-in and change password (Supabase is faked) ----------
+const sctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' });
+await sctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+await sctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript',
+  body: "window.LL_CONFIG = { supabaseUrl: 'https://fake-project.supabase.co', supabaseAnonKey: 'sb_publishable_test' };" }));
+await sctx.route('https://fake-project.supabase.co/**', (r) => r.fulfill({ contentType: 'application/json', body: '[]' }));
+await sctx.addInitScript(() => {
+  const TEAM = { 'owner@example.org': 'owner' }, PW = { 'owner@example.org': 'correct horse battery', 'stranger@example.org': 'stranger password 1' };
+  const log = window.__auth = { otp: [], updates: [], session: null };
+  const q = (table) => {
+    const b = { _eq: null, select() { return b; }, eq(_, v) { b._eq = v; return b; }, order() { return b; },
+      maybeSingle() { return Promise.resolve({ data: TEAM[b._eq] ? { role: TEAM[b._eq] } : null, error: null }); },
+      then(res, rej) { return Promise.resolve({ data: [], error: null }).then(res, rej); } };
+    return b;
+  };
+  const client = {
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: log.session } }),
+      signInWithPassword: ({ email, password }) => {
+        if (PW[email] !== password) return Promise.resolve({ data: null, error: { message: 'Invalid login credentials' } });
+        log.session = { user: { email }, access_token: 't' }; return Promise.resolve({ data: { session: log.session }, error: null });
+      },
+      signInWithOtp: (o) => { log.otp.push(o); return Promise.resolve({ data: {}, error: null }); },
+      updateUser: (u) => { log.updates.push(u.password.length); return Promise.resolve({ data: {}, error: null }); },
+      signOut: () => { log.session = null; return Promise.resolve({ error: null }); },
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+    },
+    from: q,
+    storage: { from: () => ({ list: () => Promise.resolve({ data: [], error: null }) }) },
+  };
+  window.supabase = { createClient: () => client };
+});
+const sp = await sctx.newPage();
+const consoleText = [];
+sp.on('console', (m) => consoleText.push(m.text()));
+sp.on('pageerror', (e) => errors.push('supabase mode: ' + e.message));
+const stext = (sel) => sp.$eval(sel, (el) => el.textContent);
+await sp.goto(base + 'studio/');
+await sp.waitForSelector('#signinForm #password');
+check(await sp.$eval('#password', (i) => i.type === 'password' && i.autocomplete === 'current-password'), 'password: sign-in asks for email and password');
+check(!/sign up|create account|register/i.test(await stext('#signinForm')), 'password: there is no sign-up option');
+check(await sp.$('#magicLink') !== null, 'password: the email link is only a small secondary option');
+await sp.fill('#email', 'owner@example.org');
+await sp.click('#signinForm button[type=submit]');
+check((await stext('.errmsg')).includes('Enter your password'), 'password: an empty password is explained');
+await sp.fill('#password', 'wrong password here');
+await sp.click('#signinForm button[type=submit]');
+await sp.waitForFunction(() => /don’t match/.test(document.querySelector('.errmsg')?.textContent || ''));
+check(true, 'password: a wrong password gets a friendly message');
+await sp.fill('#email', 'stranger@example.org');
+await sp.fill('#password', 'stranger password 1');
+await sp.click('#signinForm button[type=submit]');
+await sp.waitForFunction(() => /isn’t on the Salt and Light team/.test(document.querySelector('.errmsg')?.textContent || ''));
+check(await sp.evaluate(() => window.__auth.session === null), 'password: a valid account not on the team is signed straight back out');
+await sp.fill('#email', 'owner@example.org');
+await sp.click('#magicLink');
+await sp.waitForSelector('#back');
+check(await sp.evaluate(() => window.__auth.otp.length === 1 && window.__auth.otp[0].options.shouldCreateUser === false), 'magic link: still available, and never creates new users');
+await sp.click('#back');
+await sp.fill('#email', 'owner@example.org');
+await sp.fill('#password', 'correct horse battery');
+await sp.click('#signinForm button[type=submit]');
+await sp.waitForSelector('.shell');
+check((await stext('.me')).includes('owner@example.org'), 'password: a team member signs in with a password');
+await sp.click('#changePw');
+await sp.waitForSelector('#pwForm');
+await sp.fill('#newPassword', 'short');
+check((await stext('#pwHint')).includes('Too short'), 'change password: strength hint flags a short password');
+await sp.fill('#newPassword', 'Gentle-River-42-Lamp');
+check((await stext('#pwHint')).startsWith('Strong'), 'change password: strength hint praises a strong one');
+await sp.fill('#newPassword', 'elevenchars');
+await sp.fill('#newPassword2', 'elevenchars');
+await sp.click('#pwForm button[type=submit]');
+check((await stext('#pwForm .errmsg')).includes('at least 12'), 'change password: fewer than 12 characters is refused');
+await sp.fill('#newPassword', 'Gentle-River-42-Lamp');
+await sp.fill('#newPassword2', 'Gentle-River-42-Lam');
+await sp.click('#pwForm button[type=submit]');
+check((await stext('#pwForm .errmsg')).includes('don’t match'), 'change password: mismatched passwords are caught');
+check(await sp.evaluate(() => window.__auth.updates.length === 0), 'change password: nothing is sent until it is valid');
+// Fields are cleared after an error on purpose: passwords are never kept in app state.
+await sp.fill('#newPassword', 'Gentle-River-42-Lamp');
+await sp.fill('#newPassword2', 'Gentle-River-42-Lamp');
+await sp.click('#pwForm button[type=submit]');
+await sp.waitForSelector('#pwForm', { state: 'detached' });
+check(await sp.evaluate(() => window.__auth.updates.length === 1 && window.__auth.updates[0] === 20), 'change password: updateUser is called with the new password');
+const stored = await sp.evaluate(() => JSON.stringify(localStorage) + JSON.stringify(sessionStorage) + document.documentElement.outerHTML);
+check(!/correct horse battery|Gentle-River-42-Lamp/.test(stored + consoleText.join(' ')), 'passwords: never stored, logged or left in the page');
+// Account buttons must be on screen when signed in, on desktop and on a phone.
+const onScreen = (sel) => sp.$eval(sel, (el) => { const r = el.getBoundingClientRect();
+  return getComputedStyle(el).display !== 'none' && r.width > 0 && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; }).catch(() => false);
+for (const [w, h] of [[1280, 900], [1280, 600], [390, 844]]) {
+  await sp.setViewportSize({ width: w, height: h });
+  await sp.evaluate(() => scrollTo(0, 0));
+  const ok = await onScreen('#signout') && await onScreen('#changePw') && await sp.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
+  check(ok, `account: Sign out and Change password are visible at ${w}x${h}`);
+  if (w === 390) await sp.screenshot({ path: 'test-results/studio-account-390.png' });
+}
+await sp.setViewportSize({ width: 390, height: 844 });
+await sp.click('#signout');
+await sp.waitForSelector('#signinForm #password');
+check(await sp.evaluate(() => window.__auth.session === null), 'account: Sign out works on a phone and returns to the sign-in screen');
+await sctx.close();
 
 check(errors.length === 0, `no script errors ${errors.join(' | ')}`);
 await browser.close();

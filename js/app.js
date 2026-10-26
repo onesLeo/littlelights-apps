@@ -105,6 +105,7 @@
       return Promise.all(posts.map(function (p) {
         var f = p.fields || {}, jobs = [];
         if (p.media_url) jobs.push(S.resolveMedia(p.media_url).then(function (u) { p._src = u; }));
+        if (p.type === 'reel' && f.poster) jobs.push(S.resolveMedia(f.poster).then(function (u) { p._poster = u; }));
         return Promise.all(jobs);
       })).then(function () { return posts; });
     }).then(function (posts) {
@@ -136,7 +137,7 @@
           if (p.show_on_today) today.push({ type: 'devotion', i: devs.length - 1 });
         } else if (p.type === 'reel') {
           var look = reelLook.filter(function (l) { return l[1] === f.look; })[0] || reelLook[reels.length % 3];
-          reels.push({ title: p.title, slug: p.slug || '', len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '', date: p.publish_at || p.created_at || '', series: f.series || '', episode: +f.episode || 0, seriesDesc: f.series_description || '', pageStyle: f.page_style || '', pageColor: /^#[0-9a-f]{6}$/i.test(f.page_color || '') ? f.page_color : '' });
+          reels.push({ title: p.title, slug: p.slug || '', len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', poster: p._poster || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '', date: p.publish_at || p.created_at || '', series: f.series || '', episode: +f.episode || 0, seriesDesc: f.series_description || '', pageStyle: f.page_style || '', pageColor: /^#[0-9a-f]{6}$/i.test(f.page_color || '') ? f.page_color : '' });
           if (f.builtin) copyOf[f.builtin] = reels.length - 1;
           if (p.show_on_today) today.push({ type: 'reel', i: reels.length - 1 });
         } else if (p.type === 'verse') {
@@ -450,6 +451,10 @@
     set('meta[property="og:description"]', 'content', m.desc);
     set('meta[name="twitter:title"]', 'content', m.title);
     set('meta[name="twitter:description"]', 'content', m.desc);
+    // A video's own poster when it has a web address (Studio posts), else the site's share image.
+    var img = m.image && /^https?:/i.test(m.image) ? m.image : SEO.IMAGE;
+    set('meta[property="og:image"]', 'content', img);
+    set('meta[name="twitter:image"]', 'content', img);
   }
   function pageHead(tab) { if (SEO) setHead(SEO.meta('page', tab)); }
   // Changes the address without a page load. replace: no new history entry (overlays, fixes).
@@ -493,6 +498,23 @@
       pageHead('watch');
       return;
     }
+    if (tab === 'listen' && r.slug) {
+      // Bedtime story page (/listen/<slug>): the build already wrote it into the page (scripts/prerender.mjs),
+      // so keep that text and only draw it when arriving from another screen. No play counting here.
+      var x = storyBySlug(r.slug), ep = $('#pEpisode');
+      var pre = x && ep.getAttribute('data-slug') === x.slug && ep.querySelector('.body');
+      show('listen');
+      if (x) {
+        if (!pre) { ep.innerHTML = SEO.storyHtml(x, 'h1'); ep.setAttribute('data-slug', x.slug); ep.scrollTop = 0; app.classList.remove('p-boot'); }
+        ep.classList.add('on');
+        readAlong(ep, x);
+        setHead(SEO.meta('story', x));
+        return;
+      }
+      setPath('/listen', true);
+      pageHead('listen');
+      return;
+    }
     if (current === 'read' && tab === 'read') $('#pArticle').classList.remove('on');
     if (tab === 'watch') { closeWatch(true); closeSeries(true); }
     show(tab);
@@ -502,6 +524,11 @@
   function indexBySlug(slug) {
     for (var i = 0; i < C.devotions.length; i++) if (C.devotions[i].slug === slug) return i;
     return -1;
+  }
+  function storyBySlug(slug) {
+    var list = C.bedtimeStories || [];
+    for (var i = 0; i < list.length; i++) if (list[i].slug === slug) return list[i];
+    return null;
   }
   function reelBySlug(slug) {
     for (var i = 0; i < C.reels.length; i++) if (SEO.reelSlug(C.reels[i]) === slug) return i;
@@ -753,7 +780,10 @@
   var reelsEl = $('#pReels');
   function rIcon(d) { return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + d + '"/></svg>'; }
   // Each reel (episode) plays alone with one progress bar. The old `parts` field is no longer read.
-  function partsOf(r) { return [{ src: r.src || '', youtube: r.youtube || '', len: r.len || '', kind: r.kind, bg: r.bg, poster: r.poster || '' }]; }
+  // Built-in reels (the ones with made thumbnails) have a WebP copy of their poster (scripts/make-thumbs.py),
+  // a third of the JPEG's size; the player shows that. The JPEG stays for link previews and JSON-LD.
+  function playerPoster(r) { return r.poster && r.thumb && /-poster\.jpg$/.test(r.poster) ? r.poster.replace(/\.jpg$/, '.webp') : (r.poster || ''); }
+  function partsOf(r) { return [{ src: r.src || '', youtube: r.youtube || '', len: r.len || '', kind: r.kind, bg: r.bg, poster: playerPoster(r) }]; }
   // Series: reels sharing `series` (fields.series) are grouped and ordered by `episode` (fields.episode).
   // A unit is one series or one standalone reel. Cover art = first episode's art; description =
   // fields.series_description from any episode, otherwise the first episode's caption.
@@ -810,7 +840,7 @@
     reelsEl.innerHTML = parts.map(function (pt, k) {
       var yid = ytId(pt.youtube);
       var scene = pt.src
-        ? '<video src="' + esc(pt.src) + '"' + (pt.poster ? ' poster="' + esc(pt.poster) + '"' : '') + ' playsinline muted preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
+        ? '<video src="' + esc(pt.src) + '"' + (pt.poster ? ' poster="' + esc(pt.poster) + '"' : '') + ' width="1080" height="1920" playsinline muted preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
         : yid ? '<div class="p-yt-slot" data-yt="' + yid + '" style="position:absolute;inset:0;background:#000"></div>'
         : reelScene(pt.kind);
       return '<article class="p-reel' + (pt.src ? ' is-video' : '') + '" data-i="' + i + '" data-p="' + k + '" style="--rc:' + esc(pt.bg) + ';background:' + esc(pt.bg) + '" aria-label="' + esc(r.title) + (many ? ', part ' + (k + 1) + ' of ' + parts.length : '') + '">' +
@@ -1020,7 +1050,7 @@
   // unwatched series or reels. Nothing starts by itself.
   function endStory(finished) {
     if (ended) return;
-    ended = true; clock.t = clock.dur; paint(); if (finished) markWatched(curStory);
+    ended = true; clock.t = clock.dur; paint(); if (finished) { markWatched(curStory); countEvent('reel', reelKey(curStory), 'finished'); }
     var el = reelEl(visibleReel), end = el.querySelector('.p-rend'), u = unitOf(curStory), at = u.eps.indexOf(curStory), nx = u.series ? u.eps[at + 1] : undefined;
     var html = '<b>' + (nx != null ? 'Up next' : 'That’s all for now') + '</b>';
     if (nx != null) { var n = C.reels[nx]; html += '<button type="button" class="p-rnext p-rnextep" data-story="' + nx + '" style="--bg:' + esc(n.bg) + '"><span class="p-wthumb">' + thumb(n) + '</span><span class="p-rnext-t"><small>Next episode</small><b>' + esc(epLabel(nx) + n.title) + '</b></span></button>'; }
@@ -1110,25 +1140,31 @@
   function watchOrder() { return [].concat.apply([], unitOrder().map(function (u) { return u.eps; })); }
   function tickHtml(on) { return on ? '<span class="p-wwatched"><span aria-hidden="true">✓</span> Watched</span>' : ''; }
   function unitAttrs(u) { return u.series ? 'data-series="' + esc(u.series) + '"' : 'data-watch="' + u.eps[0] + '"'; }
-  // The name starts with the title the card shows (WCAG 2.5.3, label in name), then what tapping does.
-  function unitLabel(u) { var r = u.cover; return u.series ? u.title + ', series of ' + u.eps.length + ' episodes' + (unitWatched(u) ? ', watched' : '') + ', open' : r.title + (r.len ? ', ' + r.len : '') + (unitWatched(u) ? ', watched' : '') + ', play'; }
+  // The buttons are named by the text they show (so the name always contains the visible words, WCAG
+  // 2.5.3), plus a hidden note saying what tapping does.
+  function unitAction(u) { return '<span class="p-vh">, ' + (u.series ? 'series, open' : 'play') + '</span>'; }
   function renderWatch() {
     wGal.removeAttribute('aria-busy');
+    // One <h1> per page: the prerendered page says which level the "Watch" title is (data-h: h1 on
+    // /watch, h2 where the page already has its own h1, e.g. a video's title on /watch/<slug>). The
+    // hidden .p-seo block (the post's h1 and text) is kept.
+    var seoBlock = wGal.querySelector('.p-seo'), hTag = wGal.getAttribute('data-h') === 'h1' && !seoBlock ? 'h1' : 'h2';
     if (!C.reels.length) { wGal.innerHTML = '<div class="p-wempty glass glass--dark"><b>No videos yet</b><p>New Bible story videos are on their way. Check back soon.</p></div>'; return; }
     var order = unitOrder(), h = order[0], hr = h.cover, anyW = C.reels.some(function (_, k) { return isWatched(k); });
     var focusWas = document.activeElement && wGal.contains(document.activeElement) ? (document.activeElement.dataset.watch || document.activeElement.dataset.series) : null;
     var badge = function (u) { return u.series ? '<span class="p-weps">' + u.eps.length + ' episode' + (u.eps.length === 1 ? '' : 's') + '</span>' : (u.cover.len ? '<span class="p-wdur">' + esc(u.cover.len) + '</span>' : ''); };
-    wGal.innerHTML = '<div class="p-wtop"><h1 class="p-wtitle">Watch</h1>' + (anyW ? '<button type="button" class="p-wclear" data-clear-watched>Clear watched</button>' : '') + '</div>' +
+    wGal.innerHTML = '<div class="p-wtop"><' + hTag + ' class="p-wtitle">Watch</' + hTag + '>' + (anyW ? '<button type="button" class="p-wclear" data-clear-watched>Clear watched</button>' : '') + '</div>' +
       filterBar('watch', order.length, []) +
-      '<button type="button" class="p-whero glass glass--dark' + (unitWatched(h) ? ' watched' : '') + (h.series ? ' is-series' : '') + '" ' + unitAttrs(h) + ' style="--bg:' + esc(hr.bg) + '" aria-label="' + esc(unitLabel(h)) + '">' +
+      '<button type="button" class="p-whero glass glass--dark' + (unitWatched(h) ? ' watched' : '') + (h.series ? ' is-series' : '') + '" ' + unitAttrs(h) + ' style="--bg:' + esc(hr.bg) + '">' +
       '<span class="p-wthumb">' + thumb(hr, true) + '</span><span class="p-wshade"></span>' + playIcon() +
-      '<span class="p-winfo"><span class="p-kicker">' + (h.series ? 'Series · ' + h.eps.length + ' episode' + (h.eps.length === 1 ? '' : 's') : (unitWatched(h) ? 'Watched' : 'Featured') + (hr.len ? ' · ' + esc(hr.len) : '')) + '</span><b>' + esc(h.title) + '</b>' + (h.desc ? '<small>' + esc(h.desc) + '</small>' : '') + '</span>' + tickHtml(unitWatched(h)) + '</button>' +
+      '<span class="p-winfo"><span class="p-kicker">' + (h.series ? 'Series · ' + h.eps.length + ' episode' + (h.eps.length === 1 ? '' : 's') : (unitWatched(h) ? 'Watched' : 'Featured') + (hr.len ? ' · ' + esc(hr.len) : '')) + '</span><b>' + esc(h.title) + '</b>' + unitAction(h) + (h.desc ? '<small aria-hidden="true">' + esc(h.desc) + '</small>' : '') + '</span>' + tickHtml(unitWatched(h)) + '</button>' +
       (order.length > 1 ? '<h2 class="p-wsub">More videos</h2><div class="p-wgrid">' + order.slice(1).map(function (u) {
         var r = u.cover;
-        return '<button type="button" class="p-wcard' + (unitWatched(u) ? ' watched' : '') + (u.series ? ' is-series' : '') + '" ' + unitAttrs(u) + ' style="--bg:' + esc(r.bg) + '" aria-label="' + esc(unitLabel(u)) + '">' +
+        return '<button type="button" class="p-wcard' + (unitWatched(u) ? ' watched' : '') + (u.series ? ' is-series' : '') + '" ' + unitAttrs(u) + ' style="--bg:' + esc(r.bg) + '">' +
           '<span class="p-wthumb">' + thumb(r) + (u.series ? '' : playIcon()) + badge(u) + tickHtml(unitWatched(u)) + '</span>' +
-          '<b>' + esc(u.title) + '</b>' + (u.series ? '<small class="p-wkind">Series</small>' : '') + '</button>';
+          '<b>' + esc(u.title) + '</b>' + (u.series ? '<small class="p-wkind">Series</small>' : '') + unitAction(u) + '</button>';
       }).join('') + '</div>' : '');
+    if (seoBlock) wGal.appendChild(seoBlock);
     if (focusWas != null) { var f = wGal.querySelector('[data-watch="' + focusWas + '"], [data-series="' + focusWas.replace(/"/g, '\\"') + '"]'); if (f) f.focus(); }
     if (seriesOpen) renderSeries(seriesOpen);
   }
@@ -1202,6 +1238,7 @@
   function openStory(i) {
     rSheet.hidden = true; wPlayer.classList.remove('book', 'capopen'); renderReelStory(i); seq = parts.map(function (_, k) { return k; });
     showReel(0); $('#pWatchClose').focus();
+    countEvent('reel', reelKey(i), 'started');
   }
   function openReel(i) {
     if (!watchOpen) watchReturn = document.activeElement;
@@ -1217,12 +1254,33 @@
     else if (e.key === ' ' || e.key === 'Spacebar') { if (!ended) togglePause(reelEl(visibleReel)); e.preventDefault(); }
   });
 
+  // ---------- anonymous play/read counter (Studio Insights) ----------
+  // Adds 1 to a per-post, per-day number in Supabase (public.increment_post_stat). Strictly anonymous:
+  // no IP is stored, no user id, cookie, localStorage id or fingerprint is sent or kept, and no
+  // credentials or referrer go with the request. At most once per page load per post and event.
+  var counted = {};
+  function slugKey(s) { return String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80); }
+  function countEvent(kind, slug, ev) {
+    var cfg = window.LL_CONFIG || {}, k = slugKey(slug);
+    if (!k || !cfg.supabaseUrl || !cfg.supabaseAnonKey || counted[kind + ':' + k + '|' + ev]) return;
+    counted[kind + ':' + k + '|' + ev] = 1;
+    try {
+      fetch(cfg.supabaseUrl + '/rest/v1/rpc/increment_post_stat', {
+        method: 'POST', keepalive: true, credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store',
+        headers: { apikey: cfg.supabaseAnonKey, Authorization: 'Bearer ' + cfg.supabaseAnonKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_post_id: kind + ':' + k, p_event: ev })
+      }).catch(function () {});
+    } catch (x) {}
+  }
+  window.LL_countEvent = countEvent;
+  function reelKey(i) { var r = C.reels[i]; return r ? (SEO ? SEO.reelSlug(r) : (r.slug || r.title)) : ''; }
+
   // ---------- audio: real files when `src` is set, otherwise a silent demo ----------
   var player = { ep: -1, t: 0, playing: false }, tick = null;
   var audio = new Audio();
   audio.preload = 'none';
   audio.addEventListener('timeupdate', function () { player.t = audio.currentTime; renderPlayer(); });
-  audio.addEventListener('ended', function () { setPlaying(false); });
+  audio.addEventListener('ended', function () { setPlaying(false); if (player.ep >= 0) countEvent('audio', C.episodes[player.ep].title, 'finished'); });
   function hasSrc() { return player.ep >= 0 && !!C.episodes[player.ep].src; }
   function duration() { return hasSrc() && isFinite(audio.duration) ? audio.duration : C.episodes[player.ep].dur; }
 
@@ -1230,6 +1288,111 @@
     return '<button class="p-row" type="button" data-ep="' + i + '"><span class="p-art" style="background:' + e.color + '"><i></i></span>' +
       '<span><b>' + esc(e.title) + '</b><small>' + esc(e.meta) + ' · ' + fmt(e.dur) + '</small></span><span class="p-pp">' + ICON_PLAY + '</span></button>';
   }).join('');
+  // ---------- read-along highlight (bedtime story pages) ----------
+  // The sentence being read gets a soft gold background and the word a small underline. Tap (or Enter/Space)
+  // on a sentence to jump the audio there. Timings come from the story's own JSON file (js/content.js
+  // bedtimeStories[].timings, same site, cached by sw.js for offline). If the file is missing or doesn't
+  // match the text, the page simply stays plain text. On/off is remembered on this device (ll.readAlong).
+  var raCache = {};
+  function readAlong(ep, x) {
+    if (!x.timings || ep.getAttribute('data-ra-on') === x.slug) return;
+    ep.setAttribute('data-ra-on', x.slug);
+    var audio = $('audio', ep);
+    if (!audio) return;
+    var get = raCache[x.timings] || (raCache[x.timings] = fetch('/' + x.timings.replace(/^\//, ''))
+      .then(function (r) { if (!r.ok) throw new Error('timings ' + r.status); return r.json(); }));
+    get.then(function (timings) {
+      if (ep.getAttribute('data-slug') !== x.slug) return;
+      var els = $$('[data-ra]', ep);
+      var parts = els.map(function (el) { return { key: el.getAttribute('data-ra'), text: el.textContent }; });
+      var m = SEO.raMatch(parts, timings);
+      if (!m || !m.count) { console.info('Read-along off: the timings do not match the text'); return; }
+      raStart(ep, audio, x, els, m);
+    }).catch(function () { delete raCache[x.timings]; /* no timings: plain text */ });
+  }
+  function raStart(ep, audio, x, els, m) {
+    var plain = els.map(function (el) { return el.innerHTML; });
+    var on = store('readAlong') !== 'off', sens = [], cur = -1, curW = -1, raf = 0, userAt = 0;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'p-ra-toggle';
+    audio.parentNode.appendChild(btn);
+    function si(el) { return m.sentences[+el.getAttribute('data-si')]; }
+    function draw() {
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.textContent = on ? 'Read-along highlight: on' : 'Read-along highlight: off';
+      els.forEach(function (el, i) { el.innerHTML = on ? SEO.raHtml(m, el.getAttribute('data-ra'), x.word) : plain[i]; });
+      ep.classList.toggle('p-ra', on);
+      sens = on ? $$('.p-sen', ep) : [];
+      cur = curW = -1;
+      tick();
+    }
+    function find(t) {
+      var k = -1;
+      for (var i = 0; i < sens.length; i++) { if (si(sens[i]).start <= t) k = i; else break; }
+      return k;
+    }
+    function tick() {
+      if (!on) return;
+      var t = audio.currentTime, k = audio.ended ? -1 : find(t);
+      if (k > -1 && k === sens.length - 1 && t > si(sens[k]).end + 2) k = -1;
+      if (k !== cur) {
+        if (cur > -1 && sens[cur]) sens[cur].classList.remove('on');
+        $$('.p-w.on', ep).forEach(function (w) { w.classList.remove('on'); });
+        cur = k; curW = -1;
+        if (k > -1) { sens[k].classList.add('on'); if (!audio.paused) follow(sens[k]); }
+      }
+      if (k > -1) {
+        var s = si(sens[k]), wk = -1;
+        if (s.words) for (var j = 0; j < s.words.length; j++) { if (s.words[j].start <= t) wk = j; else break; }
+        if (wk !== curW) {
+          var ws = $$('.p-w', sens[k]);
+          if (ws[curW]) ws[curW].classList.remove('on');
+          if (ws[wk]) ws[wk].classList.add('on');
+          curW = wk;
+        }
+      }
+    }
+    // Gentle follow: only while playing, only when the sentence is off screen, and never within
+    // 5 seconds of the reader scrolling themselves.
+    function follow(el) {
+      if (Date.now() - userAt < 5000) return;
+      var r = el.getBoundingClientRect(), vh = window.innerHeight || 0;
+      if (r.top >= 70 && r.bottom <= vh - 90) return;
+      var still = app.classList.contains('calm') || media('(prefers-reduced-motion: reduce)');
+      el.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' });
+    }
+    function loop() { tick(); raf = audio.paused ? 0 : requestAnimationFrame(loop); }
+    function seek(el) {
+      var s = si(el);
+      if (!s) return;
+      audio.currentTime = s.start;
+      tick();
+      if (audio.paused) { var p = audio.play(); if (p && p.catch) p.catch(function () {}); }
+    }
+    ['wheel', 'touchmove'].forEach(function (ev) { ep.addEventListener(ev, function () { userAt = Date.now(); }, { passive: true }); });
+    ep.addEventListener('keydown', function (e) {
+      var s = on && e.target.closest && e.target.closest('.p-sen');
+      if (s && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); seek(s); return; }
+      if (/^(PageUp|PageDown|ArrowUp|ArrowDown|Home|End| )$/.test(e.key)) userAt = Date.now();
+    });
+    ep.addEventListener('click', function (e) {
+      var s = on && e.target.closest('.p-sen');
+      if (s) { seek(s); return; }
+      if (e.target === btn) { on = !on; store('readAlong', on ? 'on' : 'off'); draw(); }
+    });
+    audio.addEventListener('play', function () { userAt = 0; if (!raf) loop(); });
+    ['pause', 'seeked', 'timeupdate', 'ended'].forEach(function (ev) { audio.addEventListener(ev, tick); });
+    draw();
+  }
+
+  // "Goodnight Little Light": bedtime stories, each a link to its own page (/listen/<slug>).
+  (function goodnightSection() {
+    var list = C.bedtimeStories || [], wrap = $('#pGnWrap');
+    if (!wrap || !SEO) return;
+    $('#pGn').innerHTML = SEO.storyRowsHtml(list);
+    wrap.hidden = !list.length;
+  })();
   (function listenFilters() {
     var box = $('#pEps'), rows = $$('.p-row', box), types = [];
     rows.forEach(function (r) { var m = C.episodes[+r.dataset.ep].meta; if (m && types.indexOf(m) < 0) types.push(m); });
@@ -1270,6 +1433,7 @@
     }
   }
   function setPlaying(p) {
+    if (p) $$("#pEpisode audio").forEach(function (a) { a.pause(); });
     player.playing = p;
     clearInterval(tick);
     if (hasSrc()) {
@@ -1296,6 +1460,7 @@
     if (C.episodes[i].src) { audio.src = C.episodes[i].src; audio.currentTime = 0; }
     setPlaying(true);
     toast('Playing: ' + C.episodes[i].title);
+    countEvent('audio', C.episodes[i].title, 'started');
   }
   // Transcript as paragraphs: blank lines if the text has them, otherwise a few sentences each,
   // with a new paragraph where a prayer starts.
@@ -1344,6 +1509,9 @@
   $('#pMiniOpen').addEventListener('click', openFull);
   $('#pMiniX').addEventListener('click', function () { setPlaying(false); player.ep = -1; audio.removeAttribute('src'); renderPlayer(); });
 
+  // A bedtime story's own <audio> (on /listen/<slug>) and the app's player never play at once.
+  $('#pEpisode').addEventListener('play', function () { if (player.playing) setPlaying(false); }, true);
+
   // ---------- read ----------
   $('#pCards').innerHTML = C.devotions.map(function (d, i) {
     return '<a class="p-card' + (i === 0 ? ' feat' : '') + '" data-i="' + i + '" href="/read/' + esc(d.slug) + '" style="--c:' + d.color + ';color:' + d.ink + ';text-decoration:none">' +
@@ -1379,9 +1547,18 @@
     closeOverlays();
     a.classList.add('on');
     a.scrollTop = 0;
+    readSlug = d.slug;
+    setTimeout(function () { if (readSlug === d.slug && a.scrollHeight <= a.clientHeight + 80) countEvent('devotion', d.slug, 'read_end'); }, 4000);
     if (SEO) setHead(SEO.meta('devotion', d));
   }
+  // read_end: the reader scrolled to the end of the devotion (counted once per page load).
+  var readSlug = '';
+  $('#pArticle').addEventListener('scroll', function () {
+    var a = this;
+    if (readSlug && a.classList.contains('on') && a.scrollTop + a.clientHeight >= a.scrollHeight - 80) countEvent('devotion', readSlug, 'read_end');
+  }, { passive: true });
   function closeArticle() {
+    readSlug = '';
     $('#pArticle').classList.remove('on');
     if (SEO && location.pathname.indexOf('/read/') === 0) setPath('/read', true);
     pageHead(current);
@@ -1601,6 +1778,8 @@
     closeSoon();
     closeSheet();
     $('#pArticle').classList.remove('on');
+    var ep = $('#pEpisode');
+    if (ep.classList.contains('on')) { ep.classList.remove('on'); $$('audio', ep).forEach(function (a) { a.pause(); }); }
     $('#pFull').classList.remove('on');
     closeStory();
   }
@@ -1629,7 +1808,7 @@
     else if (d.close != null && b.closest('#pArticle')) closeArticle();
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { if ($('#pArticle').classList.contains('on')) closeArticle(); closeOverlays(); }
+    if (e.key === 'Escape') { if ($('#pArticle').classList.contains('on')) closeArticle(); if ($('#pEpisode').classList.contains('on')) { navigate('/listen'); return; } closeOverlays(); }
     if ($('#pStory').classList.contains('on')) {
       if (e.key === 'ArrowRight') stepStory(1);
       if (e.key === 'ArrowLeft') stepStory(-1);

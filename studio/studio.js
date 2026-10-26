@@ -31,7 +31,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     verse: ['verse', 'ref', 'translation', 'topics'],
     devotion: ['teaser', 'body', 'ref', 'family', 'prayer', 'audioId'],
     audio: ['kind', 'minutes', 'seconds', 'file', 'transcript'],
-    reel: ['caption', 'youtube', 'minutes', 'seconds', 'file', 'series', 'episode', 'series_description', 'page_style', 'page_color'],
+    reel: ['caption', 'youtube', 'minutes', 'seconds', 'file', 'poster', 'poster_auto', 'series', 'episode', 'series_description', 'page_style', 'page_color'],
     game: ['text', 'button']
   };
   // Desktop caption page (book spread) for reels: fields.page_style and fields.page_color; empty colour = from the reel.
@@ -59,13 +59,14 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
     media: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 16l5-5 4 4 3-3 6 6"/></svg>',
     site: '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+    insights: '<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
     team: '<svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.5"/><path d="M3 19c.8-3.3 3.2-5 6-5s5.2 1.7 6 5M16 5.5a3 3 0 010 6M17.5 14c1.8.5 3 2.2 3.5 5"/></svg>',
     site: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.6 2.5 13.4 0 16M12 4c-2.5 2.6-2.5 13.4 0 16"/></svg>'
   };
 
   var state = {
     screen: 'loading', email: '', authError: '', session: null,
-    view: 'posts', filter: 'all', posts: [], team: [],
+    view: 'posts', filter: 'all', statusFilter: 'all', q: '', sortKey: 'date', sortDir: 'desc', limit: 20, posts: [], team: [],
     editing: null, errors: {}, confirmDelete: false, busy: false, uploading: ''
   };
 
@@ -100,7 +101,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   var LABEL = { title: 'Title', status: 'Status', publish_at: 'Publish time', show_on_today: 'Show on Today', media_url: 'File',
     verse: 'Verse text', ref: 'Reference', translation: 'Translation', topics: 'Topics', teaser: 'Summary', body: 'Reading',
     family: 'For families', prayer: 'Prayer', audioId: 'Audio version', kind: 'Kind', minutes: 'Length', caption: 'Caption',
-    youtube: 'YouTube link', text: 'Text', button: 'Button label', series: 'Series', episode: 'Episode', series_description: 'Series description', page_style: 'Page style', page_color: 'Page colour' };
+    youtube: 'YouTube link', text: 'Text', button: 'Button label', series: 'Series', episode: 'Episode', series_description: 'Series description', page_style: 'Page style', page_color: 'Page colour', poster: 'Poster', poster_auto: 'Poster made from the video' };
   // One flat list of what a reader would notice, from a stored post.
   function flat(p) {
     var out = { status: p.status, publish_at: p.publish_at, show_on_today: p.show_on_today, media_url: p.media_url };
@@ -230,16 +231,37 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       : '';
   }
   function signin() {
-    var err = state.authError;
+    var err = state.authError, pw = S.mode !== 'local';
     return '<main class="auth"><form class="auth-card" id="signinForm" novalidate>' +
       '<div class="brand">' + wordmark('wms1') + '<small class="wm-tag">Studio</small></div>' +
       '<div><h1>Sign in to post</h1><p style="margin-top:6px">For the Salt and Light team. Visitors never need an account.</p></div>' +
       modeBar() +
-      '<label class="field"><span>Email</span><input class="input' + (err ? ' err' : '') + '" id="email" type="email" autocomplete="email" placeholder="you@example.com" value="' + esc(state.email) + '">' +
-      (err ? '<span class="errmsg" role="alert">' + esc(err) + '</span>' : '<small>' + (S.mode === 'local' ? 'The first email to sign in becomes the owner.' : 'We’ll email you a one-time sign-in link. No password to remember.') + '</small>') + '</label>' +
-      '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>' + (S.mode === 'local' ? 'Sign in' : state.busy ? 'Sending…' : 'Email me a sign-in link') + '</button>' +
-      '<div class="note">Only people on the team can sign in. Anyone else sees “This email isn’t on the Salt and Light team.”</div>' +
+      '<label class="field"><span>Email</span><input class="input' + (err ? ' err' : '') + '" id="email" type="email" autocomplete="username" placeholder="you@example.com" value="' + esc(state.email) + '"></label>' +
+      (pw ? '<label class="field"><span>Password</span><input class="input' + (err ? ' err' : '') + '" id="password" type="password" autocomplete="current-password"></label>' : '') +
+      (err ? '<span class="errmsg" role="alert">' + esc(err) + '</span>' : (pw ? '' : '<small>The first email to sign in becomes the owner.</small>')) +
+      '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>' + (state.busy ? 'Signing in…' : 'Sign in') + '</button>' +
+      (pw ? '<button class="btn ghost" type="button" id="magicLink" style="font-size:12.5px"' + (state.busy ? ' disabled' : '') + '>No password yet? Email me a one-time sign-in link</button>' : '') +
+      '<div class="note">Only people on the team can sign in. There is no sign-up: the owner adds team members.</div>' +
       '</form></main>';
+  }
+  // Rough strength hint only; Supabase does the real checking. Never logged or stored.
+  function pwStrength(p) {
+    if (!p) return '';
+    if (p.length < 12) return 'Too short: ' + p.length + ' of at least 12 characters.';
+    var kinds = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter(function (r) { return r.test(p); }).length;
+    if (p.length >= 16 && kinds >= 3) return 'Strong.';
+    if (kinds >= 3 || p.length >= 16) return 'Good. Longer or more varied is even better.';
+    return 'Weak: mix upper and lower case, numbers and symbols, or make it longer.';
+  }
+  function passwordView() {
+    var e = state.pwError;
+    return '<div class="head"><div><h1>Change password</h1><p>Signed in as ' + esc(state.email) + '. Use at least 12 characters; a short phrase of random words works well.</p></div></div>' +
+      '<form id="pwForm" class="auth-card" novalidate style="margin:0">' +
+      '<label class="field"><span>New password</span><input class="input' + (e ? ' err' : '') + '" id="newPassword" type="password" autocomplete="new-password" minlength="12"><small id="pwHint" aria-live="polite"></small></label>' +
+      '<label class="field"><span>Repeat new password</span><input class="input' + (e ? ' err' : '') + '" id="newPassword2" type="password" autocomplete="new-password"></label>' +
+      (e ? '<span class="errmsg" role="alert">' + esc(e) + '</span>' : '') +
+      '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>' + (state.busy ? 'Saving…' : 'Save new password') + '</button>' +
+      '<button class="btn ghost" type="button" id="pwCancel">Cancel</button></form>';
   }
   function checkEmail() {
     return '<main class="auth"><div class="auth-card">' +
@@ -248,7 +270,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       '<button class="btn ghost" type="button" id="back">Use a different email</button></div></main>';
   }
   function shell(inner) {
-    var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['site', 'Menus', ICON.site], ['builtins', 'Built-in content', ICON.media], ['team', 'Team', ICON.team]];
+    var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['site', 'Menus', ICON.site], ['builtins', 'Built-in content', ICON.media], ['insights', 'Insights', ICON.insights], ['team', 'Team', ICON.team]];
     return '<div class="shell"><aside class="side">' +
       '<div class="brand">' + wordmark('wms2') + '<small class="wm-tag">Studio</small></div>' +
       '<nav aria-label="Studio">' + nav.map(function (n) {
@@ -257,28 +279,113 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
           (n[0] === 'posts' ? '<span class="count">' + state.posts.length + '</span>' : '') + '</button>';
       }).join('') + '<a class="nav" href="../" target="_blank" rel="noopener">' + ICON.site + 'View the app</a></nav>' +
       '<div class="me"><div class="who"><span class="avatar">' + esc(state.email[0] || '?').toUpperCase() + '</span><span>' + esc(state.email) + '<small>' + esc(cap(state.session.role)) + '</small></span></div>' +
+      (S.mode !== 'local' ? '<button class="btn ghost" type="button" id="changePw" style="justify-content:flex-start;padding-left:0">Change password</button>' : '') +
       '<button class="btn ghost" type="button" id="signout" style="justify-content:flex-start;padding-left:0">Sign out</button></div>' +
       '</aside><main class="main">' + modeBar() + inner + '</main></div>';
   }
   function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : ''; }
 
+  // ---------- Posts: a compact, searchable, sortable list (a table on wide screens, rows on phones) ----------
+  var PAGE_SIZE = 20;
+  var STATUSES = [['published', 'Published'], ['scheduled', 'Scheduled'], ['draft', 'Drafts']];
+  var SORTS = { date: 'Date', title: 'Title', type: 'Type', status: 'Status', views: 'Views' };
+  function postPath(p) { return p.type === 'devotion' ? '/read/' + p.slug : p.type === 'reel' ? '/watch/' + p.slug : ''; }
+  // Page views (from Insights, last 30 days) plus plays, when Insights is available. null = not known.
+  function viewsOf(p) {
+    var I = state.postInsights;
+    if (!I || I.error && I.connected === undefined) return null;
+    var n = 0, path = postPath(p), known = false;
+    (I.pages || []).forEach(function (pg) { if (path && pg.path.replace(/\/$/, '') === path) { n += pg.views || 0; known = true; } });
+    var pl = (I.plays || {})[p.type + ':' + p.slug];
+    if (pl && !path) { n += pl.started || 0; known = true; }
+    return known || I.connected ? n : null;
+  }
+  function filteredPosts() {
+    var q = (state.q || '').trim().toLowerCase(), f = state.filter || 'all', sf = state.statusFilter || 'all';
+    var list = state.posts.filter(function (p) {
+      if (f !== 'all' && p.type !== f) return false;
+      if (sf !== 'all' && statusOf(p) !== sf) return false;
+      if (!q) return true;
+      var hay = [p.title, p.slug, TYPES[p.type] && TYPES[p.type].name, p.fields && (p.fields.ref || p.fields.series || p.fields.caption), p.author_email].join(' ').toLowerCase();
+      return hay.indexOf(q) >= 0;
+    });
+    var key = state.sortKey || 'date', dir = state.sortDir === 'asc' ? 1 : -1;
+    var val = function (p) {
+      if (key === 'title') return (p.title || '').toLowerCase();
+      if (key === 'type') return TYPES[p.type] ? TYPES[p.type].name : p.type;
+      if (key === 'status') return statusOf(p);
+      if (key === 'views') { var v = viewsOf(p); return v == null ? -1 : v; }
+      return p.publish_at || p.updated_at || '';
+    };
+    return list.slice().sort(function (a, b) { var x = val(a), y = val(b); return (x < y ? -1 : x > y ? 1 : 0) * dir; });
+  }
+  function thumb(p) {
+    var t = TYPES[p.type] || TYPES.verse, poster = p.fields && p.fields.poster;
+    return '<span class="thumb" style="background:' + t.color + ';color:' + t.ink + '" aria-hidden="true">' +
+      (poster ? '<img alt="" loading="lazy" data-src="' + esc(poster) + '">' : '<span>' + esc(t.name[0]) + '</span>') + '</span>';
+  }
+  function postRows() {
+    var list = filteredPosts(), limit = state.limit || PAGE_SIZE, shown = list.slice(0, limit);
+    if (!list.length) {
+      var msg = !state.posts.length ? 'No posts yet. Press “New post” to write the first one.'
+        : state.q ? 'Nothing matches “' + esc(state.q) + '”. Try another word, or clear the search.'
+        : 'No posts match these filters.';
+      return '<div class="empty">' + msg + (state.posts.length ? ' <button class="btn soft small" type="button" id="clearFilters">Show all posts</button>' : '') + '</div>';
+    }
+    var head = function (k, label, cls) {
+      var on = (state.sortKey || 'date') === k, dir = on ? (state.sortDir === 'asc' ? 'ascending' : 'descending') : 'none';
+      return '<th scope="col" class="' + (cls || '') + '" aria-sort="' + dir + '"><button type="button" class="sorth" data-sort="' + k + '">' + label + '<i aria-hidden="true">' + (on ? (state.sortDir === 'asc' ? '▲' : '▼') : '') + '</i></button></th>';
+    };
+    return '<table class="list ptable"><caption class="sr">Posts. Choose a column title to sort.</caption><thead><tr><th scope="col" class="c-thumb"><span class="sr">Picture</span></th>' +
+      head('title', 'Title') + head('type', 'Type', 'c-type') + head('status', 'Status', 'c-status') + head('date', 'Date', 'c-date') + head('views', 'Views', 'c-views') + '</tr></thead><tbody>' +
+      shown.map(function (p) {
+        var st = statusOf(p), v = viewsOf(p), t = TYPES[p.type] || TYPES.verse;
+        return '<tr class="row" data-edit="' + p.id + '"><td class="c-thumb">' + thumb(p) + '</td>' +
+          '<td class="c-title"><button type="button" class="titlebtn" data-edit="' + p.id + '"><b>' + esc(p.title || 'Untitled') + '</b></button>' +
+          '<small>' + (p.show_on_today ? 'On Today' : '') + (p.show_on_today && p.author_email ? ' · ' : '') + (p.author_email ? esc(p.author_email) : '') + '</small></td>' +
+          '<td class="c-type"><span class="kind"><i style="background:' + t.color + '"></i>' + t.name + '</span></td>' +
+          '<td class="c-status"><span class="pill ' + st + '">' + cap(st) + '</span></td>' +
+          '<td class="c-date when">' + esc(fmtWhen(p.publish_at || p.updated_at)) + '</td>' +
+          '<td class="c-views" title="Page views and plays in the last 30 days">' + (v == null ? '<span class="muted">—</span>' : v.toLocaleString()) + '</td></tr>';
+      }).join('') + '</tbody></table>' +
+      '<div class="more"><span class="muted" role="status">Showing ' + shown.length + ' of ' + list.length + (list.length === 1 ? ' post' : ' posts') + '</span>' +
+      (list.length > shown.length ? '<button class="btn soft" type="button" id="loadMore">Show ' + Math.min(PAGE_SIZE, list.length - shown.length) + ' more</button>' : '') + '</div>';
+  }
   function postsView() {
+    if (!state.postInsights && !state.postInsightsLoading) setTimeout(loadPostInsights, 0);
     var count = function (st) { return state.posts.filter(function (p) { return statusOf(p) === st; }).length; };
-    var list = state.posts.filter(function (p) { return state.filter === 'all' || p.type === state.filter; });
     var next = state.posts.filter(function (p) { return p.status === 'scheduled' && !S.isLive(p); })
       .sort(function (a, b) { return a.publish_at.localeCompare(b.publish_at); })[0];
-    return '<div class="top"><div><h2>Posts</h2><p>Everything on Today, Watch, Listen, Read and Verses.</p></div>' +
+    var f = state.filter || 'all', sf = state.statusFilter || 'all';
+    var typeCount = function (k) { return state.posts.filter(function (p) { return p.type === k; }).length; };
+    return '<div class="top"><div><h2>Posts</h2><p>Everything on Today, Watch, Listen, Read and Verses.' +
+      (next ? ' <span class="nextup">Next scheduled: <b>' + esc(fmtWhen(next.publish_at)) + '</b></span>' : '') + '</p></div>' +
       '<button class="btn primary" type="button" data-view="new">+ New post</button></div>' +
-      '<div class="stats"><div class="stat"><b>' + count('published') + '</b><span>Published</span></div><div class="stat"><b>' + count('scheduled') + '</b><span>Scheduled</span></div>' +
-      '<div class="stat"><b>' + count('draft') + '</b><span>Drafts</span></div><div class="stat"><b>' + (next ? esc(fmtWhen(next.publish_at)) : '—') + '</b><span>Next scheduled post</span></div></div>' +
-      '<div class="chips" role="group" aria-label="Filter by kind"><button class="chip' + (state.filter === 'all' ? ' on' : '') + '" type="button" data-filter="all">All</button>' +
-      Object.keys(TYPES).map(function (k) { return '<button class="chip' + (state.filter === k ? ' on' : '') + '" type="button" data-filter="' + k + '"><i style="background:' + TYPES[k].color + '"></i>' + TYPES[k].name + '</button>'; }).join('') +
-      '</div><div class="list">' + (list.length ? list.map(function (p) {
-        var st = statusOf(p);
-        return '<button class="row" type="button" data-edit="' + p.id + '"><span class="stripe" style="background:' + TYPES[p.type].color + '"></span>' +
-          '<span><b>' + esc(p.title || 'Untitled') + '</b><small>' + TYPES[p.type].name + (p.show_on_today ? ' · on Today' : '') + (p.author_email ? ' · ' + esc(p.author_email) : '') + '</small></span>' +
-          '<span class="when">' + esc(fmtWhen(p.publish_at || p.updated_at)) + '</span><span class="pill ' + st + '">' + cap(st) + '</span></button>';
-      }).join('') : '<div class="empty">' + (state.posts.length ? 'No ' + TYPES[state.filter].name.toLowerCase() + ' posts yet.' : 'No posts yet. Press “New post” to write the first one.') + '</div>') + '</div>';
+      '<div class="ptools">' +
+        '<label class="search"><span class="sr">Search posts</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>' +
+        '<input class="input" type="search" id="postSearch" placeholder="Search by title, verse or series" autocomplete="off" value="' + esc(state.q || '') + '"></label>' +
+        '<label class="sortsel"><span class="sr">Sort by</span><select class="select" id="postSort">' +
+          [['date-desc', 'Newest first'], ['date-asc', 'Oldest first'], ['title-asc', 'Title A–Z'], ['views-desc', 'Most viewed'], ['type-asc', 'Type'], ['status-asc', 'Status']].map(function (o) {
+            var cur = (state.sortKey || 'date') + '-' + (state.sortDir || 'desc');
+            return '<option value="' + o[0] + '"' + (cur === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+          }).join('') + '</select></label>' +
+      '</div>' +
+      '<div class="filters"><div class="chips" role="group" aria-label="Show status">' +
+        '<button class="chip' + (sf === 'all' ? ' on' : '') + '" type="button" data-sfilter="all" aria-pressed="' + (sf === 'all') + '">All <span class="n">' + state.posts.length + '</span></button>' +
+        STATUSES.map(function (s) { return '<button class="chip' + (sf === s[0] ? ' on' : '') + '" type="button" data-sfilter="' + s[0] + '" aria-pressed="' + (sf === s[0]) + '">' + s[1] + ' <span class="n">' + count(s[0]) + '</span></button>'; }).join('') +
+      '</div><div class="chips" role="group" aria-label="Filter by kind"><button class="chip' + (f === 'all' ? ' on' : '') + '" type="button" data-filter="all" aria-pressed="' + (f === 'all') + '">All kinds</button>' +
+        Object.keys(TYPES).map(function (k) { return '<button class="chip' + (f === k ? ' on' : '') + '" type="button" data-filter="' + k + '" aria-pressed="' + (f === k) + '"><i style="background:' + TYPES[k].color + '"></i>' + TYPES[k].name + (k === 'reel' ? ' (video)' : '') + ' <span class="n">' + typeCount(k) + '</span></button>'; }).join('') +
+      '</div></div>' +
+      '<div id="postResults">' + postRows() + '</div>';
+  }
+  function refreshPostRows() { var el = document.getElementById('postResults'); if (el) { el.innerHTML = postRows(); resolveMediaElements(); } }
+  function loadPostInsights() {
+    state.postInsightsLoading = true;
+    S.accessToken().then(function (token) {
+      if (!token) return null;
+      return fetch('/api/insights?days=30', { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' }).then(function (r) { return r.ok || r.status === 502 ? r.json() : null; });
+    }).then(function (body) { state.postInsights = body || { error: 'none' }; if (state.view === 'posts' && body) refreshPostRows(); })
+      .catch(function () { state.postInsights = { error: 'none' }; });
   }
 
   function newView() {
@@ -308,6 +415,21 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       (busy ? 'Uploading…' : e.file ? esc(e.file) : 'Choose a file or drop it here') + '</b><small>' + help + '</small>' +
       '<input class="sr" type="file" accept="' + accept + '" data-file="file" id="f_file"></label>' +
       (state.errors.file ? '<span class="errmsg" role="alert">' + state.errors.file + '</span>' : '') + '</div>';
+  }
+
+  // Poster (thumbnail) for a video reel, stored in fields.poster (a URL like media_url, so any storage
+  // host works). Optional: without one, a frame about 1 s in is taken from the video and saved as WebP.
+  var POSTER_TYPES = ['image/jpeg', 'image/png', 'image/webp'], POSTER_MAX = 5 * 1024 * 1024;
+  function posterField() {
+    var e = state.editing, busy = state.uploading === 'poster';
+    if (!e.media_url && !e.poster) return '';
+    return '<div class="field"><span>Poster image (optional)</span><div class="poster-row">' +
+      (e.poster ? '<img class="poster-pv" id="posterPv" alt="Poster preview" width="90" height="160" data-src="' + esc(e.poster) + '">' : '<div class="poster-pv empty" id="posterPv">No poster</div>') +
+      '<div class="poster-acts"><label class="upload' + (busy ? ' busy' : '') + '" data-drop="poster"><b>' + (busy ? 'Saving poster…' : 'Choose a poster image') + '</b>' +
+      '<small>JPG, PNG or WebP, up to 5 MB. Vertical 9:16 looks best. ' + (e.poster ? (e.poster_auto ? 'Now using a frame from the video.' : 'Now using your image.') : 'Without one, a frame from the video is used.') + '</small>' +
+      '<input class="sr" type="file" accept="' + POSTER_TYPES.join(',') + '" data-file="poster" id="f_poster"></label>' +
+      (e.media_url ? '<button class="btn soft small" type="button" id="posterFrame"' + (busy ? ' disabled' : '') + '>Use a frame from the video</button>' : '') +
+      '</div></div>' + (state.errors.poster ? '<span class="errmsg" role="alert">' + state.errors.poster + '</span>' : '') + '</div>';
   }
 
   function editView() {
@@ -340,6 +462,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       f = field('title', 'Title', p.title, { ph: 'Noah kept building' }) +
         field('caption', 'Caption', p.caption, { textarea: true, ph: 'What the reel is about, with the Bible reference' }) +
         uploadField('Video', 'video/*', 'Vertical 9:16 MP4, up to 60 seconds and 50 MB. Or paste a YouTube Shorts link below.') +
+        posterField() +
         '<div class="two">' + field('youtube', 'YouTube link (optional)', p.youtube, { ph: 'https://youtube.com/shorts/…', type: 'url' }) + field('minutes', 'Length', p.minutes, { ph: '0:52' }) + '</div>' +
         // Series: reels with the same series name are grouped on the Watch page, ordered by episode number.
         '<div class="two">' + field('series', 'Series (optional)', p.series, { ph: 'Leave empty for a standalone reel', list: 'seriesList', help: 'Reels with the same series name are shown together.' }) +
@@ -486,10 +609,167 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (state.screen === 'signin') root.innerHTML = signin();
     else if (state.screen === 'check') root.innerHTML = checkEmail();
     else {
-      var v = state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : state.view === 'site' ? siteView() : state.view === 'builtins' ? builtinsView() : teamView();
+      var v = state.pwOpen ? passwordView() : state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : state.view === 'site' ? siteView() : state.view === 'builtins' ? builtinsView() : state.view === 'insights' ? insightsView() : teamView();
+      var ae = document.activeElement, keep = ae && ae.id === 'postSearch' ? [ae.selectionStart, ae.selectionEnd] : null;
       root.innerHTML = shell(v);
-      if (state.view === 'media') resolveMediaElements();
+      if (state.view === 'media' || state.view === 'edit' || state.view === 'new' || state.view === 'posts') resolveMediaElements();
+      if (keep) { var ps = document.getElementById('postSearch'); if (ps) { ps.focus(); try { ps.setSelectionRange(keep[0], keep[1]); } catch (err) {} } }
     }
+  }
+  // ---------- Insights: Cloudflare Web Analytics + anonymous play/read counts (functions/api/insights.js) ----------
+  function loadInsights(days) {
+    state.insights = { loading: true, days: days };
+    if (state.view === 'insights') render();
+    S.accessToken().then(function (token) {
+      if (!token) return { status: 0, body: { error: S.mode === 'local' ? 'Insights need the live Studio (Supabase mode).' : 'Sign in again to see insights.' } };
+      return fetch('/api/insights?days=' + days, { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' })
+        .then(function (r) { return r.json().catch(function () { return { error: 'Insights aren’t available on this address yet.' }; }).then(function (b) { return { status: r.status, body: b }; }); });
+    }).then(function (res) {
+      state.insights = res.body || {}; state.insights.days = days;
+      if (state.view === 'insights') render();
+    }).catch(function () { state.insights = { days: days, error: 'Couldn’t load insights. Check your connection and try again.' }; if (state.view === 'insights') render(); });
+  }
+  // A friendly title for an address or content key, from Studio posts or built-in content.
+  function insightTitle(kind, slug) {
+    var p = state.posts.filter(function (x) { return x.type === kind && (x.slug === slug || S.slugify(x.title || '') === slug); })[0];
+    if (p) return p.title;
+    var C = window.LL_CONTENT || {}, list = kind === 'devotion' ? C.devotions : kind === 'reel' ? C.reels : kind === 'audio' ? C.episodes : [];
+    var b = (list || []).filter(function (x) { return (x.slug || S.slugify(x.title || '')) === slug; })[0];
+    return b ? b.title : slug;
+  }
+  // Friendly country name and flag from the two-letter code Cloudflare reports.
+  var regionNames = null;
+  try { regionNames = new Intl.DisplayNames(['en'], { type: 'region' }); } catch (err) {}
+  function countryLabel(code) {
+    var c = String(code || '').toUpperCase();
+    if (!/^[A-Z]{2}$/.test(c)) return c && c !== 'UNKNOWN' ? code : 'Somewhere unknown';
+    var name = c; try { name = regionNames ? regionNames.of(c) : c; } catch (err) {}
+    return String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65, 0x1F1E6 + c.charCodeAt(1) - 65) + ' ' + name;
+  }
+  var SOURCE_HELP = { 'Direct': 'Typed the address, used a bookmark, or tapped a link in an app that hides where it came from.', 'Within the site': 'Moved from one page of the site to another.' };
+  // "▲ 18% more than the 30 days before", kindly worded. Nothing to compare with = no line.
+  function change(cur, prev, days) {
+    if (prev == null || cur == null) return '';
+    var span = ' than the ' + days + ' days before';
+    if (!prev && !cur) return '';
+    if (!prev) return '<span class="delta up">New this period</span>';
+    var pct = Math.round((cur - prev) / prev * 100);
+    if (pct === 0) return '<span class="delta">About the same as the ' + days + ' days before</span>';
+    return '<span class="delta ' + (pct > 0 ? 'up' : 'down') + '">' + (pct > 0 ? '▲ ' + pct + '% more' : '▼ ' + (-pct) + '% fewer') + span + '</span>';
+  }
+  function card(id, label, value, help, delta) {
+    return '<div class="stat icard" id="' + id + '" title="' + esc(help) + '"><span class="ilabel">' + label + '</span><b>' + (value == null ? '—' : Number(value).toLocaleString()) + '</b>' +
+      (delta || '') + '<small class="ihelp">' + help + '</small></div>';
+  }
+  function bars(list, labelFn, helpFn, empty) {
+    if (!list || !list.length) return '<p class="iempty">' + empty + '</p>';
+    var max = Math.max.apply(null, list.map(function (x) { return x.views; })) || 1, total = list.reduce(function (s, x) { return s + x.views; }, 0) || 1;
+    return '<ul class="bars">' + list.map(function (x) {
+      var help = helpFn ? helpFn(x.name) : '';
+      return '<li' + (help ? ' title="' + esc(help) + '"' : '') + '><span class="bl">' + esc(labelFn(x.name)) + '</span><span class="bv">' + Math.round(x.views / total * 100) + '%</span>' +
+        '<span class="bt"><i style="width:' + Math.max(2, Math.round(x.views / max * 100)) + '%"></i></span></li>';
+    }).join('') + '</ul>';
+  }
+  // A simple bar chart of one number per day (plain HTML buttons, no libraries). Each bar is a
+  // full-height button, so it is easy to tap; tapping, hovering or focusing shows its number.
+  function trend(series, key, label) {
+    if (!series || !series.length) return '';
+    var unit = key === 'started' ? 'plays' : 'visits';
+    var vals = series.map(function (d) { return d[key] || 0; });
+    var max = Math.max.apply(null, vals), total = vals.reduce(function (t, v) { return t + v; }, 0), peak = vals.indexOf(max), n = series.length;
+    var fmt = function (d, long) { var dt = new Date(d + 'T00:00:00'); if (isNaN(dt)) return d; var dm = dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); return long ? dt.toLocaleDateString('en-GB', { weekday: 'short' }) + ' ' + dm : dm; };
+    var say = function (i) { return fmt(series[i].date, true) + ' · ' + vals[i].toLocaleString() + ' ' + (vals[i] === 1 ? unit.slice(0, -1) : unit); };
+    return '<figure class="trend" aria-label="' + esc(label) + '">' +
+      '<p class="tsum">Total ' + total.toLocaleString() + (max ? ' · Busiest day ' + esc(fmt(series[peak].date, true)) + ' (' + max.toLocaleString() + ')' : '') + '</p>' +
+      '<p class="tsel" id="trendSel" aria-live="polite">Tap a bar to see its number.</p>' +
+      '<div class="tbars" role="group" aria-label="' + esc(label) + '">' +
+      series.map(function (d, i) {
+        var h = max ? Math.max(1.5, vals[i] / max * 100) : 1.5;
+        return '<button type="button" class="tbar" data-bar="' + esc(say(i)) + '" aria-label="' + esc(say(i)) + '"><i style="height:' + h.toFixed(1) + '%"></i></button>';
+      }).join('') + '</div>' +
+      '<figcaption><span>' + esc(fmt(series[0].date)) + '</span><span>' + esc(fmt(series[n - 1].date)) + '</span></figcaption></figure>';
+  }
+  function showBar(btn) {
+    var fig = btn.closest('.trend'), out = fig && fig.querySelector('.tsel');
+    if (!out) return;
+    fig.querySelectorAll('.tbar.on').forEach(function (x) { if (x !== btn) { x.classList.remove('on'); x.removeAttribute('aria-pressed'); } });
+    btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true');
+    out.textContent = btn.dataset.bar;
+  }
+  root.addEventListener('mouseover', function (ev) { var b = ev.target.closest && ev.target.closest('.tbar'); if (b) showBar(b); });
+  root.addEventListener('focusin', function (ev) { var b = ev.target.closest && ev.target.closest('.tbar'); if (b) showBar(b); });
+  function pageLabel(path) {
+    var P = { '/': 'Home (Today)', '/watch': 'Watch page', '/watch/': 'Watch page', '/read': 'Read page', '/read/': 'Read page', '/listen': 'Listen page', '/listen/': 'Listen page', '/verses': 'Verses page', '/verses/': 'Verses page' };
+    return P[path] || path;
+  }
+  function speedVerdict(v) {
+    if (!v || v.lcp == null) return null;
+    var slow = v.lcp > 4000 || (v.inp != null && v.inp > 500) || (v.cls != null && v.cls > 0.25);
+    var ok = v.lcp > 2500 || (v.inp != null && v.inp > 200) || (v.cls != null && v.cls > 0.1);
+    return slow ? ['ins-poor', 'Slow', 'Pages take a while to appear on many phones.'] : ok ? ['ins-ok', 'OK', 'Pages load fine, with a little room to improve.'] : ['ins-good', 'Fast', 'Pages open quickly for most visitors.'];
+  }
+  function insightsView() {
+    var I = state.insights || { loading: true, days: 7 }, days = I.days || 7;
+    var head = '<div class="top"><div><h2>Insights</h2><p>How families are finding and enjoying Salt and Light. Counts only — no names, no personal data.</p></div>' +
+      '<div class="chips" role="group" aria-label="Time range">' + [7, 30, 90].map(function (n) { return '<button class="chip' + (days === n ? ' on' : '') + '" type="button" data-days="' + n + '" aria-pressed="' + (days === n) + '">' + n + ' days</button>'; }).join('') + '</div></div>';
+    if (I.loading) return head + '<div class="list"><div class="empty">Counting visits…</div></div>';
+    if (I.error && I.connected === undefined) return head + '<div class="list"><div class="empty">' + esc(I.error) + '</div></div>';
+    var plays = I.plays || null, rows = {}, order = [];
+    function row(kind, slug) { var k = kind + ':' + slug; if (!rows[k]) { rows[k] = { kind: kind, slug: slug, views: 0, plays: null }; order.push(k); } return rows[k]; }
+    (I.pages || []).forEach(function (pg) {
+      var m = /^\/(read|watch)\/([a-z0-9-]+)\/?$/.exec(pg.path);
+      var r = m ? row(m[1] === 'read' ? 'devotion' : 'reel', m[2]) : row('page', pg.path);
+      r.views = pg.views;
+    });
+    Object.keys(plays || {}).forEach(function (k) { var i = k.indexOf(':'); row(k.slice(0, i), k.slice(i + 1)).plays = plays[k]; });
+    var KIND = { devotion: 'Devotion', reel: 'Reel', audio: 'Audio', verse: 'Verse', page: 'Page', game: 'Game update' };
+    var notice = '';
+    if (I.connected === false) notice = '<div class="ins-note"><b>Visitor numbers aren’t switched on yet.</b> Visits, countries and sources appear here once the site owner adds the Cloudflare Analytics key. Plays and “read to the end” below already work.</div>';
+    else if (I.error) notice = '<div class="ins-note err">' + esc(I.error) + '</div>';
+    if (plays === null) notice += '<div class="ins-note">Play and reading counts start once the database update for them is applied.</div>';
+    var T = I.total || {}, P = I.previous || null, PT = I.playsTotal || null, PP = I.playsPrevious || null;
+    var cards = '<div class="stats icards">' +
+      card('insVisits', 'People visited', I.connected ? T.visits || 0 : null, 'Visits to the site. Someone who comes back on another day counts again.', I.connected && P ? change(T.visits || 0, P.visits, days) : '') +
+      card('insViews', 'Pages opened', I.connected ? T.views || 0 : null, 'Every time a page was opened, including going back to one.', I.connected && P ? change(T.views || 0, P.views, days) : '') +
+      card('insPlays', 'Videos & audio played', PT ? PT.started || 0 : null, 'Times someone pressed play on a reel, video or audio.', PT && PP ? change(PT.started || 0, PP.started, days) : '') +
+      card('insReads', 'Read to the end', PT ? PT.read_end || 0 : null, 'Times someone scrolled to the end of a devotion.', PT && PP ? change(PT.read_end || 0, PP.read_end, days) : '') +
+      '</div>';
+    var series = I.series && I.series.length ? I.series : null, chart;
+    if (series) chart = '<section class="ipanel"><h3>Visits per day</h3><p class="ihint">Each bar is one day. Tap a bar to see its number.</p>' + trend(series, 'visits', 'Visits per day') + '</section>';
+    else if (I.playsSeries && I.playsSeries.length) chart = '<section class="ipanel"><h3>Plays per day</h3><p class="ihint">Each bar is one day. Tap a bar to see its number.</p>' + trend(I.playsSeries, 'started', 'Plays per day') + '</section>';
+    else chart = '<section class="ipanel"><h3>Visits per day</h3><p class="iempty">No daily numbers yet for these ' + days + ' days. Once people visit, a small chart appears here.</p></section>';
+    var ranked = order.map(function (k) { return rows[k]; }).map(function (r) { r.score = (r.views || 0) + ((r.plays && r.plays.started) || 0); return r; })
+      .filter(function (r) { return r.score > 0 || (r.plays && r.plays.read_end); }).sort(function (a, b) { return b.score - a.score; });
+    var postsOnly = ranked.filter(function (r) { return r.kind !== 'page'; }).slice(0, 10), topMax = postsOnly.length ? postsOnly[0].score || 1 : 1;
+    var top = '<section class="ipanel"><h3>Top posts</h3><p class="ihint">Most opened and played posts in the last ' + days + ' days.</p>' +
+      (postsOnly.length ? '<ol class="toplist" id="topPosts">' + postsOnly.map(function (r, i) {
+        var pl = r.plays || {}, bits = [];
+        if (r.views) bits.push(r.views.toLocaleString() + (r.views === 1 ? ' view' : ' views'));
+        if (pl.started) bits.push(pl.started.toLocaleString() + (pl.started === 1 ? ' play' : ' plays'));
+        if (pl.finished) bits.push(pl.finished.toLocaleString() + ' watched to the end');
+        if (pl.read_end) bits.push(pl.read_end.toLocaleString() + ' read to the end');
+        var t = TYPES[r.kind];
+        return '<li><span class="rank">' + (i + 1) + '</span><span class="tp"><b>' + esc(insightTitle(r.kind, r.slug)) + '</b><small><span class="kind"><i style="background:' + (t ? t.color : 'var(--muted)') + '"></i>' + esc(KIND[r.kind] || r.kind) + '</span> · ' + bits.join(' · ') + '</small>' +
+          '<span class="bt"><i style="width:' + Math.max(2, Math.round(r.score / topMax * 100)) + '%"></i></span></span></li>';
+      }).join('') + '</ol>' : '<p class="iempty">No post has been opened or played in these ' + days + ' days yet. Share a favourite post with friends, then check back.</p>') + '</section>';
+    var pagesList = ranked.filter(function (r) { return r.kind === 'page' && r.views; }).slice(0, 6).map(function (r) { return { name: r.slug, views: r.views }; });
+    var where = '<div class="igrid">' +
+      '<section class="ipanel"><h3>Where visitors are</h3><p class="ihint">Countries, worked out roughly from the internet connection.</p>' + (I.connected ? bars(I.countries, countryLabel, null, 'No visits from any country yet in these ' + days + ' days.') : '<p class="iempty">Appears once visitor numbers are switched on.</p>') + '</section>' +
+      '<section class="ipanel"><h3>How they found us</h3><p class="ihint">The website or app people came from.</p>' + (I.connected ? bars(I.sources, function (n) { return n; }, function (n) { return SOURCE_HELP[n] || ''; }, 'No visits yet in these ' + days + ' days.') : '<p class="iempty">Appears once visitor numbers are switched on.</p>') +
+        '<p class="ihint small"><b>Direct</b> means a typed address, a bookmark, or a link from an app like WhatsApp that doesn’t say where it came from.</p></section>' +
+      (pagesList.length ? '<section class="ipanel"><h3>Most visited pages</h3><p class="ihint">Main pages of the site, not single posts.</p>' + bars(pagesList, pageLabel, null, '') + '</section>' : '') +
+      speedPanel(I.vitals) + '</div>';
+    return head + notice + cards + chart + top + where;
+  }
+  function speedPanel(v) {
+    var s = speedVerdict(v);
+    if (!s) return '';
+    return '<section class="ipanel"><h3>How fast the site feels</h3><p class="speed ' + s[0] + '"><b>' + s[1] + '</b> ' + s[2] + '</p>' +
+      '<details class="tech"><summary>Technical details</summary><ul>' +
+      '<li>Main content appears in <b>' + (v.lcp / 1000).toFixed(1) + 's</b> <small>(LCP; under 2.5s is good)</small></li>' +
+      (v.inp != null ? '<li>Responds to a tap in <b>' + v.inp + 'ms</b> <small>(INP; under 200ms is good)</small></li>' : '') +
+      (v.cls != null ? '<li>Page jumps around: <b>' + (+v.cls).toFixed(2) + '</b> <small>(CLS; under 0.1 is good)</small></li>' : '') +
+      '</ul><small>For 3 out of 4 visits (p75).</small></details></section>';
   }
   function resolveMediaElements() {
     Array.prototype.forEach.call(root.querySelectorAll('[data-src]'), function (el) {
@@ -497,7 +777,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     });
   }
   function refreshPreview() { var pv = document.getElementById('preview'); if (pv && state.editing) pv.innerHTML = preview(state.editing); }
-  function go(view) { state.view = view; state.editing = null; state.errors = {}; state.confirmDelete = false; render(); window.scrollTo(0, 0); }
+  function go(view) { if (view === 'insights' && !state.insights) loadInsights(30); state.view = view; state.editing = null; state.errors = {}; state.confirmDelete = false; render(); window.scrollTo(0, 0); }
 
   // ---------- validation and saving ----------
   function validate(p, publishing) {
@@ -577,7 +857,61 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       state.uploading = '';
       render(); refreshPreview();
       toast('Uploaded ' + file.name);
+      // Every new video gets a poster: keep one the author chose, otherwise take a frame from this file.
+      if (wantVideo && (!state.editing.poster || state.editing.poster_auto)) autoPoster(file);
     }).catch(function (err) { state.uploading = ''; state.errors.file = 'Upload failed: ' + err.message; render(); });
+  }
+
+  // A still from the video (about 1 s in, or the middle of a shorter clip), as WebP (JPEG where the
+  // browser can't encode WebP). `src` is a File/Blob or a URL; remote files need CORS (public buckets have it).
+  function grabFrame(src) {
+    return new Promise(function (resolve, reject) {
+      var v = document.createElement('video'), url = typeof src === 'string' ? src : URL.createObjectURL(src), done = false;
+      var finish = function (err, blob) { if (done) return; done = true; clearTimeout(timer); if (typeof src !== 'string') URL.revokeObjectURL(url); v.removeAttribute('src'); v.load(); if (err) reject(err); else resolve(blob); };
+      var timer = setTimeout(function () { finish(new Error('The video took too long to read.')); }, 20000);
+      v.muted = true; v.playsInline = true; v.preload = 'auto';
+      if (typeof src === 'string' && /^https?:/i.test(src)) v.crossOrigin = 'anonymous';
+      v.onerror = function () { finish(new Error('This browser can’t read the video.')); };
+      v.onloadedmetadata = function () { var d = v.duration; v.currentTime = isFinite(d) && d > 0 ? Math.min(1, d / 2) : 1; };
+      v.onseeked = function () {
+        var w = v.videoWidth, h = v.videoHeight;
+        if (!w || !h) return finish(new Error('The video has no picture.'));
+        var k = Math.min(1, 1080 / Math.max(w, h)), c = document.createElement('canvas');
+        c.width = Math.round(w * k); c.height = Math.round(h * k);
+        try { c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); } catch (err) { return finish(err); }
+        var out = function (type, q, next) {
+          try { c.toBlob(function (b) { if (b && b.type === type) finish(null, b); else if (next) next(); else finish(new Error('Couldn’t make an image.')); }, type, q); } catch (err) { finish(err); }
+        };
+        out('image/webp', 0.82, function () { out('image/jpeg', 0.85); });
+      };
+      v.src = url;
+    });
+  }
+  function posterName(e) { return (S.slugify((e.file || e.title || 'video').replace(/\.[^.]+$/, '')) || 'video') + '-poster'; }
+  function savePoster(blob, name, auto) {
+    var e = state.editing;
+    state.uploading = 'poster'; delete state.errors.poster; render();
+    var file = blob instanceof File ? blob : new File([blob], name + (blob.type === 'image/webp' ? '.webp' : '.jpg'), { type: blob.type });
+    return S.uploadMedia(file).then(function (url) {
+      if (state.editing === e) { e.poster = url; e.poster_auto = auto || undefined; }
+      state.uploading = ''; render();
+    }).catch(function (err) { state.uploading = ''; state.errors.poster = 'Poster upload failed: ' + err.message; render(); });
+  }
+  function autoPoster(src) {
+    var e = state.editing;
+    syncFields();
+    state.uploading = 'poster'; render();
+    return grabFrame(src).then(function (blob) {
+      if (state.editing !== e) return;
+      return savePoster(blob, posterName(e), true).then(function () { toast('Poster made from the video. Choose an image to use your own.'); });
+    }).catch(function (err) { state.uploading = ''; state.errors.poster = 'Couldn’t make a poster from the video (' + err.message + '). Choose an image instead.'; render(); });
+  }
+  function handlePoster(file) {
+    if (!file) return;
+    syncFields();
+    if (POSTER_TYPES.indexOf(file.type) < 0) { state.errors.poster = 'Choose a JPG, PNG or WebP image.'; render(); return; }
+    if (file.size > POSTER_MAX) { state.errors.poster = 'This image is ' + (file.size / 1048576).toFixed(1) + ' MB. The limit is 5 MB.'; render(); return; }
+    savePoster(file, '', false).then(function () { if (!state.errors.poster) toast('Poster saved: ' + file.name); });
   }
 
   // ---------- events ----------
@@ -586,14 +920,28 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var id = ev.target.id;
     if (id === 'signinForm') {
       var email = document.getElementById('email').value.trim().toLowerCase();
+      var pwBox = document.getElementById('password'), password = pwBox ? pwBox.value : '';
       state.email = email; state.authError = '';
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { state.authError = 'Enter an email address like name@example.com.'; render(); document.getElementById('email').focus(); return; }
+      if (pwBox && !password) { state.authError = 'Enter your password.'; render(); document.getElementById('password').focus(); return; }
       state.busy = true; render();
-      S.signInWithEmail(email).then(function (res) {
+      S.signInWithPassword(email, password).then(function (res) {
         state.busy = false;
-        if (res.signedIn) return enter(res.session);
-        state.screen = 'check'; render();
+        if (res.signedIn && res.session) return enter(res.session);
+        state.screen = 'signin'; render();
       }).catch(function (err) { state.busy = false; state.authError = err.message; render(); });
+      password = '';
+    } else if (id === 'pwForm') {
+      var p1 = document.getElementById('newPassword').value, p2 = document.getElementById('newPassword2').value;
+      state.pwError = '';
+      if (p1.length < 12) state.pwError = 'Use at least 12 characters.';
+      else if (p1 !== p2) state.pwError = 'The two passwords don’t match.';
+      if (state.pwError) { render(); document.getElementById('newPassword').focus(); return; }
+      state.busy = true; render();
+      S.updatePassword(p1).then(function () {
+        state.busy = false; state.pwOpen = false; render(); toast('Password changed. Use it next time you sign in.');
+      }).catch(function (err) { state.busy = false; state.pwError = err.message; render(); });
+      p1 = p2 = '';
     } else if (id === 'postForm') {
       if (!canPublish()) return save('draft');
       save(state.editing._mode === 'schedule' ? 'scheduled' : 'published');
@@ -633,13 +981,37 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   });
 
   root.addEventListener('click', function (ev) {
-    var b = ev.target.closest('button');
+    var b = ev.target.closest('button') || ev.target.closest('tr[data-edit]');
     if (!b) return;
     var d = b.dataset;
+    if (d.bar !== undefined && b.classList.contains('tbar')) { showBar(b); return; }
     if (b.id === 'back') { state.screen = 'signin'; render(); }
-    else if (b.id === 'signout') S.signOut().then(function () { state.session = null; state.screen = 'signin'; state.view = 'posts'; render(); });
-    else if (d.view) go(d.view);
-    else if (d.filter) { state.filter = d.filter; render(); }
+    else if (b.id === 'magicLink') {
+      var em = document.getElementById('email').value.trim().toLowerCase();
+      state.email = em; state.authError = '';
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { state.authError = 'Enter your email above first, then ask for a link.'; render(); return; }
+      state.busy = true; render();
+      S.signInWithEmail(em).then(function (res) {
+        state.busy = false;
+        if (res.signedIn) return enter(res.session);
+        state.screen = 'check'; render();
+      }).catch(function (err) { state.busy = false; state.authError = err.message; render(); });
+    }
+    else if (b.id === 'changePw') { state.pwOpen = true; state.pwError = ''; render(); var np = document.getElementById('newPassword'); if (np) np.focus(); }
+    else if (b.id === 'pwCancel') { state.pwOpen = false; state.pwError = ''; render(); }
+    else if (b.id === 'signout') S.signOut().then(function () { state.session = null; state.pwOpen = false; state.screen = 'signin'; state.view = 'posts'; render(); });
+    else if (b.id === 'posterFrame' && state.editing && state.editing.media_url) S.resolveMedia(state.editing.media_url).then(function (u) { if (u) autoPoster(u); });
+    else if (d.days) loadInsights(+d.days);
+    else if (d.view) { state.pwOpen = false; go(d.view); }
+    else if (d.filter) { state.filter = d.filter; state.limit = PAGE_SIZE; render(); }
+    else if (d.sfilter) { state.statusFilter = d.sfilter; state.limit = PAGE_SIZE; render(); }
+    else if (d.sort) {
+      if ((state.sortKey || 'date') === d.sort) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+      else { state.sortKey = d.sort; state.sortDir = d.sort === 'date' || d.sort === 'views' ? 'desc' : 'asc'; }
+      render();
+    }
+    else if (b.id === 'loadMore') { state.limit = (state.limit || PAGE_SIZE) + PAGE_SIZE; refreshPostRows(); }
+    else if (b.id === 'clearFilters') { state.q = ''; state.filter = 'all'; state.statusFilter = 'all'; state.limit = PAGE_SIZE; render(); }
     else if (d.new) {
       state.editing = { type: d.new, status: 'draft', show_on_today: true, topics: [], translation: 'WEB', kind: 'Devotion', _mode: 'now' };
       state.view = 'edit'; state.errors = {}; state.confirmDelete = false; render(); window.scrollTo(0, 0);
@@ -689,6 +1061,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   });
 
   root.addEventListener('input', function (ev) {
+    if (ev.target.id === 'newPassword') { var h = document.getElementById('pwHint'); if (h) h.textContent = pwStrength(ev.target.value); return; }
+    if (ev.target.id === 'postSearch') { state.q = ev.target.value; state.limit = PAGE_SIZE; refreshPostRows(); return; }
     if (!state.editing) return;
     if (ev.target.dataset.pick) { var tx = document.getElementById('f_' + ev.target.dataset.pick); state.editing[ev.target.dataset.pick] = ev.target.value; if (tx) tx.value = ev.target.value; refreshPreview(); return; }
     var f = ev.target.dataset.f;
@@ -717,14 +1091,16 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var again = document.getElementById('newTopic'); if (again) again.focus();
   }
   root.addEventListener('change', function (ev) {
+    if (ev.target.id === 'postSort') { var sv = ev.target.value.split('-'); state.sortKey = sv[0]; state.sortDir = sv[1]; render(); return; }
     if (!state.editing) return;
     if (ev.target.dataset.check) state.editing[ev.target.dataset.check] = ev.target.checked;
     if (ev.target.dataset.f) { state.editing[ev.target.dataset.f] = ev.target.value; refreshPreview(); }
-    if (ev.target.dataset.file) handleFile(ev.target.files[0]);
+    if (ev.target.dataset.file === 'poster') handlePoster(ev.target.files[0]);
+    else if (ev.target.dataset.file) handleFile(ev.target.files[0]);
   });
   root.addEventListener('dragover', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); z.classList.add('drag'); } });
   root.addEventListener('dragleave', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) z.classList.remove('drag'); });
-  root.addEventListener('drop', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); handleFile(ev.dataTransfer.files[0]); } });
+  root.addEventListener('drop', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); (z.dataset.drop === 'poster' ? handlePoster : handleFile)(ev.dataTransfer.files[0]); } });
 
   boot();
 })();

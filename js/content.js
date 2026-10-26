@@ -64,6 +64,48 @@ window.LL_CONTENT = {
       transcript: "Today's verse, Psalm 56:3. When I am afraid, I will put my trust in you. Sometimes in life we face our own Goliath. It might be a problem so big that we wonder if we could ever bring it down. We feel afraid, and our strength seems to slip away. But today's verse reminds us of something David learned. Even in the middle of his fear, he kept moving forward, because he knew that God was with him and would protect him. Being afraid doesn't mean we've lost. It's the moment we choose to trust God. Let us pray. Dear Jesus, you know the challenges I'm facing today, in my marriage, my work, my income, my parenting or my relationships. Even when I'm afraid, I choose to put all my trust in you. Please help me face and overcome these challenges with the strength that comes from you. I believe that with you I will come through victorious and blessed. In Jesus' name I pray. Amen." }
   ],
 
+  // Bedtime Bible Stories: one page each at /listen/<slug> (written by scripts/prerender.mjs, opened by
+  // js/app.js). Wording comes from littlelights-growth content/2026-11-content-plan.md; do not edit it here
+  // without updating the plan. Jonah 2:2 is WEB (with "Yahweh" explained), per plan commit 7ca1d09.
+  // AUDIO: v2 narration on R2 (docs/media-r2.md, "Bedtime story audio"). A new recording gets a new
+  // audio/<name>.<sha8>.mp3 key; set `src`, `dur` (seconds) and the timings file together, then bump VERSION in sw.js.
+  bedtimeStories: [
+    {
+      slug: 'jonah-and-the-whale-bedtime-story',
+      series: 'Bedtime Bible Stories for Kids', episode: 1,
+      title: 'Jonah and the Whale',
+      seoTitle: 'Jonah and the Whale | Bedtime Bible Story for Kids #1',
+      desc: 'A gentle bedtime Bible story about Jonah and the great fish, with a short prayer.',
+      narrator: 'Mr. Ginting',
+      src: MEDIA_BASE + 'audio/jonah-and-the-whale.fe8ea840.mp3', placeholder: false, dur: 99.84,
+      // Read-along timings: [{text,start,end,words:[{text,start,end}]}] in seconds, one entry per spoken sentence.
+      // Swap it together with the audio and the text above (docs/media-r2.md, "Read-along timings").
+      // Current file: Audio Bot's alignment of the v2 recording (jonah-01/v2).
+      timings: 'media/audio/jonah-and-the-whale-timings.json',
+      color: '#a07fd6', ink: '#1d1233',
+      // Narration v2 (jonah-01/v2/narration-v2.txt, with the 3 interaction lines), split into paragraphs.
+      // The word in `word` is highlighted in the text.
+      story: [
+        'Hi, little light. It\u2019s bedtime story time. Snuggle in.',
+        'Once there was a man named Jonah. God asked him to go to the city of Nineveh, but Jonah went the other way and got on a boat. A big wind blew, and the boat rocked up and down. Can you make the sound of the wind with me? Whoooosh\u2026 Then Jonah was swallowed by a great big fish!',
+        'It was dark inside the fish, but Jonah wasn\u2019t alone. Let\u2019s close our eyes, just like Jonah\u2026 He prayed. Later he said, \u2018I called because of my affliction to Yahweh. He answered me.\u2019 Affliction means big trouble, and Yahweh is God\u2019s special name. And God did answer.',
+        'The fish brought Jonah safely to the land, and this time Jonah said yes to God. So remember: wherever you are, you can always talk to God, and He always hears you.'
+      ],
+      prayer: 'Let\u2019s fold our hands together. Dear Jesus, thank You that You always hear me. When I\u2019m scared, help me talk to You. Amen.',
+      goodnight: 'Goodnight, little light. \u{1F319}',
+      verse: { text: 'I called because of my affliction to Yahweh. He answered me.', ref: 'Jonah 2:2', version: 'WEB' },
+      word: { word: 'affliction', meaning: 'Affliction means big trouble, and Yahweh is God\u2019s special name.' },
+      // From the plan's post 2 (Wed 4 Nov), "Try them with our Jonah bedtime story".
+      questions: ['Who trusted God?', 'How did God help?', 'How can we be like that tomorrow?'],
+      // SHARE IMAGE (og:image, twitter:image, JSON-LD image): the one place to set this story's cover.
+      // Final cover, 1200x630 JPEG (whole badge visible). To change it: replace the file (or point `image`
+      // at a new one) and keep imageWidth/imageHeight equal to its real size.
+      // Empty `image` = the site's default share image.
+      image: 'media/audio/jonah-and-the-whale-cover.jpg', imageWidth: 1200, imageHeight: 630,
+      next: { title: 'Elijah and the Still Small Voice', when: 'Mon 9 Nov', href: '/listen' }
+    }
+  ],
+
   // `src` is empty until real videos exist; the reel then shows an animated placeholder.
   // `hidden: true` = hidden by default (Oct 2026: only The Broken Crayon, First Day Jitters, The Last Straw and The Whisper show); Studio > Built-in content can show them again.
   reels: [

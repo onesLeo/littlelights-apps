@@ -60,7 +60,11 @@ check(!(await page.$eval('#pWatchPlayer', (p) => p.hidden)) && (await page.evalu
 await page.click('#pWatchClose'); await page.waitForTimeout(150);
 check((await state()).path === '/watch', 'closing the video goes back to /watch');
 await page.click('.p-whero'); await page.waitForTimeout(200);
-check(/^\/watch\/[a-z0-9-]+$/.test((await state()).path) && (await state()).title.endsWith(' · Watch · Salt and Light'), 'opening a video gives it its address and title');
+{
+  // The featured item is the newest post, which may be a Studio series (live content), so accept either.
+  const s = await state();
+  check((/^\/watch\/[a-z0-9-]+$/.test(s.path) && s.title.endsWith(' · Watch · Salt and Light')) || (/^\/watch\/series\/[a-z0-9-]+$/.test(s.path) && s.title.endsWith(' · Bible story series · Salt and Light')), `opening the featured video gives it its address and title (${s.path})`);
+}
 
 await page.goto(base + '/verses'); await ready();
 check((await state()).view === 'today' && (await state()).path === '/' && await page.$eval('#pSoon', (x) => x.classList.contains('on')), '/verses (coming soon) shows the message on Today');

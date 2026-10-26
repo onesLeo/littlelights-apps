@@ -51,6 +51,7 @@ const csp = (headers.match(/^\s+Content-Security-Policy: (.+)$/m) || [])[1] || '
 const supabaseUrl = (readFileSync(join(root, 'js', 'config.js'), 'utf8').match(/supabaseUrl:\s*'([^']*)'/) || [])[1];
 const directive = (name) => (csp.split(';').map((d) => d.trim().split(/\s+/)).find((d) => d[0] === name) || []).slice(1);
 check(!supabaseUrl || ['connect-src', 'img-src', 'media-src'].every((d) => directive(d).includes(supabaseUrl)), `_headers: the policy allows ${supabaseUrl} for data and media`);
+check(directive('img-src').includes('https://media.littlesaltandlight.com'), '_headers: video posters may load from the media host (R2) as images');
 check(directive('script-src').join(' ') === "'self' https://static.cloudflareinsights.com" && directive('default-src').join(' ') === "'self'", '_headers: scripts only from this site and the Cloudflare Web Analytics beacon, no inline scripts');
 check(directive('connect-src').includes('https://cloudflareinsights.com'), '_headers: the analytics beacon may report to cloudflareinsights.com');
 check(directive('frame-ancestors').join(' ') === "'none'", '_headers: the site cannot be framed');
@@ -96,7 +97,7 @@ for (const [file, path] of Object.entries(routes)) {
   check(new RegExp(`class="p-view v-${tab} on"`).test(html) && (html.match(/class="p-view [^"]* on"/g) || []).length === 1, `${path}: the ${tab} screen is the one shown before scripts run`);
 }
 check(titles.size === Object.keys(routes).length, 'every page has its own title');
-check(head(page('read/brave.html')).types.includes('Article') && /<article class="p-over p-article on" id="pArticle"[^>]*>[\s\S]*?<h2>You don’t have to feel brave to be brave<\/h2>[\s\S]*?valley of Elah/.test(page('read/brave.html')), '/read/brave: Article JSON-LD and the devotion text are in the HTML');
+check(head(page('read/brave.html')).types.includes('Article') && /<article class="p-over p-article on" id="pArticle"[^>]*>[\s\S]*?<h1>You don’t have to feel brave to be brave<\/h1>[\s\S]*?valley of Elah/.test(page('read/brave.html')), '/read/brave: Article JSON-LD and the devotion text are in the HTML');
 check(head(page('watch/the-whisper.html')).types.includes('VideoObject') && head(page('watch/the-whisper.html')).ld['@graph'].find((g) => g['@type'] === 'VideoObject').thumbnailUrl.endsWith('.jpg'), '/watch/the-whisper: VideoObject JSON-LD with a thumbnail');
 check(head(page('listen.html')).types.includes('PodcastEpisode'), '/listen: PodcastEpisode JSON-LD');
 check(head(page('verses.html')).robots === 'noindex', '/verses: "coming soon", so kept out of search');
@@ -105,6 +106,24 @@ const sitemap = page('sitemap.xml');
 const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
 check(['/', '/watch', '/listen', '/read', '/play', '/read/brave', '/read/heart', '/read/keep-building', '/watch/the-whisper', '/watch/the-last-straw', '/watch/first-day-jitters', '/watch/the-broken-crayon'].every((p) => locs.includes('https://littlesaltandlight.com' + p)), `sitemap.xml lists every screen and post (${locs.length} addresses)`);
 check(!locs.some((l) => /\/(verses|studio|today)/.test(l)), 'sitemap.xml leaves out the Studio, /today (same as /) and coming-soon screens');
+{
+  const urls = [...sitemap.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]);
+  check(urls.length > 0 && urls.every((u) => /<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/.test(u)), `sitemap.xml gives every address a lastmod (${urls.length})`);
+  check(/<loc>https:\/\/littlesaltandlight\.com\/watch\/the-broken-crayon<\/loc>\s*<lastmod>2026-10-24<\/lastmod>/.test(sitemap), 'a video\'s lastmod is its post date');
+  check(existsSync(join(root, 'functions', 'sitemap.xml.js')), 'functions/sitemap.xml.js adds posts published after the build to the sitemap');
+}
+// One <h1> per address: the post's title on a post page, the screen's title on a screen, the headline on Today.
+for (const [file, h1] of [['index.html', 'Today, together.'], ['watch.html', 'Watch'], ['listen.html', 'Listen'], ['read.html', 'Read'], ['play.html', 'Play'], ['read/brave.html', 'You don’t have to feel brave to be brave'], ['watch/the-broken-crayon.html', 'The Broken Crayon'], ['watch/the-whisper.html', 'The Whisper']]) {
+  const all = [...page(file).matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/g)].map((m) => m[1]);
+  check(all.length === 1 && all[0] === h1, `${file}: exactly one h1 (${all.join(' | ')})`);
+}
+{
+  const v = head(page('watch/the-broken-crayon.html')).ld['@graph'].find((g) => g['@type'] === 'VideoObject');
+  check(['name', 'description', 'thumbnailUrl', 'uploadDate'].every((k) => v[k]) && /^PT\d+M\d+S$/.test(v.duration) && (v.contentUrl || v.embedUrl), '/watch/the-broken-crayon: VideoObject has name, description, thumbnail, upload date, ISO duration and the video');
+  const html = page('watch/the-broken-crayon.html');
+  check(/<link rel="preload" as="image" fetchpriority="high" href="\/media\/reels\/the-broken-crayon-poster\.webp">/.test(html) && existsSync(join(dist, 'media', 'reels', 'the-broken-crayon-poster.webp')), '/watch/the-broken-crayon: the player poster (WebP) is preloaded first');
+  check(/class="p-wtop"[\s\S]*?class="p-whero p-skel"/.test(page('watch.html')), '/watch: placeholders hold the gallery\'s title, sort bar and featured video boxes (no layout shift)');
+}
 check(!existsSync(join(dist, 'read', 'nope.html')) && !existsSync(join(dist, 'index', 'html')), 'no catch-all page: unknown addresses stay a 404');
 check(existsSync(join(root, 'functions', 'read', '[slug].js')) && existsSync(join(root, 'functions', 'watch', '[slug].js')), 'Pages Functions cover posts published after the build (/read/<slug>, /watch/<slug>)');
 
@@ -117,6 +136,10 @@ check(existsSync(join(root, 'functions', 'read', '[slug].js')) && existsSync(joi
   const used = ['app', 'store', 'content', 'seo', 'config'].every((n) => new RegExp(`/assets/${n}\\.[0-9a-f]{10}\\.(js|css)`).test(page));
   const headers = await rf(join(dist, '_headers'), 'utf8');
   check(hashed && used && !/"\/js\/app\.js"/.test(page), 'build: public pages load fingerprinted /assets/ files');
+  const appJs = assets.find((f) => /^app\.[0-9a-f]{10}\.js$/.test(f)), appCss = assets.find((f) => /^app\.[0-9a-f]{10}\.css$/.test(f));
+  const [js, css] = [await rf(join(dist, 'assets', appJs), 'utf8'), await rf(join(dist, 'assets', appCss), 'utf8')];
+  check(js.length < (await rf(join(root, 'js', 'app.js'), 'utf8')).length * 0.8 && css.length < (await rf(join(root, 'css', 'app.css'), 'utf8')).length * 0.9 && !/\n\s*\/\/ /.test(js), 'build: the fingerprinted CSS and scripts are minified');
+  check(/\/media\/\*\s+Cache-Control: public, max-age=\d+, stale-while-revalidate=\d+/.test(headers) && !/\/media\/\*\s+Cache-Control:[^\n]*immutable/.test(headers), 'build: media (not renamed on change) is cached but not immutable');
   check(/\/assets\/\*\s+Cache-Control: public, max-age=31536000, immutable/.test(headers) && !/^\/\*\n(?:\s+.*\n)*?\s+Cache-Control/m.test(headers), 'build: /assets/ is cached for a year, pages are not');
   const sw = await rf(join(dist, 'sw.js'), 'utf8');
   check(assets.every((f) => f.endsWith('.map') || sw.includes(f)), 'build: sw.js lists the fingerprinted files (so a change updates the service worker)');
