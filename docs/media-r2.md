@@ -47,3 +47,18 @@ existing key with different bytes.
 - `_headers` CSP: `media-src` includes `https://media.littlesaltandlight.com`.
 - The service worker only handles same-site requests, so videos from R2 stream straight from the
   network (range requests work; nothing large goes into the offline cache).
+
+## Bedtime story audio (`/listen/<slug>`)
+
+Bedtime story pages (`bedtimeStories` in `js/content.js`) play their narration from the same bucket, under
+`audio/`. Until the real file arrives an entry points at a small silent placeholder in
+`media/audio/<name>-placeholder.mp3` and has `placeholder: true` (the page then shows a
+"[PLACEHOLDER AUDIO]" note). To swap in the real narration:
+
+1. `sha256sum jonah-and-the-whale-bedtime-story.mp3 | cut -c1-8` (e.g. `1a2b3c4d`).
+2. Upload with `--content-type audio/mpeg --cache-control "public, max-age=31536000, immutable"` to
+   `littlesaltandlight-media/audio/jonah-and-the-whale-bedtime-story.1a2b3c4d.mp3` (same command as above).
+3. Check it with the same two `curl` lines (expect `content-type: audio/mpeg` and `206` for a range).
+4. In `js/content.js`: `src: MEDIA_BASE + 'audio/jonah-and-the-whale-bedtime-story.1a2b3c4d.mp3'`, set `dur`
+   to the length in seconds, remove `placeholder: true`, delete the placeholder file from `media/audio/`,
+   and bump `VERSION` in `sw.js`. `media-src` in `_headers` already allows the R2 address.

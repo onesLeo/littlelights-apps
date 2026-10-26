@@ -498,6 +498,22 @@
       pageHead('watch');
       return;
     }
+    if (tab === 'listen' && r.slug) {
+      // Bedtime story page (/listen/<slug>): the build already wrote it into the page (scripts/prerender.mjs),
+      // so keep that text and only draw it when arriving from another screen. No play counting here.
+      var x = storyBySlug(r.slug), ep = $('#pEpisode');
+      var pre = x && ep.getAttribute('data-slug') === x.slug && ep.querySelector('.body');
+      show('listen');
+      if (x) {
+        if (!pre) { ep.innerHTML = SEO.storyHtml(x, 'h1'); ep.setAttribute('data-slug', x.slug); ep.scrollTop = 0; app.classList.remove('p-boot'); }
+        ep.classList.add('on');
+        setHead(SEO.meta('story', x));
+        return;
+      }
+      setPath('/listen', true);
+      pageHead('listen');
+      return;
+    }
     if (current === 'read' && tab === 'read') $('#pArticle').classList.remove('on');
     if (tab === 'watch') { closeWatch(true); closeSeries(true); }
     show(tab);
@@ -507,6 +523,11 @@
   function indexBySlug(slug) {
     for (var i = 0; i < C.devotions.length; i++) if (C.devotions[i].slug === slug) return i;
     return -1;
+  }
+  function storyBySlug(slug) {
+    var list = C.bedtimeStories || [];
+    for (var i = 0; i < list.length; i++) if (list[i].slug === slug) return list[i];
+    return null;
   }
   function reelBySlug(slug) {
     for (var i = 0; i < C.reels.length; i++) if (SEO.reelSlug(C.reels[i]) === slug) return i;
@@ -1306,6 +1327,7 @@
     }
   }
   function setPlaying(p) {
+    if (p) $$("#pEpisode audio").forEach(function (a) { a.pause(); });
     player.playing = p;
     clearInterval(tick);
     if (hasSrc()) {
@@ -1380,6 +1402,9 @@
   $('#pMiniPP').addEventListener('click', function () { setPlaying(!player.playing); });
   $('#pMiniOpen').addEventListener('click', openFull);
   $('#pMiniX').addEventListener('click', function () { setPlaying(false); player.ep = -1; audio.removeAttribute('src'); renderPlayer(); });
+
+  // A bedtime story's own <audio> (on /listen/<slug>) and the app's player never play at once.
+  $('#pEpisode').addEventListener('play', function () { if (player.playing) setPlaying(false); }, true);
 
   // ---------- read ----------
   $('#pCards').innerHTML = C.devotions.map(function (d, i) {
@@ -1647,6 +1672,8 @@
     closeSoon();
     closeSheet();
     $('#pArticle').classList.remove('on');
+    var ep = $('#pEpisode');
+    if (ep.classList.contains('on')) { ep.classList.remove('on'); $$('audio', ep).forEach(function (a) { a.pause(); }); }
     $('#pFull').classList.remove('on');
     closeStory();
   }
@@ -1675,7 +1702,7 @@
     else if (d.close != null && b.closest('#pArticle')) closeArticle();
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { if ($('#pArticle').classList.contains('on')) closeArticle(); closeOverlays(); }
+    if (e.key === 'Escape') { if ($('#pArticle').classList.contains('on')) closeArticle(); if ($('#pEpisode').classList.contains('on')) { navigate('/listen'); return; } closeOverlays(); }
     if ($('#pStory').classList.contains('on')) {
       if (e.key === 'ArrowRight') stepStory(1);
       if (e.key === 'ArrowLeft') stepStory(-1);

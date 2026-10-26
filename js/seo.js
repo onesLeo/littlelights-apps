@@ -53,6 +53,7 @@
     if (!rest.length) return { tab: m[1] };
     if (m[1] === 'read' && rest.length === 1) return { tab: 'read', slug: rest[0] };
     if (m[1] === 'watch' && rest.length === 1) return { tab: 'watch', slug: rest[0] };
+    if (m[1] === 'listen' && rest.length === 1) return { tab: 'listen', slug: rest[0] };
     if (m[1] === 'watch' && rest.length === 2 && rest[0] === 'series') return { tab: 'watch', series: rest[1] };
     return null;
   }
@@ -60,6 +61,7 @@
   function path(tab, item) {
     if (tab === 'read' && item) return '/read/' + item;
     if (tab === 'watch' && item) return '/watch/' + item;
+    if (tab === 'listen' && item) return '/listen/' + item;
     if (tab === 'series' && item) return '/watch/series/' + item;
     return (PAGES[tab] || PAGES.today).path;
   }
@@ -79,9 +81,50 @@
   function meta(kind, x) {
     if (kind === 'devotion') return { path: path('read', x.slug), title: x.title + ' · ' + NAME, desc: clip(x.teaser || x.html || x.title), type: 'article' };
     if (kind === 'reel') return { path: path('watch', reelSlug(x)), title: x.title + ' · Watch · ' + NAME, desc: clip(x.caption || x.topic || PAGES.watch.desc), type: 'video.other', image: x.src ? posterImage(x.poster) : '' };
+    if (kind === 'story') return { path: path('listen', x.slug), title: (x.seoTitle || x.title) + ' · ' + NAME, desc: clip(x.desc || x.title), type: 'article' };
     if (kind === 'series') return { path: path('series', slugify(x.series)), title: x.series + ' · Bible story series · ' + NAME, desc: clip(x.desc || PAGES.watch.desc), type: 'website' };
     var p = PAGES[x] || PAGES.today;
     return { path: p.path, title: p.title, desc: p.desc, type: 'website' };
   }
-  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta };
+  // Body of a bedtime story page (/listen/<slug>), shared by the build (scripts/prerender.mjs, so the
+  // text is in the HTML search engines receive) and the app (js/app.js). Plain <audio controls>: no
+  // play counting or other tracking on this page.
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function mark(text, w) {
+    var t = esc(text);
+    if (!w || !w.word) return t;
+    return t.replace(new RegExp('\\b(' + w.word + ')\\b', 'i'), '<mark class="p-word">$1</mark>');
+  }
+  function storyHtml(x, h) {
+    h = h || 'h1';
+    var src = /^https?:/i.test(x.src || '') ? x.src : '/' + String(x.src || '').replace(/^\/+/, '');
+    var mins = Math.floor((x.dur || 0) / 60), secs = Math.round((x.dur || 0) % 60);
+    var qs = x.questions && x.questions.length === 3 ? x.questions : null;
+    return '<a class="back" href="/listen" data-ep-back>← Listen</a>' +
+      '<div class="hero" style="background:' + esc(x.color || '#a07fd6') + ';color:' + esc(x.ink || '#1d1233') + '">' +
+        '<span class="p-kicker">' + esc(x.series) + (x.episode ? ' · #' + x.episode : '') + '</span>' +
+        '<' + h + '>' + esc(x.title) + '</' + h + '>' +
+        '<span class="p-ep-by">Bedtime Bible story' + (x.narrator ? ', read by ' + esc(x.narrator) : '') + ' · about ' + (mins ? mins + ' min ' : '') + (secs ? secs + ' s' : '') + '</span>' +
+      '</div>' +
+      '<div class="body p-txt p-sbody">' +
+        '<div class="p-ep-player">' +
+          '<audio controls preload="none" src="' + esc(src) + '">Your browser can\u2019t play this audio.</audio>' +
+          (x.placeholder ? '<p class="p-ep-note" data-placeholder-audio>[PLACEHOLDER AUDIO: the narration is coming soon]</p>' : '') +
+        '</div>' +
+        '<h2>The story</h2>' + (x.story || []).map(function (p) { return '<p>' + mark(p, x.word) + '</p>'; }).join('') +
+        '<h2>Bible verse</h2>' +
+        '<blockquote class="p-ep-verse">\u201c' + mark(x.verse.text, x.word) + '\u201d<br><span class="meta">' + esc(x.verse.ref) + ' (' + esc(x.verse.version) + ')</span></blockquote>' +
+        (x.word ? '<p class="p-ep-word"><span aria-hidden="true">\u{1F4A1} </span><b>Word to know:</b> ' + esc(x.word.meaning) + '</p>' : '') +
+        '<h2>Let\u2019s pray</h2><div class="pray">' + esc(x.prayer) + '</div>' +
+        (x.goodnight ? '<p class="p-ep-night">' + esc(x.goodnight) + '</p>' : '') +
+        '<h2>3 questions to ask afterwards</h2>' +
+        (qs ? '<ol class="p-ep-qs">' + qs.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join('') + '</ol>'
+          : '<ol class="p-ep-qs" data-placeholder-questions><li>[PLACEHOLDER: question 1 not in the content plan yet]</li><li>[PLACEHOLDER: question 2 not in the content plan yet]</li><li>[PLACEHOLDER: question 3 not in the content plan yet]</li></ol>') +
+        '<div class="p-ep-cards">' +
+          (x.next ? '<a class="p-ep-card" href="' + esc(x.next.href || '/listen') + '"><span class="p-kicker">Next story' + (x.next.when ? ' · ' + esc(x.next.when) : '') + '</span><b>' + esc(x.next.title) + '</b><span>More bedtime stories on Listen \u2192</span></a>' : '') +
+          '<a class="p-ep-card join" href="/join"><span class="p-kicker">Join the testers</span><b>Little Light is a free Bible adventure game for kids 5\u20138, coming to Android.</b><span>Join the test families \u2192</span></a>' +
+        '</div>' +
+      '</div>';
+  }
+  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1505,3 +1505,31 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
   .p-rwm { height: 26px; }
   .p-rwm .wm, .p-app:not(.night) .p-rwm .wm { font-size: 18px; }
 }
+
+/* Bedtime story page (/listen/<slug>, js/seo.js storyHtml). Same look as a devotion article (.p-article),
+   on a computer the article column is centred like a devotion (see .p-article in the 900px+ rules). */
+.p-epage .back { text-decoration: none; }
+.p-epage .p-ep-by { font-size: 13px; font-weight: 700; }
+.p-sbody h2 { margin: 10px 0 0; font: 800 20px/1.15 var(--display); }
+.p-ep-player { display: grid; gap: 6px; padding: 12px; border-radius: 16px; background: rgba(0,0,0,.06); }
+.p-ep-player audio { width: 100%; }
+.p-ep-note { margin: 0; font: 700 12px var(--display); color: #6b2b14; }
+.p-sbody .p-word { background: #fde7a8; color: #2a1f33; border-radius: 4px; padding: 0 3px; }
+.p-ep-word { margin: 0; padding: 10px 12px; border-radius: 12px; background: #fff1c9; color: #2a1f33; font-family: var(--display); font-size: 15px; }
+.p-ep-verse .meta { display: block; margin-top: 6px; font-style: normal; }
+.p-ep-night { font-style: italic; }
+.p-ep-qs { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+.p-ep-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 8px; }
+.p-ep-card { display: grid; gap: 6px; padding: 16px; border-radius: 18px; background: #e9defa; color: #1d1233; text-decoration: none; font-family: var(--display); }
+.p-ep-card.join { background: #d9efdf; color: #10281b; }
+.p-ep-card b { font-size: 16px; line-height: 1.25; }
+.p-ep-card > span:last-child { font-weight: 700; font-size: 13px; }
+.p-ep-card:focus-visible, .p-epage .back:focus-visible { outline: 3px solid #f5c26b; outline-offset: 2px; }
+.p-app.night .p-ep-player { background: rgba(255,255,255,.07); }
+.p-app.night .p-ep-note { color: #ffc9b8; }
+.p-app.night .p-ep-word { background: #3a3163; color: #fbe6a6; }
+.p-app.night .p-sbody .p-word { background: #fbe6a6; color: #1a1422; }
+.p-app.night .p-ep-card { background: #2a2446; color: #e3d6fb; }
+.p-app.night .p-ep-card.join { background: #1d2e24; color: #cfeed6; }
+.p-app.calm .p-epage { animation: none; }
+@media (prefers-reduced-motion: reduce) { .p-epage { animation: none; } }
