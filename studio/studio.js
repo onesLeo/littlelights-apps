@@ -60,6 +60,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     media: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 16l5-5 4 4 3-3 6 6"/></svg>',
     site: '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
     insights: '<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+    guide: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1.1-1.5 2.2M12 17h.01"/></svg>',
     team: '<svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.5"/><path d="M3 19c.8-3.3 3.2-5 6-5s5.2 1.7 6 5M16 5.5a3 3 0 010 6M17.5 14c1.8.5 3 2.2 3.5 5"/></svg>',
     site: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.6 2.5 13.4 0 16M12 4c-2.5 2.6-2.5 13.4 0 16"/></svg>'
   };
@@ -255,7 +256,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   }
   function passwordView() {
     var e = state.pwError;
-    return '<div class="head"><div><h1>Change password</h1><p>Signed in as ' + esc(state.email) + '. Use at least 12 characters; a short phrase of random words works well.</p></div></div>' +
+    return '<div class="head"><div><h1>Change password' + help('account') + '</h1><p>Signed in as ' + esc(state.email) + '. Use at least 12 characters; a short phrase of random words works well.</p></div></div>' +
       '<form id="pwForm" class="auth-card" novalidate style="margin:0">' +
       '<label class="field"><span>New password</span><input class="input' + (e ? ' err' : '') + '" id="newPassword" type="password" autocomplete="new-password" minlength="12"><small id="pwHint" aria-live="polite"></small></label>' +
       '<label class="field"><span>Repeat new password</span><input class="input' + (e ? ' err' : '') + '" id="newPassword2" type="password" autocomplete="new-password"></label>' +
@@ -270,7 +271,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       '<button class="btn ghost" type="button" id="back">Use a different email</button></div></main>';
   }
   function shell(inner) {
-    var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['site', 'Menus', ICON.site], ['builtins', 'Built-in content', ICON.media], ['insights', 'Insights', ICON.insights], ['team', 'Team', ICON.team]];
+    var nav = [['posts', 'Posts', ICON.posts], ['new', 'New post', ICON.plus], ['media', 'Media', ICON.media], ['site', 'Menus', ICON.site], ['builtins', 'Built-in content', ICON.media], ['insights', 'Insights', ICON.insights], ['team', 'Team', ICON.team], ['guide', 'Guide', ICON.guide]];
     return '<div class="shell"><aside class="side">' +
       '<div class="brand">' + wordmark('wms2') + '<small class="wm-tag">Studio</small></div>' +
       '<nav aria-label="Studio">' + nav.map(function (n) {
@@ -280,6 +281,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       }).join('') + '<a class="nav" href="../" target="_blank" rel="noopener">' + ICON.site + 'View the app</a></nav>' +
       '<div class="me"><div class="who"><span class="avatar">' + esc(state.email[0] || '?').toUpperCase() + '</span><span>' + esc(state.email) + '<small>' + esc(cap(state.session.role)) + '</small></span></div>' +
       (S.mode !== 'local' ? '<button class="btn ghost" type="button" id="changePw" style="justify-content:flex-start;padding-left:0">Change password</button>' : '') +
+      '<button class="btn ghost guidebtn" type="button" data-view="guide" style="justify-content:flex-start;padding-left:0"><span aria-hidden="true">?</span> How to use Studio</button>' +
       '<button class="btn ghost" type="button" id="signout" style="justify-content:flex-start;padding-left:0">Sign out</button></div>' +
       '</aside><main class="main">' + modeBar() + inner + '</main></div>';
   }
@@ -358,7 +360,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       .sort(function (a, b) { return a.publish_at.localeCompare(b.publish_at); })[0];
     var f = state.filter || 'all', sf = state.statusFilter || 'all';
     var typeCount = function (k) { return state.posts.filter(function (p) { return p.type === k; }).length; };
-    return '<div class="top"><div><h2>Posts</h2><p>Everything on Today, Watch, Listen, Read and Verses.' +
+    return '<div class="top"><div><h2>Posts' + help('posts') + '</h2><p>Everything on Today, Watch, Listen, Read and Verses.' +
       (next ? ' <span class="nextup">Next scheduled: <b>' + esc(fmtWhen(next.publish_at)) + '</b></span>' : '') + '</p></div>' +
       '<button class="btn primary" type="button" data-view="new">+ New post</button></div>' +
       '<div class="ptools">' +
@@ -389,7 +391,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   }
 
   function newView() {
-    return '<div class="top"><div><h2>What would you like to share?</h2><p>Pick a kind of post. Each one has its own colour in the app.</p></div></div>' +
+    return '<div class="top"><div><h2>What would you like to share?' + help('write') + '</h2><p>Pick a kind of post. Each one has its own colour in the app.</p></div></div>' +
       '<div class="types">' + Object.keys(TYPES).map(function (k) {
         return '<button class="type t-' + k + '" type="button" data-new="' + k + '"><b>' + TYPES[k].name + '</b><span>' + TYPES[k].hint + '</span></button>';
       }).join('') + '</div>';
@@ -485,7 +487,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var primary = !pub ? '' : '<button class="btn primary" type="submit"' + (state.busy || state.uploading ? ' disabled' : '') + '>' +
       (state.busy ? 'Saving…' : mode === 'schedule' ? 'Schedule' : p.status === 'published' ? 'Update' : 'Publish') + '</button>';
     var canDelete = p.id && (canPublish());
-    return '<div class="top"><div><h2>' + (p.id ? 'Edit ' : 'New ') + t.name.toLowerCase() + '</h2><p>' + t.hint + '. The preview updates as you type.</p></div>' +
+    return '<div class="top"><div><h2>' + (p.id ? 'Edit ' : 'New ') + t.name.toLowerCase() + help('write') + '</h2><p>' + t.hint + '. The preview updates as you type.</p></div>' +
       '<button class="btn ghost" type="button" data-view="posts">← All posts</button></div>' +
       '<div class="editor"><div class="edit-col"><form class="form" id="postForm" novalidate><h3>' + t.name + '</h3>' + f +
       '<label class="toggle"><input type="checkbox" id="f_today" data-check="show_on_today"' + (p.show_on_today ? ' checked' : '') + '> Show on the Today feed</label>' +
@@ -524,7 +526,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
 
   function mediaView() {
     var files = state.posts.filter(function (p) { return p.media_url; });
-    return '<div class="top"><div><h2>Media</h2><p>Audio and video attached to posts.</p></div></div>' +
+    return '<div class="top"><div><h2>Media' + help('media') + '</h2><p>Audio and video attached to posts.</p></div></div>' +
       (files.length ? '<div class="grid-media">' + files.map(function (p) {
         var isVideo = p.type === 'reel';
         return '<div class="media"><div class="thumb" style="background:' + TYPES[p.type].color + '">' + (isVideo ? '▶ ' : '♪ ') + esc((p.fields || {}).minutes || '') + '</div>' +
@@ -536,7 +538,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   var NAV_STATE_LABEL = { on: 'On', coming_soon: 'Coming soon', hidden: 'Hidden' };
   function siteView() {
     var n = state.nav || S.navDefault(), owner = isOwner();
-    return '<div class="top"><div><h2>Menus</h2><p>Choose which menus visitors see in the app. “Coming soon” keeps the menu but shows a friendly message when tapped.</p></div></div>' +
+    return '<div class="top"><div><h2>Menus' + help('menus') + '</h2><p>Choose which menus visitors see in the app. “Coming soon” keeps the menu but shows a friendly message when tapped.</p></div></div>' +
       (state.navError ? '<p class="role-note" role="alert">The menu settings could not be loaded (' + esc(state.navError) + '). If the <code>site_settings</code> table hasn’t been created yet, run supabase/schema.sql first. Until then the app uses its built-in default (Verses: coming soon).</p>' : '') +
       (owner ? '' : '<p class="role-note">Only owners can change the menus.</p>') +
       '<form class="form" id="siteForm" novalidate>' +
@@ -574,7 +576,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   }
   function builtinsView() {
     var owner = isOwner(), hidden = state.hidden || [];
-    return '<div class="top"><div><h2>Built-in content</h2><p>Items that came with the app. Hide any you don’t want visitors to see. A published Studio copy of an item replaces it anyway.</p></div></div>' +
+    return '<div class="top"><div><h2>Built-in content' + help('builtins') + '</h2><p>Items that came with the app. Hide any you don’t want visitors to see. A published Studio copy of an item replaces it anyway.</p></div></div>' +
       (state.hiddenError ? '<p class="role-note" role="alert">The hidden list could not be loaded (' + esc(state.hiddenError) + '). Nothing is hidden until it can be.</p>' : '') +
       (owner ? '' : '<p class="role-note">Only owners can change this.</p>') +
       '<div class="list" id="builtinList">' + builtinItems().map(function (it) {
@@ -585,8 +587,43 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       }).join('') + '</div>' +
       (owner ? '<div style="margin-top:16px"><button class="btn primary" type="button" id="saveHidden"' + (state.busy ? ' disabled' : '') + '>Save</button></div>' : '');
   }
+  // A small “?” beside a section title that opens its part of the guide.
+  function help(part) {
+    return ' <button class="help" type="button" data-view="guide" data-guide="' + part + '" aria-label="How to: ' + esc(GUIDE_TITLE[part]) + '" title="How to use this">?</button>';
+  }
+  // ---------- Guide: short, task-based steps for new team members (only features this Studio has) ----------
+  var GUIDE_TITLE = { start: 'Sign in', account: 'Your password and signing out', posts: 'Find and edit posts', write: 'Write a new post',
+    publish: 'Publish, schedule or keep a draft', reelpage: 'Reel page colours and styles', media: 'Media', menus: 'Menus and content switches',
+    builtins: 'Built-in content', insights: 'Insights', team: 'Team and roles' };
+  function guideView() {
+    var part = function (id, steps, note) {
+      return '<section class="gpart" aria-labelledby="gh-' + id + '"><h3 id="g-' + id + '" tabindex="-1"><span id="gh-' + id + '">' + GUIDE_TITLE[id] + '</span></h3>' +
+        '<ol>' + steps.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ol>' + (note ? '<p class="gnote">' + note + '</p>' : '') + '</section>';
+    };
+    return '<div class="top"><div><h2>How to use Studio</h2><p>Short steps for the everyday jobs. Tap a “?” beside any section title to jump straight to its part here.</p></div></div>' +
+      '<nav class="gtoc" aria-label="Guide contents"><ul>' + Object.keys(GUIDE_TITLE).map(function (k) { return '<li><a href="#g-' + k + '" data-gjump="' + k + '">' + GUIDE_TITLE[k] + '</a></li>'; }).join('') + '</ul></nav>' +
+      '<div class="guide">' +
+      part('start', ['Open the Studio and type your email.', 'Type your password and press <b>Sign in</b>.', 'No password yet? Press <b>Email me a one-time sign-in link</b> and open the link on the same device.'],
+        'Only people on the team can sign in. There is no sign-up: the owner adds you on the Team page.') +
+      part('account', ['Press <b>Change password</b> at the top (beside Sign out).', 'Type a new password twice. Use at least 12 characters; a short phrase of random words works well.', 'Press <b>Sign out</b> when you finish on a shared device.']) +
+      part('posts', ['Open <b>Posts</b> to see everything on Today, Watch, Listen, Read and Verses.', 'Type in the search box, or use the kind and status chips (Published, Scheduled, Drafts) to narrow the list.', 'On a computer, press a column title to sort by title, type, status, date or views.', 'Tap a post to open it and change it.']) +
+      part('write', ['Press <b>New post</b> and pick a kind: Verse, Devotion, Reel, Audio or Game update.', 'Fill in the fields. The phone preview on the right shows how it will look on Today.', 'For audio and reels, choose or drop the file to upload it. For a reel you can also add a poster image or use a frame from the video.', 'Tick <b>Show on the Today feed</b> if it should appear there.'],
+        'Each saved change is kept in <b>History</b> under the form. Press <b>Restore this version</b> to go back to an older one.') +
+      part('publish', ['Choose <b>Publish now</b> or <b>Schedule</b>. For Schedule, pick a date and time (your local time).', 'Press <b>Publish</b> (or <b>Schedule</b>, or <b>Update</b> for a live post).', 'Not ready? Press <b>Save draft</b>. A live post can go back with <b>Move to drafts</b>.', 'To remove a post for everyone, press <b>Delete</b>, then confirm.'],
+        'Contributors save drafts only. An owner or editor publishes them.') +
+      part('reelpage', ['Open a reel post.', 'Under <b>Page style</b>, choose Auto from reel, Dark, Light or Glass clear. This is the caption page on computers.', 'Under <b>Page colour</b>, pick a colour, or leave it empty to use the reel’s own colour. Text and buttons are adjusted so they stay easy to read.', 'To set the default for every reel left on Auto, go to <b>Menus</b> → <b>Reel caption page</b> and press <b>Save page style</b> (owner only).']) +
+      part('media', ['Open <b>Media</b> to see the audio and video files attached to posts.', 'Press play to check a file, and see which post uses it.', 'To add a file, upload it while writing an audio or reel post.']) +
+      part('menus', ['Open <b>Menus</b> (owner only).', 'For Watch, Listen, Read, Verses and Play, choose On, Coming soon or Hidden. Today is always on.', 'Write a short, friendly coming-soon message, then press <b>Save menus</b>.', 'Under <b>Content</b>, switch the verse cards on Today on or off and press <b>Save content</b>.']) +
+      part('builtins', ['Open <b>Built-in content</b> to see items that came with the app.', 'Press <b>Hide</b> on any item visitors should not see, or <b>Show</b> to bring it back.', 'Press <b>Save</b>.'],
+        'A published Studio copy of an item replaces it anyway.') +
+      part('insights', ['Open <b>Insights</b>.', 'Pick 7, 30 or 90 days.', 'See visits, the most-read pages, countries, where visitors came from, and plays and “read to the end”.'],
+        'Counts only: no names and no personal data.') +
+      part('team', ['Open <b>Team</b> (owner only to add or remove people).', 'Type the person’s email, choose a role and press <b>Add to team</b>.', 'They sign in with the same page. Press <b>Remove</b> to take someone off the team.'],
+        '<b>Owner</b>: everything, including adding and removing people. <b>Editor</b>: writes, publishes and deletes posts. <b>Contributor</b>: writes drafts for an owner or editor to publish.') +
+      '</div>';
+  }
   function teamView() {
-    return '<div class="top"><div><h2>Team</h2><p>Only people on this list can sign in to the Studio.</p></div></div>' +
+    return '<div class="top"><div><h2>Team' + help('team') + '</h2><p>Only people on this list can sign in to the Studio.</p></div></div>' +
       (isOwner() ? '<form class="form invite" id="inviteForm" novalidate>' +
         '<label class="field"><span>Email</span><input class="input' + (state.errors.invite ? ' err' : '') + '" id="inviteEmail" type="email" placeholder="name@example.com">' + (state.errors.invite ? '<span class="errmsg" role="alert">' + esc(state.errors.invite) + '</span>' : '') + '</label>' +
         '<label class="field"><span>Role</span><select class="select" id="inviteRole"><option value="editor">Editor</option><option value="contributor">Contributor</option><option value="owner">Owner</option></select></label>' +
@@ -609,10 +646,13 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (state.screen === 'signin') root.innerHTML = signin();
     else if (state.screen === 'check') root.innerHTML = checkEmail();
     else {
-      var v = state.pwOpen ? passwordView() : state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : state.view === 'site' ? siteView() : state.view === 'builtins' ? builtinsView() : state.view === 'insights' ? insightsView() : teamView();
+      var v = state.pwOpen ? passwordView() : state.view === 'posts' ? postsView() : state.view === 'new' ? newView() : state.view === 'edit' ? editView() : state.view === 'media' ? mediaView() : state.view === 'site' ? siteView() : state.view === 'builtins' ? builtinsView() : state.view === 'insights' ? insightsView() : state.view === 'guide' ? guideView() : teamView();
       var ae = document.activeElement, keep = ae && ae.id === 'postSearch' ? [ae.selectionStart, ae.selectionEnd] : null;
       root.innerHTML = shell(v);
       if (state.view === 'media' || state.view === 'edit' || state.view === 'new' || state.view === 'posts') resolveMediaElements();
+      var navOn = root.querySelector('.side nav .nav.on'), navBar = navOn && navOn.parentNode;
+      if (navBar && navBar.scrollWidth > navBar.clientWidth) navBar.scrollLeft = Math.max(0, navOn.offsetLeft - navBar.offsetLeft - 24);
+      if (state.view === 'guide' && state.guideAt) { var gt = document.getElementById('g-' + state.guideAt); state.guideAt = null; if (gt) { gt.scrollIntoView({ block: 'start' }); gt.focus({ preventScroll: true }); } }
       if (keep) { var ps = document.getElementById('postSearch'); if (ps) { ps.focus(); try { ps.setSelectionRange(keep[0], keep[1]); } catch (err) {} } }
     }
   }
@@ -710,7 +750,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   }
   function insightsView() {
     var I = state.insights || { loading: true, days: 7 }, days = I.days || 7;
-    var head = '<div class="top"><div><h2>Insights</h2><p>How families are finding and enjoying Salt and Light. Counts only — no names, no personal data.</p></div>' +
+    var head = '<div class="top"><div><h2>Insights' + help('insights') + '</h2><p>How families are finding and enjoying Salt and Light. Counts only — no names, no personal data.</p></div>' +
       '<div class="chips" role="group" aria-label="Time range">' + [7, 30, 90].map(function (n) { return '<button class="chip' + (days === n ? ' on' : '') + '" type="button" data-days="' + n + '" aria-pressed="' + (days === n) + '">' + n + ' days</button>'; }).join('') + '</div></div>';
     if (I.loading) return head + '<div class="list"><div class="empty">Counting visits…</div></div>';
     if (I.error && I.connected === undefined) return head + '<div class="list"><div class="empty">' + esc(I.error) + '</div></div>';
@@ -981,6 +1021,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   });
 
   root.addEventListener('click', function (ev) {
+    var gj = ev.target.closest('a[data-gjump]');
+    if (gj) { ev.preventDefault(); var gt = document.getElementById('g-' + gj.dataset.gjump); if (gt) { gt.scrollIntoView({ block: 'start' }); gt.focus({ preventScroll: true }); } return; }
     var b = ev.target.closest('button') || ev.target.closest('tr[data-edit]');
     if (!b) return;
     var d = b.dataset;
@@ -1002,7 +1044,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     else if (b.id === 'signout') S.signOut().then(function () { state.session = null; state.pwOpen = false; state.screen = 'signin'; state.view = 'posts'; render(); });
     else if (b.id === 'posterFrame' && state.editing && state.editing.media_url) S.resolveMedia(state.editing.media_url).then(function (u) { if (u) autoPoster(u); });
     else if (d.days) loadInsights(+d.days);
-    else if (d.view) { state.pwOpen = false; go(d.view); }
+    else if (d.view) { state.pwOpen = false; if (d.guide) state.guideAt = d.guide; go(d.view); if (state.guideAt) render(); }
     else if (d.filter) { state.filter = d.filter; state.limit = PAGE_SIZE; render(); }
     else if (d.sfilter) { state.statusFilter = d.sfilter; state.limit = PAGE_SIZE; render(); }
     else if (d.sort) {

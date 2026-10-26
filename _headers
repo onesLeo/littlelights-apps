@@ -39,6 +39,7 @@
 
 /studio/*
   X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-cache
 
 # Preview and *.pages.dev addresses stay out of search results.
 https://:project.pages.dev/*
