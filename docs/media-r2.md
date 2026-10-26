@@ -62,3 +62,12 @@ Bedtime story pages (`bedtimeStories` in `js/content.js`) play their narration f
 4. In `js/content.js`: `src: MEDIA_BASE + 'audio/jonah-and-the-whale-bedtime-story.1a2b3c4d.mp3'`, set `dur`
    to the length in seconds, remove `placeholder: true`, delete the placeholder file from `media/audio/`,
    and bump `VERSION` in `sw.js`. `media-src` in `_headers` already allows the R2 address.
+
+### Bedtime story share image (cover)
+
+Each story's share image (og:image, twitter:image, JSON-LD `image`) is set in one place: `image`,
+`imageWidth`, `imageHeight` on its `bedtimeStories` entry in `js/content.js`. The file is committed in
+`media/audio/` (small, served from the site so link previews never depend on R2). Jonah:
+`media/audio/jonah-and-the-whale-cover.jpg`, 1200x630 JPEG. To swap it, replace the file (or point `image`
+at a new one) and keep the width/height equal to the real size; `tests/listen-story.mjs` checks this.
+Empty `image` falls back to the site's default share image.

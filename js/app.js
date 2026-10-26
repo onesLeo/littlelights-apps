@@ -1287,6 +1287,13 @@
     return '<button class="p-row" type="button" data-ep="' + i + '"><span class="p-art" style="background:' + e.color + '"><i></i></span>' +
       '<span><b>' + esc(e.title) + '</b><small>' + esc(e.meta) + ' · ' + fmt(e.dur) + '</small></span><span class="p-pp">' + ICON_PLAY + '</span></button>';
   }).join('');
+  // "Goodnight Little Light": bedtime stories, each a link to its own page (/listen/<slug>).
+  (function goodnightSection() {
+    var list = C.bedtimeStories || [], wrap = $('#pGnWrap');
+    if (!wrap || !SEO) return;
+    $('#pGn').innerHTML = SEO.storyRowsHtml(list);
+    wrap.hidden = !list.length;
+  })();
   (function listenFilters() {
     var box = $('#pEps'), rows = $$('.p-row', box), types = [];
     rows.forEach(function (r) { var m = C.episodes[+r.dataset.ep].meta; if (m && types.indexOf(m) < 0) types.push(m); });

@@ -81,7 +81,7 @@
   function meta(kind, x) {
     if (kind === 'devotion') return { path: path('read', x.slug), title: x.title + ' · ' + NAME, desc: clip(x.teaser || x.html || x.title), type: 'article' };
     if (kind === 'reel') return { path: path('watch', reelSlug(x)), title: x.title + ' · Watch · ' + NAME, desc: clip(x.caption || x.topic || PAGES.watch.desc), type: 'video.other', image: x.src ? posterImage(x.poster) : '' };
-    if (kind === 'story') return { path: path('listen', x.slug), title: (x.seoTitle || x.title) + ' · ' + NAME, desc: clip(x.desc || x.title), type: 'article' };
+    if (kind === 'story') return { path: path('listen', x.slug), title: (x.seoTitle || x.title) + ' · ' + NAME, desc: clip(x.desc || x.title), type: 'article', image: storyImage(x), imageWidth: x.image ? x.imageWidth : 0, imageHeight: x.image ? x.imageHeight : 0, imageAlt: x.image ? x.title + ', ' + (x.series || 'bedtime Bible story') : '' };
     if (kind === 'series') return { path: path('series', slugify(x.series)), title: x.series + ' · Bible story series · ' + NAME, desc: clip(x.desc || PAGES.watch.desc), type: 'website' };
     var p = PAGES[x] || PAGES.today;
     return { path: p.path, title: p.title, desc: p.desc, type: 'website' };
@@ -94,6 +94,18 @@
     var t = esc(text);
     if (!w || !w.word) return t;
     return t.replace(new RegExp('\\b(' + w.word + ')\\b', 'i'), '<mark class="p-word">$1</mark>');
+  }
+  // A bedtime story's share image: its own `image` (js/content.js bedtimeStories) when set, else none
+  // (the site's default share image is used).
+  function storyImage(x) { var u = String((x && x.image) || ''); return !u ? '' : /^https:\/\//i.test(u) ? u : SITE + '/' + u.replace(/^\/+/, ''); }
+  // Rows for the "Goodnight Little Light" section on /listen: each opens the story's own page.
+  function storyRowsHtml(list) {
+    return (list || []).map(function (x) {
+      var m = Math.floor((x.dur || 0) / 60), s = Math.round((x.dur || 0) % 60);
+      return '<a class="p-row p-gnrow" href="' + esc(path('listen', x.slug)) + '"><span class="p-art" style="background:' + esc(x.color || '#a07fd6') + '"><i></i></span>' +
+        '<span><b>' + esc(x.title) + '</b><small>Bedtime Bible story' + (x.episode ? ' #' + x.episode : '') + ' \u00b7 ' + m + ':' + (s < 10 ? '0' : '') + s + '</small></span>' +
+        '<span class="p-pp" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>';
+    }).join('');
   }
   function storyHtml(x, h) {
     h = h || 'h1';
@@ -126,5 +138,5 @@
         '</div>' +
       '</div>';
   }
-  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml };
+  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, storyImage: storyImage };
 })(typeof window !== 'undefined' ? window : globalThis);

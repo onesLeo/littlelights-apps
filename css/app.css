@@ -1533,3 +1533,9 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
 .p-app.night .p-ep-card.join { background: #1d2e24; color: #cfeed6; }
 .p-app.calm .p-epage { animation: none; }
 @media (prefers-reduced-motion: reduce) { .p-epage { animation: none; } }
+/* "Goodnight Little Light" on /listen: bedtime story rows are links (same look as the episode rows). */
+.p-gn { margin-bottom: 14px; }
+.p-gn h2.p-sec { margin: 0; }
+.p-gnrow { text-decoration: none; }
+.p-gnrow:focus-visible { outline: 3px solid #f5c26b; outline-offset: 2px; }
+.p-gnrow .p-pp svg { fill: none; }

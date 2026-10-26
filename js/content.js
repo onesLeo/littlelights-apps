@@ -66,7 +66,7 @@ window.LL_CONTENT = {
 
   // Bedtime Bible Stories: one page each at /listen/<slug> (written by scripts/prerender.mjs, opened by
   // js/app.js). Wording comes from littlelights-growth content/2026-11-content-plan.md; do not edit it here
-  // without updating the plan. Scripture: WEBBE, labelled "(WEBBE)".
+  // without updating the plan. Jonah 2:2 is WEB (with "Yahweh" explained), per plan commit 7ca1d09.
   // AUDIO: `src` is a 5-second silent PLACEHOLDER. When the real narration arrives, upload it to R2 as
   // audio/<slug>.<hash>.mp3 (docs/media-r2.md, "Bedtime story audio"), set
   // src: MEDIA_BASE + 'audio/jonah-and-the-whale-bedtime-story.<hash>.mp3', set `dur` to its length in
@@ -85,15 +85,20 @@ window.LL_CONTENT = {
       story: [
         'Hi, little light. It\u2019s bedtime story time. Snuggle in.',
         'Once there was a man named Jonah. God asked him to go to the city of Nineveh, but Jonah went the other way and got on a boat. A big wind blew, and the boat rocked up and down. Then Jonah was swallowed by a great big fish!',
-        'It was dark inside the fish, but Jonah wasn\u2019t alone. He prayed. Later he said, \u2018I called because of my affliction to the LORD. He answered me.\u2019 Affliction means big trouble. And God did answer.',
+        'It was dark inside the fish, but Jonah wasn\u2019t alone. He prayed. Later he said, \u2018I called because of my affliction to Yahweh. He answered me.\u2019 Affliction means big trouble, and Yahweh is God\u2019s special name. And God did answer.',
         'The fish brought Jonah safely to the land, and this time Jonah said yes to God. So remember: wherever you are, you can always talk to God, and He always hears you.'
       ],
-      prayer: 'Dear God, thank You that You always hear me. When I\u2019m scared, help me talk to You. Amen.',
+      prayer: 'Dear Jesus, thank You that You always hear me. When I\u2019m scared, help me talk to You. Amen.',
       goodnight: 'Goodnight, little light. \u{1F319}',
-      verse: { text: 'I called because of my affliction to the LORD. He answered me.', ref: 'Jonah 2:2', version: 'WEBBE' },
-      word: { word: 'affliction', meaning: 'Affliction means big trouble.' },
-      // MISSING from the content plan (section 1A has no questions for this story): placeholders until supplied.
-      questions: null,
+      verse: { text: 'I called because of my affliction to Yahweh. He answered me.', ref: 'Jonah 2:2', version: 'WEB' },
+      word: { word: 'affliction', meaning: 'Affliction means big trouble, and Yahweh is God\u2019s special name.' },
+      // From the plan's post 2 (Wed 4 Nov), "Try them with our Jonah bedtime story".
+      questions: ['Who trusted God?', 'How did God help?', 'How can we be like that tomorrow?'],
+      // SHARE IMAGE (og:image, twitter:image, JSON-LD image): the one place to set this story's cover.
+      // Final cover, 1200x630 JPEG (whole badge visible). To change it: replace the file (or point `image`
+      // at a new one) and keep imageWidth/imageHeight equal to its real size.
+      // Empty `image` = the site's default share image.
+      image: 'media/audio/jonah-and-the-whale-cover.jpg', imageWidth: 1200, imageHeight: 630,
       next: { title: 'Elijah and the Still Small Voice', when: 'Mon 9 Nov', href: '/listen' }
     }
   ],
