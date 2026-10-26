@@ -1,6 +1,6 @@
 // Offline support: the app shell is cached on install; fonts are cached the first time they load.
 // Bump VERSION whenever a cached file changes so visitors get the new one.
-const VERSION = 'll-v75';
+const VERSION = 'll-v76';
 const SHELL = [
   './',
   'index.html',
@@ -57,6 +57,17 @@ self.addEventListener('fetch', (event) => {
       }).catch(() => caches.match(app ? url.pathname : req, { ignoreSearch: true })
         .then((hit) => hit || (app ? caches.match('./') : undefined))
         .then((hit) => hit || caches.match('index.html')))
+    );
+    return;
+  }
+  // Studio files (studio.css, studio.js) are not fingerprinted and must match the Studio page, so they
+  // always come from the network, checked with the server (no-cache); the cached copy is only for offline.
+  if (url.origin === location.origin && url.pathname.startsWith('/studio/')) {
+    event.respondWith(
+      caches.open(VERSION).then((cache) => fetch(req, { cache: 'no-cache' }).then((res) => {
+        if (res.ok) cache.put(req, res.clone());
+        return res;
+      }).catch(() => cache.match(req, { ignoreSearch: true })))
     );
     return;
   }

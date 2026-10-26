@@ -111,11 +111,12 @@ p { margin: 0; }
 .empty { padding: 28px; text-align: center; color: var(--muted); }
 /* Built-in content rows have no stripe/when cells: own two-column grid (title takes the rest), controls wrap under the title on narrow screens. */
 .row.brow { grid-template-columns: minmax(0, 1fr) auto; padding: 12px 16px; cursor: default; }
-.brow .btitle { min-width: 0; overflow-wrap: anywhere; }
+.brow .btitle { min-width: 0; overflow-wrap: break-word; }
 .brow .btitle small { display: block; }
 .brow .bctrls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
 .brow .btn.small { min-height: 44px; min-width: 64px; color: var(--ink); border: 1px solid var(--line); }
-@media (max-width: 600px) { .row.brow { grid-template-columns: minmax(0, 1fr); gap: 8px; } .brow .bctrls { justify-content: flex-start; } }
+/* Phones: title (full width) and meta first, then the status and Hide/Show on their own row, inside the card padding. */
+@media (max-width: 600px) { .row.brow { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 14px 16px; } .brow .bctrls { justify-content: flex-start; padding-top: 2px; } .brow .bctrls > small { flex: 1 1 auto; } }
 @media (max-width: 560px) { .row { grid-template-columns: 6px 1fr auto; } .row .when { display: none; } }
 
 /* ---------- new post: type picker ---------- */
@@ -404,3 +405,22 @@ th.c-views { text-align: right; }
 .poster-pv { width: 90px; height: 160px; flex: none; border-radius: 10px; object-fit: cover; background: var(--surface-2); border: 1px solid var(--line); }
 .poster-pv.empty { display: grid; place-items: center; font-size: 12px; color: var(--muted); text-align: center; }
 .poster-acts { display: grid; gap: 8px; justify-items: start; flex: 1; min-width: 0; }
+
+/* ---------- help links and the guide ---------- */
+.help { display: inline-grid; place-items: center; width: 28px; height: 28px; margin-left: 6px; vertical-align: middle; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-family: inherit; font-weight: 800; font-size: 14px; line-height: 1; padding: 0; cursor: pointer; position: relative; top: -3px; }
+.help::after { content: ''; position: absolute; inset: -8px; } /* 44px tap target */
+.help:hover { background: var(--surface-2); }
+.guidebtn span { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid currentColor; font-weight: 800; font-size: 12px; margin-right: 6px; }
+.gtoc ul { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.gtoc a { display: inline-flex; align-items: center; min-height: 40px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; font-weight: 600; font-size: 13.5px; }
+.gtoc a:hover { background: var(--surface-2); }
+.guide { display: grid; gap: 14px; max-width: 760px; }
+.gpart { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
+.gpart h3 { font-size: 17px; font-weight: 800; margin-bottom: 8px; scroll-margin-top: 130px; }
+.gpart ol { padding-left: 22px; display: grid; gap: 6px; color: var(--ink); line-height: 1.5; }
+.gnote { margin-top: 10px; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+@media (max-width: 860px) {
+  .me .guidebtn { padding: 8px 10px !important; }
+  .me .guidebtn { font-size: 0; }
+  .me .guidebtn span { font-size: 13px; margin: 0; border: 0; }
+}

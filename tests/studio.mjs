@@ -593,6 +593,40 @@ await sp.waitForSelector('#signinForm #password');
 check(await sp.evaluate(() => window.__auth.session === null), 'account: Sign out works on a phone and returns to the sign-in screen');
 await sctx.close();
 
+// ---------- built-in list on phones, and the guide ----------
+{
+  const pctx = await browser.newContext({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2, serviceWorkers: 'block' });
+  await pctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  await pctx.route('**/js/config.js*', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  const pp = await pctx.newPage();
+  pp.on('pageerror', (e) => errors.push(e.message));
+  await pp.goto(base + 'studio/');
+  await pp.fill('#email', 'owner@example.org');
+  await pp.click('#signinForm button[type=submit]');
+  await pp.waitForSelector('.shell');
+  for (const w of [320, 360, 375, 1280]) {
+    await pp.setViewportSize({ width: w, height: 780 });
+    await pp.$eval('.side [data-view="builtins"]', (e) => e.click());
+    await pp.waitForSelector('#builtinList .brow');
+    const rows = await pp.$$eval('#builtinList .brow', (rs) => rs.map((r) => {
+      const t = r.querySelector('.btitle').getBoundingClientRect(), k = r.querySelector('.bctrls').getBoundingClientRect(), b = r.getBoundingClientRect();
+      return { tw: t.width / b.width, below: k.top >= t.bottom - 1, inside: t.left >= b.left + 8 && k.left >= b.left + 8 && k.right <= b.right };
+    }));
+    const navOk = await pp.$eval('.side nav .nav.on', (e) => { const r = e.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; });
+    const phone = w < 600;
+    check(rows.length > 5 && rows.every((r) => r.inside && (phone ? r.tw > 0.8 && r.below : !r.below)) && navOk && await pp.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      `built-ins at ${w}px: ${phone ? 'title full width, controls on their own row' : 'title and controls on one line'}, inside the card, current tab in view`);
+  }
+  await pp.setViewportSize({ width: 360, height: 780 });
+  await pp.click('.top .help');
+  await pp.waitForSelector('.guide');
+  check(await pp.evaluate(() => document.activeElement.id === 'g-builtins' && document.querySelectorAll('.gpart').length >= 10), 'guide: the “?” on a section opens the guide at that part');
+  await pp.click('[data-gjump="team"]');
+  check(await pp.evaluate(() => document.activeElement.id === 'g-team' && !location.hash), 'guide: contents links jump within the guide');
+  check(await pp.$eval('.me .guidebtn', (e) => { const r = e.getBoundingClientRect(); return r.top >= 0 && r.right <= innerWidth; }), 'guide: the guide button is on screen at the top on a phone');
+  await pctx.close();
+}
+
 check(errors.length === 0, `no script errors ${errors.join(' | ')}`);
 await browser.close();
 server.close();

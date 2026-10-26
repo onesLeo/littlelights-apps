@@ -38,6 +38,24 @@ await cp(resolve(root, '_redirects'), resolve(output, '_redirects'));
 // index.html, one page per address, and sitemap.xml.
 await prerender(root, output);
 
+// The Studio's files keep their names, so its page asks for each with ?v=<hash of the file>: a phone
+// that still holds yesterday's studio.css (HTTP cache or the service worker) fetches the new one,
+// instead of mixing new markup with old styles.
+{
+  const studioPage = resolve(output, 'studio', 'index.html');
+  let html = await readFile(studioPage, 'utf8');
+  html = await replaceAsync(html, /(href|src)="((?:\.\.\/)?[\w/]+\.(?:css|js))"/g, async (m, attr, ref) => {
+    const body = await readFile(resolve(root, 'studio', ref));
+    return `${attr}="${ref}?v=${createHash('sha256').update(body).digest('hex').slice(0, 10)}"`;
+  });
+  await writeFile(studioPage, html);
+}
+async function replaceAsync(text, re, fn) {
+  const parts = await Promise.all([...text.matchAll(re)].map((m) => fn(...m)));
+  let i = 0;
+  return text.replace(re, () => parts[i++]);
+}
+
 // Fingerprinted copies of the app's CSS and scripts, for the public pages only. A copy's name holds a
 // hash of its contents (/assets/app.3f2a9c1b.js), so _headers lets browsers keep it for a year: a
 // changed file gets a new name, the pages (served fresh every time) point at the new name, and sw.js
