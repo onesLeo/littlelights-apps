@@ -579,8 +579,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       (owner ? '' : '<p class="role-note">Only owners can change this.</p>') +
       '<div class="list" id="builtinList">' + builtinItems().map(function (it) {
         var off = hidden.indexOf(it.key) >= 0;
-        return '<div class="row" data-key="' + esc(it.key) + '"><span><b>' + esc(it.title) + '</b><small>' + esc(it.type) + (it.silent ? ' · no recording yet, not shown in the app' : '') + '</small></span>' +
-          '<span style="display:flex;gap:8px;align-items:center"><span class="pill ' + (off ? 'draft' : 'published') + '">' + (off ? 'Hidden' : 'Visible') + '</span>' + (it.byDefault ? '<small>hidden by default</small>' : '') +
+        return '<div class="row brow" data-key="' + esc(it.key) + '"><span class="btitle"><b>' + esc(it.title) + '</b><small>' + esc(it.type) + (it.silent ? ' · no recording yet, not shown in the app' : '') + '</small></span>' +
+          '<span class="bctrls"><span class="pill ' + (off ? 'draft' : 'published') + '">' + (off ? 'Hidden' : 'Visible') + '</span>' + (it.byDefault ? '<small>hidden by default</small>' : '') +
           (owner ? '<button class="btn ghost small" type="button" data-bhide="' + esc(it.key) + '" aria-pressed="' + off + '">' + (off ? 'Show' : 'Hide') + '</button>' : '') + '</span></div>';
       }).join('') + '</div>' +
       (owner ? '<div style="margin-top:16px"><button class="btn primary" type="button" id="saveHidden"' + (state.busy ? ' disabled' : '') + '>Save</button></div>' : '');

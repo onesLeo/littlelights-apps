@@ -109,6 +109,13 @@ p { margin: 0; }
 .pill.scheduled { background: var(--warn-bg); color: var(--warn); }
 .pill.draft { background: var(--draft-bg); color: var(--draft); }
 .empty { padding: 28px; text-align: center; color: var(--muted); }
+/* Built-in content rows have no stripe/when cells: own two-column grid (title takes the rest), controls wrap under the title on narrow screens. */
+.row.brow { grid-template-columns: minmax(0, 1fr) auto; padding: 12px 16px; cursor: default; }
+.brow .btitle { min-width: 0; overflow-wrap: anywhere; }
+.brow .btitle small { display: block; }
+.brow .bctrls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
+.brow .btn.small { min-height: 44px; min-width: 64px; color: var(--ink); border: 1px solid var(--line); }
+@media (max-width: 600px) { .row.brow { grid-template-columns: minmax(0, 1fr); gap: 8px; } .brow .bctrls { justify-content: flex-start; } }
 @media (max-width: 560px) { .row { grid-template-columns: 6px 1fr auto; } .row .when { display: none; } }
 
 /* ---------- new post: type picker ---------- */
