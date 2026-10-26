@@ -65,7 +65,7 @@ export function siteContent({ C, S }, { posts, settings }) {
   const seriesMap = new Map();
   for (const r of reels) if (r.series) { const s = seriesMap.get(r.series) || { series: r.series, desc: '', reels: [] }; s.reels.push(r); if (r.seriesDesc && !s.desc) s.desc = r.seriesDesc; seriesMap.set(r.series, s); }
   for (const s of seriesMap.values()) s.reels.sort((a, b) => a.episode - b.episode);
-  return { nav, episodes, devotions, reels, series: [...seriesMap.values()] };
+  return { nav, episodes, devotions, reels, series: [...seriesMap.values()], stories: C.bedtimeStories || [] };
 }
 
 // The Watch gallery (js/app.js renderWatch/units) leads with its newest video or series, the biggest
@@ -103,9 +103,11 @@ export function pageList(site) {
     // Screens that are switched off or "coming soon" still answer (old links), but stay out of search.
     const page = { tab, meta, file: fileFor(meta.path), noindex: !on(tab), episodes: site.episodes, reels: site.reels.filter((r) => !r.series), devotions: site.devotions };
     if (tab === 'watch') Object.assign(page, watchHero(site));
+    if (tab === 'listen') page.stories = site.stories;
     pages.push(page);
   }
   pages.push({ tab: 'today', meta: { ...SEO.meta('page', 'today') }, file: 'today.html', alias: true });
+  if (on('listen')) for (const x of site.stories || []) { const meta = SEO.meta('story', x); pages.push({ tab: 'listen', kind: 'story', item: x, meta, file: fileFor(meta.path), stories: site.stories }); }
   if (on('read')) for (const d of site.devotions) { const meta = SEO.meta('devotion', d); pages.push({ tab: 'read', kind: 'devotion', item: d, meta, file: fileFor(meta.path) }); }
   if (on('watch')) {
     for (const r of site.reels) { const meta = SEO.meta('reel', r); pages.push({ tab: 'watch', kind: 'reel', item: r, meta, file: fileFor(meta.path), ...watchHero(site), ...playerPoster(r) }); }

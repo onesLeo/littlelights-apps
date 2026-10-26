@@ -1505,3 +1505,55 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
   .p-rwm { height: 26px; }
   .p-rwm .wm, .p-app:not(.night) .p-rwm .wm { font-size: 18px; }
 }
+
+/* Bedtime story page (/listen/<slug>, js/seo.js storyHtml). Same look as a devotion article (.p-article),
+   on a computer the article column is centred like a devotion (see .p-article in the 900px+ rules). */
+.p-epage .back { text-decoration: none; }
+.p-epage .p-ep-by { font-size: 13px; font-weight: 700; }
+.p-sbody h2 { margin: 10px 0 0; font: 800 20px/1.15 var(--display); }
+.p-ep-player { display: grid; gap: 6px; padding: 12px; border-radius: 16px; background: rgba(0,0,0,.06); }
+.p-ep-player audio { width: 100%; }
+.p-ep-note { margin: 0; font: 700 12px var(--display); color: #6b2b14; }
+.p-sbody .p-word { background: #fde7a8; color: #2a1f33; border-radius: 4px; padding: 0 3px; }
+.p-ep-word { margin: 0; padding: 10px 12px; border-radius: 12px; background: #fff1c9; color: #2a1f33; font-family: var(--display); font-size: 15px; }
+.p-ep-verse .meta { display: block; margin-top: 6px; font-style: normal; }
+.p-ep-night { font-style: italic; }
+.p-ep-qs { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+.p-ep-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 8px; }
+.p-ep-card { display: grid; gap: 6px; padding: 16px; border-radius: 18px; background: #e9defa; color: #1d1233; text-decoration: none; font-family: var(--display); }
+.p-ep-card.join { background: #d9efdf; color: #10281b; }
+.p-ep-card b { font-size: 16px; line-height: 1.25; }
+.p-ep-card > span:last-child { font-weight: 700; font-size: 13px; }
+.p-ep-card:focus-visible, .p-epage .back:focus-visible { outline: 3px solid #f5c26b; outline-offset: 2px; }
+.p-app.night .p-ep-player { background: rgba(255,255,255,.07); }
+.p-app.night .p-ep-note { color: #ffc9b8; }
+.p-app.night .p-ep-word { background: #3a3163; color: #fbe6a6; }
+.p-app.night .p-sbody .p-word { background: #fbe6a6; color: #1a1422; }
+.p-app.night .p-ep-card { background: #2a2446; color: #e3d6fb; }
+.p-app.night .p-ep-card.join { background: #1d2e24; color: #cfeed6; }
+.p-app.calm .p-epage { animation: none; }
+@media (prefers-reduced-motion: reduce) { .p-epage { animation: none; } }
+/* "Goodnight Little Light" on /listen: bedtime story rows are links (same look as the episode rows). */
+.p-gn { margin-bottom: 14px; }
+.p-gn h2.p-sec { margin: 0; }
+.p-gnrow { text-decoration: none; }
+.p-gnrow:focus-visible { outline: 3px solid #f5c26b; outline-offset: 2px; }
+.p-gnrow .p-pp svg { fill: none; }
+
+/* Read-along highlight on bedtime story pages (js/app.js readAlong). Soft gold sentence, underlined word.
+   No movement: only colours change, and not even a fade in calm mode or with reduced motion. */
+.p-ra-toggle { justify-self: start; min-height: 44px; padding: 8px 14px; border-radius: 999px; border: 1.5px solid #6b4fa0; background: transparent; color: #4a2f7a; font: 600 14px var(--display); cursor: pointer; }
+.p-ra-toggle[aria-pressed="true"] { background: #6b4fa0; color: #fff; }
+.p-ra .p-sen { cursor: pointer; border-radius: 6px; padding: 1px 0; -webkit-box-decoration-break: clone; box-decoration-break: clone; transition: background-color .25s ease; }
+.p-ra .p-sen:hover { background: rgba(253,231,168,.45); }
+.p-ra .p-sen:focus-visible { outline: 3px solid #6b4fa0; outline-offset: 2px; }
+.p-ra .p-sen.on { background: #fff0c2; color: #2a1f33; box-shadow: 0 0 0 3px #fff0c2; }
+.p-ra .p-w.on { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; text-decoration-color: #8a5a00; }
+.p-app.night .p-ra-toggle { border-color: #c9b3f2; color: #e6dbfa; }
+.p-app.night .p-ra-toggle[aria-pressed="true"] { background: #c9b3f2; color: #1d1233; }
+.p-app.night .p-ra .p-sen:hover { background: rgba(251,230,166,.12); }
+.p-app.night .p-ra .p-sen:focus-visible { outline-color: #c9b3f2; }
+.p-app.night .p-ra .p-sen.on { background: #4a3c14; color: #fdf3d6; box-shadow: 0 0 0 3px #4a3c14; }
+.p-app.night .p-ra .p-w.on { text-decoration-color: #fbe6a6; }
+.p-app.calm .p-ra .p-sen { transition: none; }
+@media (prefers-reduced-motion: reduce) { .p-ra .p-sen { transition: none; } }

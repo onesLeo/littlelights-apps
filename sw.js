@@ -1,6 +1,6 @@
 // Offline support: the app shell is cached on install; fonts are cached the first time they load.
 // Bump VERSION whenever a cached file changes so visitors get the new one.
-const VERSION = 'll-v72';
+const VERSION = 'll-v73';
 const SHELL = [
   './',
   'index.html',
@@ -23,6 +23,8 @@ const SHELL = [
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
+  // Bedtime story read-along timings (js/content.js bedtimeStories[].timings), so the highlight works offline.
+  'media/audio/jonah-and-the-whale-timings.json',
 ];
 
 self.addEventListener('install', (event) => {
