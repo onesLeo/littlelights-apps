@@ -9,3 +9,6 @@ workers_dev = false
 
 [triggers]
 crons = ["15 0 * * *"] # 00:15 UTC daily (08:15 Singapore)
+
+[observability]
+enabled = true
