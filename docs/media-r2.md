@@ -71,3 +71,19 @@ Each story's share image (og:image, twitter:image, JSON-LD `image`) is set in on
 `media/audio/jonah-and-the-whale-cover.jpg`, 1200x630 JPEG. To swap it, replace the file (or point `image`
 at a new one) and keep the width/height equal to the real size; `tests/listen-story.mjs` checks this.
 Empty `image` falls back to the site's default share image.
+
+## Read-along timings (bedtime stories)
+
+The highlight on `/listen/<slug>` (current sentence in soft gold, current word underlined, tap a sentence to jump) reads one JSON file per story. **Single swap point:** `timings:` on the story in `js/content.js` (`bedtimeStories`), today `media/audio/jonah-and-the-whale-timings.json`.
+
+Shape, times in seconds from the start of the audio, one entry per spoken sentence, in order:
+
+```json
+[{"text":"Hi, little light.","start":0.5,"end":2.24,"words":[{"text":"Hi,","start":0.5,"end":0.77}, …]}, …]
+```
+
+- The file now is a **stub** spread evenly over the 90 s silent placeholder (`npm run stub-timings -- <slug>`). It is not real narration timing.
+- Text and timings change together. When the narration is re-recorded: (1) update `story`, `prayer`, `goodnight` in `js/content.js` if the words changed, (2) swap the audio (`src`/`dur`, section above), (3) replace the timings file with real timings for that recording (e.g. a forced-alignment export converted to the shape above), keeping the same file name, or change `timings:` **and** the matching line in `sw.js` `SHELL` (the test checks they agree), (4) run `npm test`.
+- Matching ignores case, punctuation and curly/straight quotes. Spoken lines that aren't on the page (e.g. "Let’s pray.") are skipped. A narration line may cover two shown sentences. If anything else doesn't line up (missing file, broken JSON, changed or missing sentence, times out of order), the page quietly stays plain text with no toggle. If only a sentence's words don't line up, that sentence still highlights without the word underline.
+- Offline: `sw.js` precaches the timings file (SHELL), and it is also kept by the normal same-site cache. The file is served from the site, not R2, and nothing else is fetched.
+- The on/off toggle is stored only on the device (`localStorage` `ll.readAlong`), never sent anywhere.

@@ -67,7 +67,7 @@ window.LL_CONTENT = {
   // Bedtime Bible Stories: one page each at /listen/<slug> (written by scripts/prerender.mjs, opened by
   // js/app.js). Wording comes from littlelights-growth content/2026-11-content-plan.md; do not edit it here
   // without updating the plan. Jonah 2:2 is WEB (with "Yahweh" explained), per plan commit 7ca1d09.
-  // AUDIO: `src` is a 5-second silent PLACEHOLDER. When the real narration arrives, upload it to R2 as
+  // AUDIO: `src` is a 90-second silent PLACEHOLDER (same length as `dur`, so the stub read-along timings play through). When the real narration arrives, upload it to R2 as
   // audio/<slug>.<hash>.mp3 (docs/media-r2.md, "Bedtime story audio"), set
   // src: MEDIA_BASE + 'audio/jonah-and-the-whale-bedtime-story.<hash>.mp3', set `dur` to its length in
   // seconds, delete `placeholder`, and bump VERSION in sw.js.
@@ -80,6 +80,10 @@ window.LL_CONTENT = {
       desc: 'A gentle bedtime Bible story about Jonah and the great fish, with a short prayer.',
       narrator: 'Mr. Ginting',
       src: 'media/audio/jonah-and-the-whale-placeholder.mp3', placeholder: true, dur: 90,
+      // Read-along timings: [{text,start,end,words:[{text,start,end}]}] in seconds, one entry per spoken sentence.
+      // Swap it together with the audio and the text above (docs/media-r2.md, "Read-along timings").
+      // The current file is a stub spread evenly over the 90 s placeholder (npm run stub-timings).
+      timings: 'media/audio/jonah-and-the-whale-timings.json',
       color: '#a07fd6', ink: '#1d1233',
       // Narration, split into paragraphs (wording unchanged). The word in `word` is highlighted in the text.
       story: [

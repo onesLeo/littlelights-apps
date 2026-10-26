@@ -63,6 +63,15 @@ export function serve(port = 8080, options = {}) {
     const extra = headersFor(rules, path);
     try {
       const body = await readFile(file);
+      // Byte ranges, like Cloudflare Pages and R2: audio can only jump to a time when the server allows this.
+      const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+      if (range && (range[1] || range[2])) {
+        const start = range[1] ? +range[1] : Math.max(0, body.length - +range[2]);
+        const end = range[1] && range[2] ? Math.min(+range[2], body.length - 1) : body.length - 1;
+        res.writeHead(206, { 'Content-Type': TYPES[extname(file)] || 'application/octet-stream', 'Content-Range': `bytes ${start}-${end}/${body.length}`, 'Accept-Ranges': 'bytes', 'Cache-Control': 'no-cache', ...extra });
+        res.end(body.subarray(start, end + 1));
+        return;
+      }
       res.writeHead(200, { 'Content-Type': TYPES[extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache', ...extra });
       res.end(body);
     } catch {

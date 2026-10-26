@@ -123,12 +123,12 @@
           '<audio controls preload="none" src="' + esc(src) + '">Your browser can\u2019t play this audio.</audio>' +
           (x.placeholder ? '<p class="p-ep-note" data-placeholder-audio>[PLACEHOLDER AUDIO: the narration is coming soon]</p>' : '') +
         '</div>' +
-        '<h2>The story</h2>' + (x.story || []).map(function (p) { return '<p>' + mark(p, x.word) + '</p>'; }).join('') +
+        '<h2>The story</h2>' + (x.story || []).map(function (p, i) { return '<p data-ra="story-' + i + '">' + mark(p, x.word) + '</p>'; }).join('') +
         '<h2>Bible verse</h2>' +
         '<blockquote class="p-ep-verse">\u201c' + mark(x.verse.text, x.word) + '\u201d<br><span class="meta">' + esc(x.verse.ref) + ' (' + esc(x.verse.version) + ')</span></blockquote>' +
         (x.word ? '<p class="p-ep-word"><span aria-hidden="true">\u{1F4A1} </span><b>Word to know:</b> ' + esc(x.word.meaning) + '</p>' : '') +
-        '<h2>Let\u2019s pray</h2><div class="pray">' + esc(x.prayer) + '</div>' +
-        (x.goodnight ? '<p class="p-ep-night">' + esc(x.goodnight) + '</p>' : '') +
+        '<h2>Let\u2019s pray</h2><div class="pray" data-ra="prayer">' + esc(x.prayer) + '</div>' +
+        (x.goodnight ? '<p class="p-ep-night" data-ra="goodnight">' + esc(x.goodnight) + '</p>' : '') +
         '<h2>3 questions to ask afterwards</h2>' +
         (qs ? '<ol class="p-ep-qs">' + qs.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join('') + '</ol>'
           : '<ol class="p-ep-qs" data-placeholder-questions><li>[PLACEHOLDER: question 1 not in the content plan yet]</li><li>[PLACEHOLDER: question 2 not in the content plan yet]</li><li>[PLACEHOLDER: question 3 not in the content plan yet]</li></ol>') +
@@ -138,5 +138,82 @@
         '</div>' +
       '</div>';
   }
-  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, storyImage: storyImage };
+
+  // ---------- read-along (bedtime stories) ----------
+  // The text on the page is split into sentences and words, then lined up with the timings file
+  // ([{text,start,end,words:[{text,start,end}]}]). Matching ignores case, punctuation and curly vs straight
+  // quotes. Narration that isn't on the page (e.g. "Let's pray.") is allowed and skipped; anything else that
+  // doesn't line up returns null, and the page stays plain text.
+  function raNorm(t) {
+    return String(t || '').toLowerCase().replace(/[\u2018\u2019\u02bc]/g, "'").replace(/[^a-z0-9' ]+/g, ' ')
+      .replace(/(^|\s)'+|'+(?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+  function raSentences(text) {
+    return String(text || '').split(/(?<=[.!?\u2026][\u2019\u201d'"]?)\s+/).filter(function (x) { return x.trim(); });
+  }
+  // parts: [{key, text}] in reading order. Returns {sentences:[{part, text, start, end, words|null}], count} or null.
+  function raMatch(parts, timings) {
+    if (!Array.isArray(timings) || !timings.length) return null;
+    var shown = [];
+    parts.forEach(function (p) {
+      raSentences(p.text).forEach(function (t) { shown.push({ part: p.key, text: t, n: raNorm(t) }); });
+    });
+    var all = shown.map(function (x) { return x.n; }).join(' ');
+    var out = [], i = 0, last = -1;
+    for (var k = 0; k < timings.length; k++) {
+      var tm = timings[k];
+      if (!tm || typeof tm.start !== 'number' || typeof tm.end !== 'number' || !(tm.end >= tm.start) || tm.start < last) return null;
+      last = tm.start;
+      var n = raNorm(tm.text);
+      while (i < shown.length && !shown[i].n) out.push(shown[i++]); // e.g. an emoji on its own: never timed
+      // The narration may group sentences differently ("Go!" he said.): join shown pieces of one part until they match.
+      var j = i, acc = '';
+      while (j < shown.length && shown[j].part === (shown[i] || {}).part) {
+        acc = acc ? acc + ' ' + shown[j].n : shown[j].n; j++;
+        if (acc === n || n.indexOf(acc + ' ') !== 0) break;
+      }
+      if (i < shown.length && n && acc === n) {
+        var x = shown[i];
+        if (j - i > 1) x = { part: x.part, text: shown.slice(i, j).map(function (y) { return y.text; }).join(' '), n: n };
+        i = j;
+        x.start = tm.start; x.end = tm.end; x.words = raWords(x.text, tm.words);
+        out.push(x);
+      } else if (n && all.indexOf(n) === -1) {
+        continue; // spoken but not shown
+      } else return null;
+    }
+    while (i < shown.length && !shown[i].n) out.push(shown[i++]);
+    if (i < shown.length) return null;
+    return { sentences: out, count: out.filter(function (x) { return x.start != null; }).length };
+  }
+  function raWords(text, words) {
+    var toks = text.split(/\s+/).filter(Boolean);
+    if (!Array.isArray(words)) return null;
+    var spoken = toks.filter(function (t) { return raNorm(t); });
+    if (spoken.length !== words.length) return null;
+    for (var j = 0; j < words.length; j++) {
+      var w = words[j];
+      if (!w || raNorm(w.text) !== raNorm(spoken[j]) || typeof w.start !== 'number' || typeof w.end !== 'number') return null;
+    }
+    return words;
+  }
+  // HTML for one part, sentence spans first (data-si = index into match.sentences), word spans inside.
+  function raHtml(match, key, word) {
+    var key2 = word && raNorm(word.word);
+    return match.sentences.map(function (x, si) {
+      if (x.part !== key) return '';
+      var wi = 0;
+      var inner = x.text.split(/(\s+)/).map(function (t) {
+        if (!t.trim()) return t;
+        var n = raNorm(t);
+        if (!n || !x.words) return esc(t);
+        var h = '<span class="p-w" data-wi="' + (wi++) + '">' + esc(t) + '</span>';
+        return key2 && n === key2 ? '<mark class="p-word">' + h + '</mark>' : h;
+      }).join('');
+      if (x.start == null) return inner + ' ';
+      return '<span class="p-sen" data-si="' + si + '" role="button" tabindex="0">' + inner + '</span> ';
+    }).filter(Boolean).join('').trim();
+  }
+
+  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml };
 })(typeof window !== 'undefined' ? window : globalThis);

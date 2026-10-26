@@ -507,6 +507,7 @@
       if (x) {
         if (!pre) { ep.innerHTML = SEO.storyHtml(x, 'h1'); ep.setAttribute('data-slug', x.slug); ep.scrollTop = 0; app.classList.remove('p-boot'); }
         ep.classList.add('on');
+        readAlong(ep, x);
         setHead(SEO.meta('story', x));
         return;
       }
@@ -1287,6 +1288,104 @@
     return '<button class="p-row" type="button" data-ep="' + i + '"><span class="p-art" style="background:' + e.color + '"><i></i></span>' +
       '<span><b>' + esc(e.title) + '</b><small>' + esc(e.meta) + ' · ' + fmt(e.dur) + '</small></span><span class="p-pp">' + ICON_PLAY + '</span></button>';
   }).join('');
+  // ---------- read-along highlight (bedtime story pages) ----------
+  // The sentence being read gets a soft gold background and the word a small underline. Tap (or Enter/Space)
+  // on a sentence to jump the audio there. Timings come from the story's own JSON file (js/content.js
+  // bedtimeStories[].timings, same site, cached by sw.js for offline). If the file is missing or doesn't
+  // match the text, the page simply stays plain text. On/off is remembered on this device (ll.readAlong).
+  var raCache = {};
+  function readAlong(ep, x) {
+    if (!x.timings || ep.getAttribute('data-ra-on') === x.slug) return;
+    ep.setAttribute('data-ra-on', x.slug);
+    var audio = $('audio', ep);
+    if (!audio) return;
+    var get = raCache[x.timings] || (raCache[x.timings] = fetch('/' + x.timings.replace(/^\//, ''))
+      .then(function (r) { if (!r.ok) throw new Error('timings ' + r.status); return r.json(); }));
+    get.then(function (timings) {
+      if (ep.getAttribute('data-slug') !== x.slug) return;
+      var els = $$('[data-ra]', ep);
+      var parts = els.map(function (el) { return { key: el.getAttribute('data-ra'), text: el.textContent }; });
+      var m = SEO.raMatch(parts, timings);
+      if (!m || !m.count) { console.info('Read-along off: the timings do not match the text'); return; }
+      raStart(ep, audio, x, els, m);
+    }).catch(function () { delete raCache[x.timings]; /* no timings: plain text */ });
+  }
+  function raStart(ep, audio, x, els, m) {
+    var plain = els.map(function (el) { return el.innerHTML; });
+    var on = store('readAlong') !== 'off', sens = [], cur = -1, curW = -1, raf = 0, userAt = 0;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'p-ra-toggle';
+    audio.parentNode.appendChild(btn);
+    function si(el) { return m.sentences[+el.getAttribute('data-si')]; }
+    function draw() {
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.textContent = on ? 'Read-along highlight: on' : 'Read-along highlight: off';
+      els.forEach(function (el, i) { el.innerHTML = on ? SEO.raHtml(m, el.getAttribute('data-ra'), x.word) : plain[i]; });
+      ep.classList.toggle('p-ra', on);
+      sens = on ? $$('.p-sen', ep) : [];
+      cur = curW = -1;
+      tick();
+    }
+    function find(t) {
+      var k = -1;
+      for (var i = 0; i < sens.length; i++) { if (si(sens[i]).start <= t) k = i; else break; }
+      return k;
+    }
+    function tick() {
+      if (!on) return;
+      var t = audio.currentTime, k = audio.ended ? -1 : find(t);
+      if (k > -1 && k === sens.length - 1 && t > si(sens[k]).end + 2) k = -1;
+      if (k !== cur) {
+        if (cur > -1 && sens[cur]) sens[cur].classList.remove('on');
+        $$('.p-w.on', ep).forEach(function (w) { w.classList.remove('on'); });
+        cur = k; curW = -1;
+        if (k > -1) { sens[k].classList.add('on'); if (!audio.paused) follow(sens[k]); }
+      }
+      if (k > -1) {
+        var s = si(sens[k]), wk = -1;
+        if (s.words) for (var j = 0; j < s.words.length; j++) { if (s.words[j].start <= t) wk = j; else break; }
+        if (wk !== curW) {
+          var ws = $$('.p-w', sens[k]);
+          if (ws[curW]) ws[curW].classList.remove('on');
+          if (ws[wk]) ws[wk].classList.add('on');
+          curW = wk;
+        }
+      }
+    }
+    // Gentle follow: only while playing, only when the sentence is off screen, and never within
+    // 5 seconds of the reader scrolling themselves.
+    function follow(el) {
+      if (Date.now() - userAt < 5000) return;
+      var r = el.getBoundingClientRect(), vh = window.innerHeight || 0;
+      if (r.top >= 70 && r.bottom <= vh - 90) return;
+      var still = app.classList.contains('calm') || media('(prefers-reduced-motion: reduce)');
+      el.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' });
+    }
+    function loop() { tick(); raf = audio.paused ? 0 : requestAnimationFrame(loop); }
+    function seek(el) {
+      var s = si(el);
+      if (!s) return;
+      audio.currentTime = s.start;
+      tick();
+      if (audio.paused) { var p = audio.play(); if (p && p.catch) p.catch(function () {}); }
+    }
+    ['wheel', 'touchmove'].forEach(function (ev) { ep.addEventListener(ev, function () { userAt = Date.now(); }, { passive: true }); });
+    ep.addEventListener('keydown', function (e) {
+      var s = on && e.target.closest && e.target.closest('.p-sen');
+      if (s && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); seek(s); return; }
+      if (/^(PageUp|PageDown|ArrowUp|ArrowDown|Home|End| )$/.test(e.key)) userAt = Date.now();
+    });
+    ep.addEventListener('click', function (e) {
+      var s = on && e.target.closest('.p-sen');
+      if (s) { seek(s); return; }
+      if (e.target === btn) { on = !on; store('readAlong', on ? 'on' : 'off'); draw(); }
+    });
+    audio.addEventListener('play', function () { userAt = 0; if (!raf) loop(); });
+    ['pause', 'seeked', 'timeupdate', 'ended'].forEach(function (ev) { audio.addEventListener(ev, tick); });
+    draw();
+  }
+
   // "Goodnight Little Light": bedtime stories, each a link to its own page (/listen/<slug>).
   (function goodnightSection() {
     var list = C.bedtimeStories || [], wrap = $('#pGnWrap');
