@@ -38,6 +38,10 @@ check(/audio is/.test(S.validateTimings(jonahT, 100).error || ''), 'timings long
 check(S.sgtDayStart('2026-11-09') === '2026-11-08T16:00:00.000Z', 'publish date = midnight SGT');
 check(S.sgtDay('2026-11-08T16:00:00.000Z') === '2026-11-09' && S.sgtDay('2026-11-08T15:59:59Z') === '2026-11-08', 'ISO -> SGT day');
 check(S.sgtDayStart('9 Nov') === '', 'bad date rejected');
+check(S.sgtStart('2026-11-09') === '2026-11-08T16:00:00.000Z' && S.sgtStart('2026-11-09', '00:00') === S.sgtStart('2026-11-09'), 'schedule time defaults to 00:00 SGT');
+check(S.sgtStart('2026-11-09', '18:30') === '2026-11-09T10:30:00.000Z' && S.sgtTime('2026-11-09T10:30:00.000Z') === '18:30', 'schedule at 18:30 SGT round-trips');
+check(S.sgtStart('2026-11-09', '24:00') === '' && S.sgtStart('2026-11-09', '7pm') === '', 'bad time rejected');
+check(S.sgtTime('2026-11-03T16:00:00+00:00') === '00:00' && S.sgtDay('2026-11-03T16:00:00+00:00') === '2026-11-04', 'post 36 reads back as 4 Nov 00:00 SGT');
 
 // ---- post -> story, merge ----
 const past = new Date(Date.now() - 86400e3).toISOString(), future = new Date(Date.now() + 5 * 86400e3).toISOString();

@@ -93,13 +93,13 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (!iso) return '—';
     var d = new Date(iso);
     if (isNaN(d)) return '—';
-    return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined }) +
-      ', ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    return whenParts(iso).date + ' · ' + whenParts(iso).time;
   }
-  function toLocalInput(iso) {
-    if (!iso) return '';
-    var d = new Date(iso);
-    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  // Every date in the Studio is shown in Singapore time (UTC+8), the zone schedules use: '9 Nov 2026', '12:00 AM SGT'.
+  function whenParts(iso) {
+    var d = new Date(iso), z = { timeZone: 'Asia/Singapore' };
+    return { date: d.toLocaleDateString('en-GB', Object.assign({ day: 'numeric', month: 'short', year: 'numeric' }, z)),
+      time: d.toLocaleTimeString('en-US', Object.assign({ hour: 'numeric', minute: '2-digit', hour12: true }, z)) + ' SGT' };
   }
   function canPublish() { return state.session && (state.session.role === 'owner' || state.session.role === 'editor'); }
   function isOwner() { return state.session && state.session.role === 'owner'; }
@@ -164,7 +164,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var r = (state.history || []).filter(function (x) { return String(x.id) === String(revId); })[0];
     if (!r) return;
     var cur = state.editing, e = toEditing(r.snapshot);
-    ['id', 'status', 'publish_at', 'when', '_mode', 'slug', 'created_at', 'author_email'].forEach(function (k) { e[k] = cur[k]; });
+    ['id', 'status', 'publish_at', 'publish_date', 'publish_time', '_mode', 'slug', 'created_at', 'author_email'].forEach(function (k) { e[k] = cur[k]; });
     state.editing = e; state.errors = {};
     render(); window.scrollTo(0, 0);
     toast('Loaded the version from ' + fmtWhen(r.changed_at) + '. ' + (cur.status === 'draft' ? 'Save' : 'Update') + ' the post to keep it.');
@@ -175,11 +175,15 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   // post (stored shape) <-> editing (flat form shape)
   function toEditing(p) {
     var e = { id: p.id, type: p.type, status: p.status, title: p.title, show_on_today: p.show_on_today !== false,
-      media_url: p.media_url || '', publish_at: p.publish_at || '', when: toLocalInput(p.status === 'scheduled' ? p.publish_at : ''),
+      media_url: p.media_url || '', publish_at: p.publish_at || '',
       slug: p.slug, created_at: p.created_at, author_email: p.author_email, _fields: p.fields || {} };
     FIELDS[p.type].forEach(function (k) { e[k] = (p.fields || {})[k]; });
     if (p.type === 'verse') { e.topics = e.topics || []; e.translation = e.translation || 'WEB'; }
-    if (p.type === 'story') { e.publish_date = e.publish_date || S.sgtDay(p.publish_at); if (e.seconds != null) e.seconds = +e.seconds || 0; }
+    if (p.type === 'story' && e.seconds != null) e.seconds = +e.seconds || 0;
+    // Schedule: a day and a clock time in Singapore time (00:00 unless one was picked).
+    var sched = p.status === 'scheduled' && p.publish_at;
+    e.publish_date = sched ? S.sgtDay(p.publish_at) : (p.type === 'story' && e.publish_date) || '';
+    e.publish_time = sched ? S.sgtTime(p.publish_at) : '00:00';
     e._mode = p.status === 'scheduled' && !S.isLive(p) ? 'schedule' : 'now';
     return e;
   }
@@ -201,11 +205,11 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       // Stories are released by day (Singapore time); the number fields stay numbers.
       p.show_on_today = false;
       ['seconds', 'image_width', 'image_height', 'timings_info'].forEach(function (k) { if (p.fields[k] != null && k !== 'timings_info') p.fields[k] = +p.fields[k] || 0; });
-      if (status === 'scheduled') { p.publish_at = S.sgtDayStart(e.publish_date); p.fields.publish_date = e.publish_date; return p; }
+      if (status === 'scheduled') { p.publish_at = S.sgtStart(e.publish_date, e.publish_time); p.fields.publish_date = e.publish_date; return p; }
       if (status === 'published') p.fields.publish_date = S.sgtDay(p.publish_at = e.status === 'published' && e.publish_at ? e.publish_at : new Date().toISOString());
       if (status !== 'draft') return p;
     }
-    if (status === 'scheduled') p.publish_at = new Date(e.when).toISOString();
+    if (status === 'scheduled') p.publish_at = S.sgtStart(e.publish_date, e.publish_time);
     else if (status === 'published') p.publish_at = e.status === 'published' && e.publish_at ? e.publish_at : new Date().toISOString();
     else p.publish_at = null;
     return p;
@@ -341,6 +345,20 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     return '<span class="thumb" style="background:' + t.color + ';color:' + t.ink + '" aria-hidden="true">' +
       (poster ? '<img alt="" loading="lazy" data-src="' + esc(poster) + '">' : '<span>' + esc(t.name[0]) + '</span>') + '</span>';
   }
+  // Date column: what the time means (Goes live / Published / Edited), the day and the clock time in SGT.
+  function dateCell(p, st) {
+    var iso = st === 'draft' ? p.updated_at : p.publish_at || p.updated_at;
+    if (!iso || isNaN(new Date(iso))) return '<td class="c-date"><span class="muted">—</span></td>';
+    var w = whenParts(iso), lbl = st === 'scheduled' ? 'Goes live' : st === 'published' ? 'Published' : 'Edited';
+    return '<td class="c-date ' + st + '" title="' + esc(lbl + ' ' + w.date + ' at ' + w.time + ' (UTC+8)') + '"><span class="dl">' + lbl + '</span> ' +
+      '<span class="dd">' + esc(w.date) + '</span> <span class="dt">· ' + esc(w.time) + '</span></td>';
+  }
+  // The line under the schedule picker: the chosen moment spelled out, so 00:00 can't be mistaken.
+  function whenSay(p) {
+    var at = S.sgtStart(p.publish_date, p.publish_time);
+    if (!at) return '00:00 is midnight at the start of the day. Good slots: 6:30 in the morning, 19:30 before bedtime.';
+    return 'Goes live <b>' + esc(fmtWhen(at)) + '</b>' + (p.type === 'story' ? '. Its page works from that minute; the Google-readable copy is added at the next 5:00 AM (SGT) rebuild.' : '.');
+  }
   function postRows() {
     var list = filteredPosts(), limit = state.limit || PAGE_SIZE, shown = list.slice(0, limit);
     if (!list.length) {
@@ -362,7 +380,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
           '<small>' + (p.show_on_today ? 'On Today' : '') + (p.show_on_today && p.author_email ? ' · ' : '') + (p.author_email ? esc(p.author_email) : '') + '</small></td>' +
           '<td class="c-type"><span class="kind"><i style="background:' + t.color + '"></i>' + t.name + '</span></td>' +
           '<td class="c-status"><span class="pill ' + st + '">' + cap(st) + '</span></td>' +
-          '<td class="c-date when">' + esc(fmtWhen(p.publish_at || p.updated_at)) + '</td>' +
+          dateCell(p, st) +
           '<td class="c-views" title="Page views and plays in the last 30 days">' + (v == null ? '<span class="muted">—</span>' : v.toLocaleString()) + '</td></tr>';
       }).join('') + '</tbody></table>' +
       '<div class="more"><span class="muted" role="status">Showing ' + shown.length + ' of ' + list.length + (list.length === 1 ? ' post' : ' posts') + '</span>' +
@@ -512,10 +530,10 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       (pub ? '<div class="seg" role="group" aria-label="When to publish">' +
         '<button type="button" data-mode="now" class="' + (mode === 'now' ? 'on' : '') + '" aria-pressed="' + (mode === 'now') + '">Publish now</button>' +
         '<button type="button" data-mode="schedule" class="' + (mode === 'schedule' ? 'on' : '') + '" aria-pressed="' + (mode === 'schedule') + '">Schedule</button></div>' +
-        (mode === 'schedule' && p.type === 'story' ? '<label class="field"><span>Publish date</span><input class="input' + (state.errors.when ? ' err' : '') + '" type="date" id="f_publish_date" data-f="publish_date" value="' + esc(p.publish_date || '') + '">' +
-          (state.errors.when ? '<span class="errmsg" role="alert">' + state.errors.when + '</span>' : '<small>The story appears at midnight Singapore time on this day. The site rebuilds every morning at 5:00 (SGT), so its Google-readable page appears the same day.</small>') + '</label>' : '') +
-        (mode === 'schedule' && p.type !== 'story' ? '<label class="field"><span>Date and time</span><input class="input' + (state.errors.when ? ' err' : '') + '" type="datetime-local" id="f_when" data-f="when" value="' + esc(p.when) + '">' +
-          (state.errors.when ? '<span class="errmsg" role="alert">' + state.errors.when + '</span>' : '<small>Your local time. Good slots: 6:30 in the morning, 19:30 before bedtime.</small>') + '</label>' : '')
+        (mode === 'schedule' ? '<fieldset class="field when-pick"><legend>Publish date and time <span class="zone">Singapore time · SGT (UTC+8)</span></legend>' +
+          '<div class="when-row"><label><span class="sr">Date</span><input class="input' + (state.errors.when ? ' err' : '') + '" type="date" id="f_publish_date" data-f="publish_date" value="' + esc(p.publish_date || '') + '"></label>' +
+          '<label><span class="sr">Time (24-hour)</span><input class="input' + (state.errors.when ? ' err' : '') + '" type="time" step="300" id="f_publish_time" data-f="publish_time" value="' + esc(p.publish_time || '00:00') + '"></label></div>' +
+          (state.errors.when ? '<span class="errmsg" role="alert">' + state.errors.when + '</span>' : '<small class="when-say" id="whenSay" aria-live="polite">' + whenSay(p) + '</small>') + '</fieldset>' : '')
         : '<p class="role-note">' + (p.id && p.status !== 'draft' ? 'This post is live or scheduled. Only an owner or editor can change it.' : 'Contributors save drafts. An owner or editor publishes them.') + '</p>') +
       '<div class="actions">' +
         (canDelete ? (state.confirmDelete
@@ -639,10 +657,10 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       part('start', ['Open the Studio and type your email.', 'Type your password and press <b>Sign in</b>.', 'No password yet? Press <b>Email me a one-time sign-in link</b> and open the link on the same device.'],
         'Only people on the team can sign in. There is no sign-up: the owner adds you on the Team page.') +
       part('account', ['Press <b>Change password</b> at the top (beside Sign out).', 'Type a new password twice. Use at least 12 characters; a short phrase of random words works well.', 'Press <b>Sign out</b> when you finish on a shared device.']) +
-      part('posts', ['Open <b>Posts</b> to see everything on Today, Watch, Listen, Read and Verses.', 'Type in the search box, or use the kind and status chips (Published, Scheduled, Drafts) to narrow the list.', 'On a computer, press a column title to sort by title, type, status, date or views.', 'Tap a post to open it and change it.']) +
+      part('posts', ['Open <b>Posts</b> to see everything on Today, Watch, Listen, Read and Verses.', 'Type in the search box, or use the kind and status chips (Published, Scheduled, Drafts) to narrow the list.', 'On a computer, press a column title to sort by title, type, status, date or views.', 'The Date column says <b>Goes live</b> for a scheduled post, <b>Published</b> for a live one and <b>Edited</b> for a draft, with the time in Singapore time (SGT).', 'Tap a post to open it and change it.']) +
       part('write', ['Press <b>New post</b> and pick a kind: Verse, Devotion, Reel, Audio, Bedtime story or Game update.', 'Fill in the fields. The phone preview on the right shows how it will look on Today.', 'For audio and reels, choose or drop the file to upload it. For a reel you can also add a poster image or use a frame from the video.', 'Tick <b>Show on the Today feed</b> if it should appear there.'],
         'Each saved change is kept in <b>History</b> under the form. Press <b>Restore this version</b> to go back to an older one.') +
-      part('publish', ['Choose <b>Publish now</b> or <b>Schedule</b>. For Schedule, pick a date and time (your local time).', 'Press <b>Publish</b> (or <b>Schedule</b>, or <b>Update</b> for a live post).', 'Not ready? Press <b>Save draft</b>. A live post can go back with <b>Move to drafts</b>.', 'To remove a post for everyone, press <b>Delete</b>, then confirm.'],
+      part('publish', ['Choose <b>Publish now</b> or <b>Schedule</b>. For Schedule, pick a date and a time. Times are Singapore time (SGT, UTC+8); 00:00 is midnight at the start of that day.', 'Press <b>Publish</b> (or <b>Schedule</b>, or <b>Update</b> for a live post).', 'Not ready? Press <b>Save draft</b>. A live post can go back with <b>Move to drafts</b>.', 'To remove a post for everyone, press <b>Delete</b>, then confirm.'],
         'Contributors save drafts only. An owner or editor publishes them.') +
       part('story', ['Press <b>New post</b> and pick <b>Bedtime story</b>.', 'Type the <b>Title</b> first (it names the files), then the series, episode number, narrator and a one-line description for Google and link previews.',
         'Under <b>Narration (MP3)</b>, choose the final mix. It must be an MP3 (audio/mpeg), up to 50 MB; files of 6 MB or more are fine. The length is read from the file.',
@@ -650,8 +668,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
         'Fill in the <b>Bible verse</b> and its reference, the <b>prayer</b>, the goodnight line and the <b>3 questions</b> (one per line). Add a <b>Word to know</b> only if the story explains one.',
         'Under <b>Read-along timings</b>, choose the timings JSON for this mix (a list of sentences, each with text, start, end and words). The Studio checks it and says how many sentences it found.',
         'Optional: a <b>cover image</b> (1200×630 JPG works best for link previews). Without one, the site’s default share image is used.',
-        'Choose <b>Schedule</b>, pick the <b>Publish date</b> and press <b>Schedule</b>. Or press <b>Save draft</b> to finish later.'],
-        'The story appears on Listen (Goodnight Little Light) and at its own page from midnight Singapore time on its date. Before that, visitors can’t see it. Each morning at 5:00 (SGT) the site rebuilds, so the Google-readable page and sitemap include it the same day. A new mix of the audio or timings gets a new file name automatically; just upload it again and press <b>Update</b>.') +
+        'Choose <b>Schedule</b>, pick the <b>date and time</b> (Singapore time; leave 00:00 for midnight) and press <b>Schedule</b>. Or press <b>Save draft</b> to finish later.'],
+        'The story appears on Listen (Goodnight Little Light) and at its own page from the chosen time (Singapore time) on its date. Before that, visitors can’t see it. Each morning at 5:00 (SGT) the site rebuilds and adds the Google-readable page and sitemap entry; a story set for, say, 18:30 already works at 18:30 and is added to the build the next morning. A new mix of the audio or timings gets a new file name automatically; just upload it again and press <b>Update</b>.') +
       part('reelpage', ['Open a reel post.', 'Under <b>Page style</b>, choose Auto from reel, Dark, Light or Glass clear. This is the caption page on computers.', 'Under <b>Page colour</b>, pick a colour, or leave it empty to use the reel’s own colour. Text and buttons are adjusted so they stay easy to read.', 'To set the default for every reel left on Auto, go to <b>Menus</b> → <b>Reel caption page</b> and press <b>Save page style</b> (owner only).']) +
       part('media', ['Open <b>Media</b> to see the audio and video files attached to posts.', 'Press play to check a file, and see which post uses it.', 'To add a file, upload it while writing an audio or reel post.']) +
       part('menus', ['Open <b>Menus</b> (owner only).', 'For Watch, Listen, Read, Verses and Play, choose On, Coming soon or Hidden. Today is always on.', 'Write a short, friendly coming-soon message, then press <b>Save menus</b>.', 'Under <b>Content</b>, switch the verse cards on Today on or off and press <b>Save content</b>.']) +
@@ -875,13 +893,11 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       if (p.type === 'audio' && !p.media_url) e.file = 'Upload the recording before publishing, or save it as a draft.';
       if (p.type === 'reel' && !p.media_url && !p.youtube) e.file = 'Upload a video or paste a YouTube link before publishing.';
       if (p.type === 'story') Object.assign(e, validateStory(p));
-      if (p._mode === 'schedule' && p.type === 'story') {
-        var start = S.sgtDayStart(p.publish_date);
-        if (!start) e.when = 'Pick the publish date.';
-        else if (new Date(start) <= new Date()) e.when = 'Pick a day after today (Singapore time), or choose Publish now.';
-      } else if (p._mode === 'schedule') {
-        if (!p.when) e.when = 'Pick a date and time.';
-        else if (new Date(p.when) <= new Date()) e.when = 'Pick a time in the future.';
+      if (p._mode === 'schedule') {
+        var start = S.sgtStart(p.publish_date, p.publish_time);
+        if (!p.publish_date) e.when = 'Pick the publish date.';
+        else if (!start) e.when = 'Pick a time, for example 00:00 or 18:30.';
+        else if (new Date(start) <= new Date()) e.when = 'Pick a date and time in the future (Singapore time), or choose Publish now.';
       }
     }
     return e;
@@ -1307,6 +1323,15 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       ev.target.classList.remove('err');
       var msg = ev.target.parentElement.querySelector('.errmsg'); if (msg) msg.remove();
     }
+    if (f === 'publish_date' || f === 'publish_time') {
+      var wp = ev.target.closest('.when-pick');
+      if (state.errors.when && wp) {
+        delete state.errors.when;
+        Array.prototype.forEach.call(wp.querySelectorAll('.err'), function (x) { x.classList.remove('err'); });
+        var em = wp.querySelector('.errmsg'); if (em) em.outerHTML = '<small class="when-say" id="whenSay" aria-live="polite"></small>';
+      }
+      var ws = document.getElementById('whenSay'); if (ws) ws.innerHTML = whenSay(state.editing);
+    }
     if (f === 'verse') { var note = document.getElementById('verseNote'); if (note) note.textContent = verseLenNote(ev.target.value); }
     refreshPreview();
   });
@@ -1329,6 +1354,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (!state.editing) return;
     if (ev.target.dataset.check) state.editing[ev.target.dataset.check] = ev.target.checked;
     if (ev.target.dataset.f) { state.editing[ev.target.dataset.f] = ev.target.value; refreshPreview(); }
+    if (/^publish_(date|time)$/.test(ev.target.dataset.f || '')) { var ws = document.getElementById('whenSay'); if (ws) ws.innerHTML = whenSay(state.editing); }
     if (ev.target.dataset.file === 'poster') handlePoster(ev.target.files[0]);
     else if (ev.target.dataset.file === 'story_audio') handleStoryAudio(ev.target.files[0]);
     else if (ev.target.dataset.file === 'story_timings') handleStoryTimings(ev.target.files[0]);

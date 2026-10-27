@@ -74,6 +74,20 @@ check(html.includes('<link rel="preload" as="image" fetchpriority="high" href="h
   const { storyFromPost } = await import('../lib/head.mjs');
   const p36 = posts[posts.length - 1];
   check(JSON.stringify(storyFromPost(p36)) === JSON.stringify(c.LLStore.storyFromPost(p36)), 'edge storyFromPost matches js/store.js');
+
+  // A story scheduled at 18:30 SGT (not midnight): the database filter (publish_at <= now) decides, to the minute.
+  const p1830 = { ...p36, id: 99, slug: 'evening-story', publish_at: '2026-11-04T10:30:00.000Z' };
+  const pgFetch = async (url) => {
+    const u = new URL(url), lte = (u.searchParams.get('publish_at') || '').replace('lte.', '');
+    const rows = [p1830].filter((p) => 'eq.' + p.slug === u.searchParams.get('slug') && (!lte || Date.parse(p.publish_at) <= Date.parse(lte)));
+    return new Response(JSON.stringify(rows), { headers: { 'content-type': 'application/json' } });
+  };
+  const RealDate = Date, at = (iso) => { globalThis.Date = class extends RealDate { constructor(...a) { super(...(a.length ? a : [iso])); } static now() { return RealDate.parse(iso); } }; };
+  const sctx = () => ({ ...ctx('/listen/evening-story'), env: { ASSETS: { fetch: async () => new Response(listenShell, { status: 200, headers: { 'content-type': 'text/html' } }) } } });
+  at('2026-11-04T18:29:00+08:00'); res = await postPage(sctx(), 'story', pgFetch); const before = res.status;
+  at('2026-11-04T18:30:00+08:00'); res = await postPage(sctx(), 'story', pgFetch); const onTime = res.status;
+  globalThis.Date = RealDate;
+  check(before === 404 && onTime === 200, `a story set for 18:30 SGT: 404 at 18:29, live at 18:30 via the function (${before}, ${onTime})`);
 }
 
 res = await postPage(ctx('/read/no-such-post'), 'devotion', fakeFetch);

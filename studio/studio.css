@@ -424,3 +424,25 @@ th.c-views { text-align: right; }
   .me .guidebtn { font-size: 0; }
   .me .guidebtn span { font-size: 13px; margin: 0; border: 0; }
 }
+/* Schedule picker: date + time in Singapore time */
+.when-pick { border: 0; padding: 0; margin: 0; min-width: 0; }
+.when-pick legend { font-weight: 600; font-size: 13.5px; margin-bottom: 6px; padding: 0; }
+.when-pick .zone { font-weight: 500; color: var(--muted); font-size: 12.5px; margin-left: 4px; white-space: nowrap; }
+.when-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px; }
+.when-row label { display: block; min-width: 0; }
+.when-row .input { width: 100%; }
+.when-say { display: block; margin-top: 6px; }
+/* Posts table date: label, day, time (SGT) */
+.c-date { line-height: 1.35; }
+.c-date .dl { display: block; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.c-date.scheduled .dl { color: #B26B00; }
+.c-date.published .dl { color: #2E7D4F; }
+.c-date .dd { color: var(--ink, inherit); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .c-date.scheduled .dl { color: #F5C26B; } :root:not([data-theme="light"]) .c-date.published .dl { color: #7BD39A; } }
+@media (max-width: 760px) {
+  .ptable .row { grid-template-areas: "t n n s" "t ty ty v" "t d d d"; }
+  .ptable .row > .c-date { white-space: normal; overflow: visible; }
+  .ptable .row > .c-date::before { content: none; }
+  .ptable .c-date .dl { display: inline; font-size: 10.5px; margin-right: 2px; }
+}
+@media (max-width: 760px) { .ptable .c-title b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; } .ptable .row { align-items: start; } .ptable .c-status { align-self: start; } }

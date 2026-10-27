@@ -59,6 +59,12 @@ The rules live in the database (`supabase/schema.sql`), so they hold even if som
 
 Scheduled posts need no server job: a post appears as soon as its time has passed, because the app only asks for posts whose time is due.
 
+**Schedule time.** Schedule has a date and a time picker for every kind of post (stories included). Times are **Singapore time (SGT, UTC+8)** whatever the device's zone; the time starts at 00:00 (midnight at the start of that day), and the line under the picker spells the moment out, e.g. "Goes live 9 Nov 2026 · 6:30 PM SGT". `publish_at` is stored as the exact moment (`LLStore.sgtStart(day, 'HH:MM')`).
+
+**Posts table.** The Date column always shows the year and the time in SGT, with what the time means: **Goes live** (scheduled), **Published** (live) or **Edited** (drafts, last change), e.g. "Goes live · 4 Nov 2026 · 12:00 AM SGT". On a phone the date gets its own line under the title, so titles aren't squashed.
+
+**To the minute everywhere.** The app (`isLive`), the build (`scripts/prerender.mjs`, the daily 05:00 SGT rebuild) and the Cloudflare functions (`/read`, `/watch`, `/listen/<slug>`, the sitemap) all ask for `publish_at <= now`. A story set for 18:30 is listed on Listen and its page works at 18:30 through `functions/listen/[slug].js`; the prerendered page and sitemap entry follow at the next 05:00 rebuild.
+
 ## Editing and history
 
 Published posts can be edited: open the post, change it and press **Update**. The app shows the new version on the next visit, at the same address.
@@ -106,9 +112,9 @@ Studio → New post → **Bedtime story** makes a story that shows like the buil
 - **Narration**: an MP3 only (`audio/mpeg`, checked by its first bytes), up to 50 MB, so a full 6–15 MB mix is fine. Its length is read and saved. It is stored as `stories/<slug>.<hash>.mp3`. The name includes a hash of the content, so a new mix always gets a new address and can be cached for a year.
 - **Timings**: the read-along JSON (`{ "words": [...], "sentences": [...] }`). It is checked before upload: times must go forward, sentences must not overlap, and nothing may end after the audio.
 - **Cover** (optional): JPG, PNG or WebP, 1200×630 is best.
-- **Publish date**: a date in Singapore time. The story stays hidden until 00:00 SGT that day (the database rule "Live posts are public" enforces this, as well as the app).
+- **Publish date and time**: Singapore time, 00:00 unless you pick another time. The story stays hidden until that moment (the database rule "Live posts are public" enforces this, as well as the app).
 
-A story with the same slug as a built-in one replaces it from its publish date. Elijah (Bedtime #2) is Studio-only: it is no longer built in (its original entry is kept in `supabase/seed/elijah-story.json`), so it appears only when its Studio post goes live.
+A story with the same slug as a built-in one replaces it from its publish time. Elijah (Bedtime #2) is Studio-only: it is no longer built in (its original entry is kept in `supabase/seed/elijah-story.json`), so it appears only when its Studio post goes live.
 
 A story that goes live between rebuilds is listed on /listen straight away, and a direct visit to `/listen/<slug>` is answered by `functions/listen/[slug].js` (the page is built from the database) until the next daily rebuild writes the file. Before its publish time the address is the not-found page.
 
@@ -116,7 +122,7 @@ A story that goes live between rebuilds is listed on /listen straight away, and 
 
 1. Apply the migration `supabase/migrations/20261027120000_bedtime_story_posts.sql` (Supabase → SQL Editor, or `supabase db push`). It only widens the allowed post types to include `story`.
 2. Optional: run `supabase/seed/20261027_elijah_story.sql` to add Elijah as a Studio story scheduled for Mon 9 Nov 2026 (00:00 SGT). It does nothing if a post with that slug already exists. Its audio is `audio/elijah-still-small-voice.0d7d251e.mp3` on R2.
-3. Optional: run `supabase/seed/20261027_smallest_star_story.sql` to add The Smallest Star (Goodnight Little Light #1) as a draft. Then open it in the Studio, pick a publish date and Schedule.
+3. Optional: run `supabase/seed/20261027_smallest_star_story.sql` to add The Smallest Star (Goodnight Little Light #1) as a draft. Then open it in the Studio, pick a publish date and time and Schedule.
 
 ## Daily rebuild
 
