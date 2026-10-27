@@ -134,6 +134,36 @@ window.LL_CONTENT = {
       // No cover yet: the site's default share image is used until `image` is set (1200x630 JPEG in media/audio/).
       image: '', imageWidth: 0, imageHeight: 0,
       next: { title: 'Jesus Calms the Storm', when: 'Mon 16 Nov', href: '/listen' }
+    },
+    {
+      slug: 'the-smallest-star-bedtime-story',
+      series: 'Goodnight Little Light', episode: 1,
+      title: 'The Smallest Star',
+      seoTitle: 'The Smallest Star | Bedtime Story About Kindness for Kids',
+      desc: 'A gentle bedtime story about kindness: the smallest star gives up the Star Parade to help a lost firefly home. With a lullaby, a Bible verse and a short prayer.',
+      narrator: 'Mr. Ginting',
+      // 27 Oct 2026: Eleven v4 narration with gentle sound effects and The Moon's Lullaby, mixed to -20 LUFS.
+      // Source and mix settings: littlelights-growth content/bedtime/goodnight-01-the-smallest-star (tools/mix_bedtime.py).
+      src: MEDIA_BASE + 'audio/the-smallest-star.6b731d78.mp3', placeholder: false, dur: 357.19,
+      // Read-along timings: ElevenLabs Scribe word alignment of each narration section, shifted to its place in the mix.
+      timings: 'media/audio/the-smallest-star-timings.json',
+      color: '#c3b4ee', ink: '#211a46',
+      story: [
+        "Hi, little light… It’s bedtime story time. Are you all snuggled in? Tonight, let’s look up together… way, way up high, past the rooftops and the treetops, all the way to the night sky. Tonight’s story is called… The Smallest Star.",
+        "Up there, among all the stars, lived a tiny star called Twinkle. Twinkle was the smallest star in the whole sky. Her light was soft and silvery, like a whisper. And sometimes, when she looked at the great big stars around her, she wished she could shine just as brightly as they did. There was Orla, the bright blue star who shone over the mountains. There was Big Sol, the golden star who was so bright that sailors used him to find their way. And there were the Seven Sisters, who always twinkled together in a neat little group. “I’m so small,” Twinkle would sigh. “Nobody even notices me.”",
+        "Then one evening, a happy message passed from star to star across the whole sky. “Tonight is the Star Parade! Everyone line up and shine your very best!” Twinkle glowed with happiness. The Star Parade only happened once a year. All the stars would line up in a long, shining river across the sky, and everyone on the earth below would look up and say, “Ohhh!” “This is my chance,” thought Twinkle. “Tonight I’ll shine so brightly that everyone will notice me.” She polished her little points. She practiced her best sparkle. And then she hurried along the sky to find her place in the line.",
+        "But as she hurried, she heard a tiny sound, far, far below. “Hello? Is anyone there? I can’t find my way home.” Twinkle stopped and looked down. There, in a dark meadow, was a little firefly. His light was blinking on and off, but it was too small to show him the path. The grass was tall around him, and he didn’t know which way to go. Twinkle looked at the Star Parade. The stars were lining up, getting ready to shine. Then she looked back at the little firefly, all by himself. If she went down to help, she would miss the parade. Maybe nobody would ever notice her at all. But then Twinkle thought, “If I were lost, I would want someone to help me.” And she knew what to do.",
+        "So Twinkle left the line. She floated down, low and slow, lower than she had ever been, until she was just above the meadow. And she shone her small, silvery light right onto the path. “Hello, little firefly,” she said kindly. “I’m Twinkle. Where do you live?” “In the old apple tree,” said the firefly, “on the other side of the meadow.” “Then follow me,” said Twinkle. “I’ll light the way.” And off they went. Past the tall grass that swished in the breeze. Over the little wooden bridge, where the stream went trickle, trickle. Around the sleepy cows, who said, “Mmmoo,” very softly. Until there, at last, stood the old apple tree. And in its branches, a whole family of fireflies began to blink, on and off, on and off, one, two, three, all saying hello at once. “You’re home!” they cried. “Thank you, Twinkle,” said the little firefly. “You were the brightest light I’ve ever seen.”",
+        "Twinkle floated back up into the sky. She thought she’d missed everything. But when she got there, the big stars were waiting for her. Orla. Big Sol. The Seven Sisters. All of them. “We saw what you did,” said Big Sol, in his warm, golden voice. “You gave up the parade to help someone who was lost. Twinkle, that was the brightest shine of the whole night.” And all the stars made room for her, right in the middle of the line.",
+        "The Bible says, “As you would like people to do to you, do exactly so to them.” Jesus wants us to treat others the way we’d like to be treated. Being kind, even when it costs us something, is a way of shining His light. Now the Star Parade is over, and the sky is quiet and calm. Big Sol is glowing softly. The Seven Sisters are twinkling sleepily. Down in the apple tree, the fireflies are dimming their lights, one by one, until they’re all asleep. And Twinkle is resting in her place in the sky, small and silver and happy. Little light, close your eyes, and imagine your very own little star, glowing softly above your bed, watching over you while you sleep."
+      ],
+      prayer: "Dear Jesus… help me be kind like You, even when it’s not easy. Show me who needs my help tomorrow. Amen.",
+      goodnight: 'Goodnight, little light. Sleep tight. \u{1F319}',
+      verse: { text: 'As you would like people to do to you, do exactly so to them.', ref: 'Luke 6:31', version: 'WEB' },
+      questions: ['Why did Twinkle leave the Star Parade?', 'How did Twinkle help the little firefly get home?', 'Who could you help tomorrow, like Twinkle did?'],
+      // No cover yet: the site's default share image is used until `image` is set (1200x630 JPEG in media/audio/).
+      image: '', imageWidth: 0, imageHeight: 0,
+      next: { title: 'Pip and the Heavy Acorn', when: 'Coming soon', href: '/listen' }
     }
   ],
 
