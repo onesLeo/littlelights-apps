@@ -105,7 +105,11 @@ window.LL_CONTENT = {
       // at a new one) and keep imageWidth/imageHeight equal to its real size.
       // Empty `image` = the site's default share image.
       image: 'media/audio/jonah-and-the-whale-cover.jpg', imageWidth: 1200, imageHeight: 630,
-      next: { title: 'Elijah and the Still Small Voice', when: 'Mon 9 Nov' }
+      // Next-up teaser. `slug` + `at` = Elijah's Studio post (id 36, scheduled Wed 4 Nov 2026 00:00 SGT). js/store.js
+      // mergeStories turns `at` into the day ('Wed 4 Nov', SGT) while it's ahead, links to the story once it's live,
+      // and says 'Coming soon' if the time passed but the post isn't live (moved or unpublished). Visitors can't read
+      // future Studio posts, so if Elijah is rescheduled in the Studio, update `at` here too.
+      next: { title: 'Elijah and the Still Small Voice', slug: 'elijah-still-small-voice-bedtime-story', at: '2026-11-04T00:00:00+08:00', when: 'Wed 4 Nov' }
     }
     // Elijah (Bedtime #2) is a Studio post now (scheduled in the Studio), not a built-in: it appears on its
     // publish date. Its original entry is kept in supabase/seed/elijah-story.json.

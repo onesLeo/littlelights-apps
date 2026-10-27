@@ -494,8 +494,29 @@
       .map(function (p) { return storyFromPost(p, p._src); });
     var taken = {};
     studio.forEach(function (x) { taken[x.slug] = 1; });
-    return (builtins || []).filter(function (b) { return !taken[b.slug]; }).concat(studio);
+    var all = (builtins || []).filter(function (b) { return !taken[b.slug]; }).concat(studio);
+    var live = {};
+    all.forEach(function (x) { live[x.slug] = 1; });
+    return all.map(function (x) { return x.next && x.next.slug ? Object.assign({}, x, { next: resolveNext(x.next, live) }) : x; });
   }
+  // 'Next story' teaser that points at a story by slug: linked once that story is live, the day it is due
+  // (from `at`, Singapore time, like 'Wed 4 Nov') while it is ahead, otherwise 'Coming soon'.
+  function resolveNext(n, live) {
+    var out = { title: n.title, slug: n.slug, at: n.at };
+    if (live[n.slug]) { out.href = '/listen/' + n.slug; out.when = 'Out now'; return out; }
+    out.href = '/listen';
+    var t = Date.parse(n.at || '');
+    out.when = isFinite(t) && t > Date.now() ? sgtShortDay(n.at) : 'Coming soon';
+    return out;
+  }
+  // ISO -> 'Wed 4 Nov' (Singapore time).
+  function sgtShortDay(iso) {
+    var t = Date.parse(iso || ''); if (!isFinite(t)) return '';
+    var d = new Date(t + 8 * 3600 * 1000);
+    return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' +
+      ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()];
+  }
+  window.LLStore.sgtShortDay = sgtShortDay;
   window.LLStore.sgtDayStart = sgtDayStart;
   window.LLStore.sgtStart = sgtStart;
   window.LLStore.sgtTime = sgtTime;
