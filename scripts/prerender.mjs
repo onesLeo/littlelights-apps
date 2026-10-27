@@ -65,7 +65,9 @@ export function siteContent({ C, S }, { posts, settings }) {
   const seriesMap = new Map();
   for (const r of reels) if (r.series) { const s = seriesMap.get(r.series) || { series: r.series, desc: '', reels: [] }; s.reels.push(r); if (r.seriesDesc && !s.desc) s.desc = r.seriesDesc; seriesMap.set(r.series, s); }
   for (const s of seriesMap.values()) s.reels.sort((a, b) => a.episode - b.episode);
-  return { nav, episodes, devotions, reels, series: [...seriesMap.values()], stories: C.bedtimeStories || [] };
+  // Bedtime stories: js/content.js plus stories written in the Studio (same slug replaces the built-in one).
+  const stories = SEO.mergeStories(C.bedtimeStories || [], posts.filter((p) => p.type === 'story' && p.slug).map(SEO.storyFromPost));
+  return { nav, episodes, devotions, reels, series: [...seriesMap.values()], stories };
 }
 
 // The Watch gallery (js/app.js renderWatch/units) leads with its newest video or series, the biggest
@@ -162,7 +164,7 @@ export async function prerender(root, output, { fetchImpl = fetch, log = console
     await writeFile(file, renderPage(template, page));
   }
   await writeFile(resolve(output, 'sitemap.xml'), sitemapXml(pages, await contentDate(root)));
-  log(`prerender: ${pages.length} pages (${site.devotions.length} devotions, ${site.reels.length} videos, ${site.series.length} series, ${site.episodes.length} audio)${data.ok ? ', Studio posts included' : ''}.`);
+  log(`prerender: ${pages.length} pages (${site.stories.length} bedtime stories, ${site.devotions.length} devotions, ${site.reels.length} videos, ${site.series.length} series, ${site.episodes.length} audio)${data.ok ? ', Studio posts included' : ''}.`);
   return { pages, site, studio: data.ok };
 }
 

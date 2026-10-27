@@ -24,6 +24,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     devotion: { name: 'Devotion', color: 'var(--devotion)', ink: '#3a1426', hint: 'A short reading with a prayer' },
     reel:     { name: 'Reel', color: 'var(--reel)', ink: '#2b0d05', hint: 'A short vertical video' },
     audio:    { name: 'Audio', color: 'var(--audio)', ink: '#1a0f33', hint: 'A recorded devotion, prayer or story' },
+    story:    { name: 'Bedtime story', color: 'var(--story)', ink: '#ffffff', hint: 'A bedtime story with its own page, read-along and questions' },
     game:     { name: 'Game update', color: 'var(--game)', ink: '#0f2a17', hint: 'News about Little Light: Bible Journeys' }
   };
   // Fields kept in posts.fields for each kind of post.
@@ -31,6 +32,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     verse: ['verse', 'ref', 'translation', 'topics'],
     devotion: ['teaser', 'body', 'ref', 'family', 'prayer', 'audioId'],
     audio: ['kind', 'minutes', 'seconds', 'file', 'transcript'],
+    story: ['series', 'episode', 'desc', 'seo_title', 'narrator', 'minutes', 'seconds', 'file', 'story', 'verse', 'ref', 'version', 'word', 'word_meaning',
+      'prayer', 'goodnight', 'questions', 'timings', 'timings_file', 'timings_check', 'color', 'next_title', 'next_when'],
     reel: ['caption', 'youtube', 'minutes', 'seconds', 'file', 'poster', 'poster_auto', 'series', 'episode', 'series_description', 'page_style', 'page_color'],
     game: ['text', 'button']
   };
@@ -182,6 +185,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     // Fields the form doesn't show (such as `builtin` and `look` on posts moved from js/content.js) are kept.
     Object.keys(e._fields || {}).forEach(function (k) { if (FIELDS[e.type].indexOf(k) < 0) p.fields[k] = e._fields[k]; });
     if (e.id) { p.id = e.id; p.slug = e.slug; p.created_at = e.created_at; p.author_email = e.author_email; }
+    // A new bedtime story's page address: /listen/<title>-bedtime-story (what parents search for).
+    else if (e.type === 'story') p.slug = S.slugify(p.title).replace(/-bedtime-story$/, '').slice(0, 45) + '-bedtime-story';
     FIELDS[e.type].forEach(function (k) {
       var v = e[k];
       if (typeof v === 'string') v = v.trim();
@@ -291,7 +296,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   var PAGE_SIZE = 20;
   var STATUSES = [['published', 'Published'], ['scheduled', 'Scheduled'], ['draft', 'Drafts']];
   var SORTS = { date: 'Date', title: 'Title', type: 'Type', status: 'Status', views: 'Views' };
-  function postPath(p) { return p.type === 'devotion' ? '/read/' + p.slug : p.type === 'reel' ? '/watch/' + p.slug : ''; }
+  function postPath(p) { return p.type === 'devotion' ? '/read/' + p.slug : p.type === 'reel' ? '/watch/' + p.slug : p.type === 'story' ? '/listen/' + p.slug : ''; }
   // Page views (from Insights, last 30 days) plus plays, when Insights is available. null = not known.
   function viewsOf(p) {
     var I = state.postInsights;
@@ -402,6 +407,12 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     (state.posts || []).forEach(function (p) { var s = p.type === 'reel' && p.fields && String(p.fields.series || '').trim(); if (s) seen[s] = 1; });
     return Object.keys(seen).sort();
   }
+  // Bedtime story series: the two we use, plus any typed on a story post.
+  function storySeriesNames() {
+    var seen = { 'Bedtime Bible Stories for Kids': 1, 'Goodnight Little Light': 1 };
+    (state.posts || []).forEach(function (p) { var s = p.type === 'story' && p.fields && String(p.fields.series || '').trim(); if (s) seen[s] = 1; });
+    return Object.keys(seen).sort();
+  }
   function field(id, label, value, opts) {
     opts = opts || {};
     var err = state.errors[id];
@@ -434,6 +445,47 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       '</div></div>' + (state.errors.poster ? '<span class="errmsg" role="alert">' + state.errors.poster + '</span>' : '') + '</div>';
   }
 
+  // Read-along timings for a bedtime story: the JSON made by tools/build_timings.py in littlelights-growth
+  // ([{text,start,end,words:[{text,start,end}]}]). Uploaded to media storage; fields.timings holds its URL.
+  // On upload it is checked against the story text with the site's own matcher (js/seo.js raMatch).
+  function timingsField() {
+    var e = state.editing, busy = state.uploading === 'timings';
+    return '<div class="field"><span>Read-along timings (optional)</span><label class="upload' + (busy ? ' busy' : '') + '" data-drop="timings"><b>' +
+      (busy ? 'Uploading…' : e.timings_file ? esc(e.timings_file) : e.timings ? 'Timings file attached' : 'Choose the timings .json file') + '</b>' +
+      '<small>' + (e.timings_check ? esc(e.timings_check) : 'Made from the narration (tools/build_timings.py). Without it the story still plays, as plain text.') + '</small>' +
+      '<input class="sr" type="file" accept="application/json,.json" data-file="timings" id="f_timings"></label>' +
+      (e.timings ? '<button class="btn soft small" type="button" id="timingsRemove">Remove timings</button>' : '') +
+      (state.errors.timings ? '<span class="errmsg" role="alert">' + state.errors.timings + '</span>' : '') + '</div>';
+  }
+  function storyParts(e) {
+    var story = String(e.story || '').replace(/\r/g, '').split(/\n\s*\n/).map(function (x) { return x.replace(/\s*\n\s*/g, ' ').trim(); }).filter(Boolean);
+    return story.map(function (t, i) { return { key: 'story-' + i, text: t }; })
+      .concat([{ key: 'prayer', text: String(e.prayer || '') }, { key: 'goodnight', text: String(e.goodnight || '') }]).filter(function (x) { return x.text.trim(); });
+  }
+  function handleTimings(file) {
+    if (!file) return;
+    syncFields();
+    var e = state.editing;
+    delete state.errors.timings;
+    if (file.size > 2 * 1024 * 1024) { state.errors.timings = 'This file is too big for a timings file (over 2 MB).'; render(); return; }
+    file.text().then(function (text) {
+      var data;
+      try { data = JSON.parse(text); } catch (err) { throw new Error('This isn’t a JSON file.'); }
+      if (!Array.isArray(data) || !data.length || !data.every(function (s) { return s && typeof s.text === 'string' && isFinite(s.start) && isFinite(s.end); }))
+        throw new Error('This doesn’t look like a read-along timings file.');
+      var SEO = window.LL_SEO, m = SEO && SEO.raMatch ? SEO.raMatch(storyParts(e), data) : null;
+      if (SEO && SEO.raMatch && !m) throw new Error('These timings don’t match the story text, prayer and goodnight line. Check the text is exactly what was narrated.');
+      state.uploading = 'timings'; render();
+      var name = (S.slugify(e.title || 'story') || 'story') + '-timings.json';
+      return S.uploadMedia(new File([text], name, { type: 'application/json' })).then(function (url) {
+        if (state.editing !== e) return;
+        e.timings = url; e.timings_file = file.name;
+        e.timings_check = m ? m.count + ' of ' + data.length + ' sentences line up with the text' + (m.count < data.length ? ' (narration not shown on the page, like “Let’s pray.”, is skipped)' : '') + '.' : 'Attached.';
+        state.uploading = ''; render(); toast('Read-along timings attached');
+      });
+    }).catch(function (err) { state.uploading = ''; state.errors.timings = err.message; render(); });
+  }
+
   function editView() {
     var p = state.editing, t = TYPES[p.type], f = '';
     if (p.type === 'verse') {
@@ -460,6 +512,31 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
         field('minutes', 'Length', p.minutes, { ph: 'Filled in from the file' }) + '</div>' +
         uploadField('Recording', 'audio/*', 'MP3 or M4A, up to 50 MB. The length is read from the file.') +
         field('transcript', 'Transcript (Read along)', p.transcript, { textarea: true, tall: true, ph: 'What the recording says. Shown under the player so listeners can read along. Leave an empty line between paragraphs.' });
+    } else if (p.type === 'story') {
+      f = field('title', 'Title', p.title, { ph: 'The Smallest Star', help: p.id ? 'Page: littlesaltandlight.com/listen/' + esc(p.slug || '') : 'The page address is made from the title and ends in “-bedtime-story”.' }) +
+        '<div class="two">' + field('series', 'Series', p.series, { list: 'storySeries', ph: 'Goodnight Little Light', help: 'Series with “Bible” in the name are labelled “Bedtime Bible story”.' }) +
+        field('episode', 'Episode #', p.episode, { type: 'number', ph: '1' }) + '</div>' +
+        '<datalist id="storySeries">' + storySeriesNames().map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>' +
+        field('desc', 'One-line description', p.desc, { ph: 'A gentle bedtime story about kindness…', help: 'Shown in Google results and when the page is shared. About 150 characters.' }) +
+        uploadField('Narration', 'audio/*', 'The finished episode as MP3, up to 50 MB. The length is read from the file.') +
+        field('media_url', 'Or a link to the audio', p.media_url, { type: 'url', ph: 'https://media.littlesaltandlight.com/audio/…mp3', help: 'For audio already online (for example on our R2 media domain). Uploading a file fills this in.' }) +
+        '<div class="two">' + field('minutes', 'Length', p.minutes, { ph: '5:57' }) + field('narrator', 'Read by', p.narrator, { ph: 'Mr. Ginting' }) + '</div>' +
+        field('story', 'The story', p.story, { textarea: true, tall: true, ph: 'Write it exactly as it is narrated, without the [tags]. Leave an empty line between paragraphs.', help: 'Everything the narrator says before “Let’s pray”, so the read-along can follow it.' }) +
+        field('verse', 'Bible verse', p.verse, { textarea: true, ph: 'As you would like people to do to you, do exactly so to them.' }) +
+        '<div class="two">' + field('ref', 'Reference', p.ref, { ph: 'Luke 6:31' }) +
+        field('version', 'Translation', p.version, { ph: 'WEB', list: 'translations' }) +
+        '<datalist id="translations">' + TRANSLATIONS.concat(['WEBBE']).map(function (x) { return '<option value="' + x + '">'; }).join('') + '</datalist></div>' +
+        '<div class="two">' + field('word', 'Word to know (optional)', p.word, { ph: 'affliction', help: 'Highlighted in the story and verse.' }) +
+        field('word_meaning', 'What it means', p.word_meaning, { ph: 'Affliction means big trouble.' }) + '</div>' +
+        field('prayer', 'Prayer', p.prayer, { textarea: true, ph: 'Dear Jesus… help me be kind like You. Amen.' }) +
+        field('goodnight', 'Goodnight line', p.goodnight, { ph: 'Goodnight, little light. Sleep tight.' }) +
+        field('questions', '3 questions to ask afterwards', p.questions, { textarea: true, ph: 'One question per line', help: 'Exactly three, one per line.' }) +
+        timingsField() +
+        '<div class="two">' + field('next_title', 'Coming next (optional)', p.next_title, { ph: 'Pip and the Heavy Acorn' }) +
+        field('next_when', 'When', p.next_when, { ph: 'Thu 12 Nov' }) + '</div>' +
+        '<label class="field"><span>Page colour</span><span class="colorrow"><input type="color" id="f_color_pick" data-pick="color" value="' + esc(/^#[0-9a-f]{6}$/i.test(p.color || '') ? p.color : '#a07fd6') + '" aria-label="Pick page colour">' +
+        '<input class="input" id="f_color" data-f="color" value="' + esc(p.color || '') + '" placeholder="#a07fd6" maxlength="7" pattern="#[0-9a-fA-F]{6}"></span><small>The top of the story page and its row on Listen.</small></label>' +
+        field('seo_title', 'Google title (optional)', p.seo_title, { ph: 'The Smallest Star | Bedtime Story About Kindness for Kids', help: 'Leave empty for “Title | Bedtime Story for Kids #episode”.' });
     } else if (p.type === 'reel') {
       f = field('title', 'Title', p.title, { ph: 'Noah kept building' }) +
         field('caption', 'Caption', p.caption, { textarea: true, ph: 'What the reel is about, with the Bible reference' }) +
@@ -490,7 +567,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     return '<div class="top"><div><h2>' + (p.id ? 'Edit ' : 'New ') + t.name.toLowerCase() + help('write') + '</h2><p>' + t.hint + '. The preview updates as you type.</p></div>' +
       '<button class="btn ghost" type="button" data-view="posts">← All posts</button></div>' +
       '<div class="editor"><div class="edit-col"><form class="form" id="postForm" novalidate><h3>' + t.name + '</h3>' + f +
-      '<label class="toggle"><input type="checkbox" id="f_today" data-check="show_on_today"' + (p.show_on_today ? ' checked' : '') + '> Show on the Today feed</label>' +
+      (p.type === 'story' ? '' : '<label class="toggle"><input type="checkbox" id="f_today" data-check="show_on_today"' + (p.show_on_today ? ' checked' : '') + '> Show on the Today feed</label>') +
       '<div class="publish">' +
       (pub ? '<div class="seg" role="group" aria-label="When to publish">' +
         '<button type="button" data-mode="now" class="' + (mode === 'now' ? 'on' : '') + '" aria-pressed="' + (mode === 'now') + '">Publish now</button>' +
@@ -506,17 +583,19 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
           : '<button class="btn soft" type="button" id="saveDraft"' + (state.busy || state.uploading ? ' disabled' : '') + '>Save draft</button>') +
         primary +
       '</div></div></form>' + historyView() + '</div>' +
-      '<div class="preview-col"><span class="label">Preview on Today</span><div class="phone"><div class="screen" id="preview">' + preview(p) + '</div></div>' +
+      '<div class="preview-col"><span class="label">' + (p.type === 'story' ? 'Preview' : 'Preview on Today') + '</span><div class="phone"><div class="screen" id="preview">' + preview(p) + '</div></div>' +
       '<p class="pv-note">This is how the post will look in the app’s feed.</p></div></div>';
   }
 
   function preview(p) {
     var t = TYPES[p.type], ph = function (v, d) { return v ? esc(v) : '<span class="placeholder">' + d + '</span>'; }, inner = '';
     var bg = { verse: 'radial-gradient(120% 80% at 80% 25%, #ffe089, #f7c23f 45%, #e0a820)', devotion: '#ee8fb2', reel: '#e46a4c',
-      audio: 'radial-gradient(120% 70% at 50% 30%, #b99ae4, #a07fd6 50%, #6f52a8)', game: 'linear-gradient(180deg, #9ad8aa, #69ba7e 55%, #3f8a55)' }[p.type];
+      audio: 'radial-gradient(120% 70% at 50% 30%, #b99ae4, #a07fd6 50%, #6f52a8)', game: 'linear-gradient(180deg, #9ad8aa, #69ba7e 55%, #3f8a55)',
+      story: 'radial-gradient(120% 80% at 80% 15%, #3a2f74, #221a4a 55%, #140f2e)' }[p.type];
     if (p.type === 'verse') inner = '<div class="sun"></div><div class="kick">Verse of the week</div><div class="verse' + (isLongVerse(p.verse) ? ' preview' : '') + '">“' + ph((p.verse || '').trim(), 'Your verse appears here') + '”</div><div class="ref">' + ph((p.ref || '').toUpperCase(), 'REFERENCE') + ' · ' + esc((p.translation || '').trim() || 'WEB') + '</div><div class="btns"><span class="pbtn">' + (isLongVerse(p.verse) ? 'Read full passage' : 'More verses') + '</span><span class="pbtn g">Save image</span></div>';
     else if (p.type === 'devotion') inner = '<div class="kick">Devotion · ' + readMinutes(p) + ' min</div><div class="big">' + ph(p.title, 'Your title') + '</div><p>' + ph(p.teaser, 'Your one-line summary') + '</p><div class="btns"><span class="pbtn">Read ↑</span>' + (p.audioId ? '<span class="pbtn g">▶ Listen</span>' : '') + '</div>';
     else if (p.type === 'audio') inner = '<div class="wave">' + [30, 70, 45, 90, 55, 80, 35, 65, 50, 85, 40, 60].map(function (h) { return '<i style="height:' + h + '%"></i>'; }).join('') + '</div><div class="kick">Audio · ' + esc(p.minutes || '0:00') + '</div><div class="big">' + ph(p.title, 'Your title') + '</div><p>' + esc(p.kind || 'Devotion') + '</p><div class="btns"><span class="pbtn">▶ Play</span></div>';
+    else if (p.type === 'story') inner = '<div class="kick">' + esc(p.series || 'Bedtime story') + (p.episode ? ' · #' + esc(p.episode) : '') + ' · ' + esc(p.minutes || '0:00') + '</div><div class="big">' + ph(p.title, 'Your title') + '</div><p>' + ph(p.desc, 'Your one-line description') + '</p><div class="btns"><span class="pbtn">▶ Listen</span>' + (p.timings ? '<span class="pbtn g">Read-along</span>' : '') + '</div>';
     else if (p.type === 'reel') inner = '<div class="play"></div><div class="kick">Reel · ' + esc(p.minutes || '0:00') + '</div><div class="big">' + ph(p.title, 'Your title') + '</div><div class="btns"><span class="pbtn">▶ Watch</span></div>';
     else inner = '<div class="kick">Game</div><div class="big">' + ph(p.title, 'Your headline') + '</div><p>' + ph(p.text, 'What’s new') + '</p><div class="btns"><span class="pbtn">' + esc(p.button || 'See the game') + '</span></div>';
     return '<div class="pv" style="background:' + bg + ';color:' + t.ink + '">' + inner + '</div>' +
@@ -841,10 +920,20 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       if (!(p.translation || '').trim()) e.translation = 'Name the translation the text is from, for example WEB.';
     } else if (!(p.title || '').trim()) e.title = 'Add a title so the post can be found.';
     if (p.type === 'reel' && p.youtube && !/^https:\/\/(www\.)?(youtube\.com|youtu\.be)\//.test(p.youtube.trim())) e.youtube = 'Paste a full YouTube link starting with https://.';
+    if (p.type === 'story' && p.media_url && !/^(https:\/\/|local-media:)/.test(String(p.media_url).trim())) e.media_url = 'Paste a full link starting with https://.';
+    if (p.type === 'story' && p.color && !/^#[0-9a-f]{6}$/i.test(p.color)) e.color = 'Use a colour like #a07fd6, or leave it empty.';
     if (publishing) {
       if (p.type === 'devotion' && !(p.body || '').trim()) e.body = 'Write the devotion before publishing, or save it as a draft.';
       if (p.type === 'devotion' && !(p.teaser || '').trim()) e.teaser = 'Add a one-line summary for the Today card.';
       if (p.type === 'audio' && !p.media_url) e.file = 'Upload the recording before publishing, or save it as a draft.';
+      if (p.type === 'story') {
+        if (!p.media_url) e.file = 'Upload the narration or paste a link to it before publishing.';
+        if (!(p.story || '').trim()) e.story = 'Add the story text before publishing.';
+        if (!(p.verse || '').trim()) e.verse = 'Add the Bible verse.';
+        if (!(p.ref || '').trim()) e.ref = 'Add where the verse is from, for example Luke 6:31.';
+        if (!(p.prayer || '').trim()) e.prayer = 'Add the prayer.';
+        if (String(p.questions || '').split('\n').filter(function (q) { return q.trim(); }).length !== 3) e.questions = 'Write exactly three questions, one per line.';
+      }
       if (p.type === 'reel' && !p.media_url && !p.youtube) e.file = 'Upload a video or paste a YouTube link before publishing.';
       if (p._mode === 'schedule') {
         if (!p.when) e.when = 'Pick a date and time.';
@@ -1055,6 +1144,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     else if (b.id === 'changePw') { state.pwOpen = true; state.pwError = ''; render(); var np = document.getElementById('newPassword'); if (np) np.focus(); }
     else if (b.id === 'pwCancel') { state.pwOpen = false; state.pwError = ''; render(); }
     else if (b.id === 'signout') S.signOut().then(function () { state.session = null; state.pwOpen = false; state.screen = 'signin'; state.view = 'posts'; render(); });
+    else if (b.id === 'timingsRemove' && state.editing) { syncFields(); state.editing.timings = ''; state.editing.timings_file = ''; state.editing.timings_check = ''; render(); }
     else if (b.id === 'posterFrame' && state.editing && state.editing.media_url) S.resolveMedia(state.editing.media_url).then(function (u) { if (u) autoPoster(u); });
     else if (d.days) loadInsights(+d.days);
     else if (d.view) { state.pwOpen = false; if (d.guide) state.guideAt = d.guide; go(d.view); if (state.guideAt) render(); }
@@ -1069,7 +1159,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     else if (b.id === 'loadMore') { state.limit = (state.limit || PAGE_SIZE) + PAGE_SIZE; refreshPostRows(); }
     else if (b.id === 'clearFilters') { state.q = ''; state.filter = 'all'; state.statusFilter = 'all'; state.limit = PAGE_SIZE; render(); }
     else if (d.new) {
-      state.editing = { type: d.new, status: 'draft', show_on_today: true, topics: [], translation: 'WEB', kind: 'Devotion', _mode: 'now' };
+      state.editing = { type: d.new, status: 'draft', show_on_today: d.new !== 'story', topics: [], translation: 'WEB', kind: 'Devotion', _mode: 'now' };
+      if (d.new === 'story') Object.assign(state.editing, { series: 'Goodnight Little Light', narrator: 'Mr. Ginting', version: 'WEB', goodnight: 'Goodnight, little light. Sleep tight. \u{1F319}' });
       state.view = 'edit'; state.errors = {}; state.confirmDelete = false; render(); window.scrollTo(0, 0);
     }
     else if (d.edit) {
@@ -1152,11 +1243,12 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (ev.target.dataset.check) state.editing[ev.target.dataset.check] = ev.target.checked;
     if (ev.target.dataset.f) { state.editing[ev.target.dataset.f] = ev.target.value; refreshPreview(); }
     if (ev.target.dataset.file === 'poster') handlePoster(ev.target.files[0]);
+    else if (ev.target.dataset.file === 'timings') handleTimings(ev.target.files[0]);
     else if (ev.target.dataset.file) handleFile(ev.target.files[0]);
   });
   root.addEventListener('dragover', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); z.classList.add('drag'); } });
   root.addEventListener('dragleave', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) z.classList.remove('drag'); });
-  root.addEventListener('drop', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); (z.dataset.drop === 'poster' ? handlePoster : handleFile)(ev.dataTransfer.files[0]); } });
+  root.addEventListener('drop', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); (z.dataset.drop === 'poster' ? handlePoster : z.dataset.drop === 'timings' ? handleTimings : handleFile)(ev.dataTransfer.files[0]); } });
 
   boot();
 })();

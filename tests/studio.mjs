@@ -197,6 +197,43 @@ await page.click('#postForm button[type=submit]');
 await page.waitForSelector('.list .row');
 check(await rowStatus('Evening prayer') === 'Published', 'audio: published with its file');
 
+// ---------- bedtime story: page, read-along timings, questions ----------
+{
+  const words = (t, a, b) => { const w = t.split(' '), d = (b - a) / w.length; return w.map((x, i) => ({ text: x, start: +(a + i * d).toFixed(2), end: +(a + (i + 1) * d).toFixed(2) })); };
+  const sen = (t, a, b) => ({ text: t, start: a, end: b, words: words(t, a, b) });
+  const good = [sen('Hi, little light.', 1, 2), sen('Twinkle was the smallest star.', 2.5, 4), sen('Let’s pray.', 5, 6), sen('Dear Jesus, help me be kind.', 6.5, 8), sen('Amen.', 8.2, 8.6), sen('Goodnight, little light.', 9, 10), sen('Sleep tight.', 10.2, 11)];
+  const bad = good.map((x, i) => (i === 1 ? sen('Something else entirely.', 2.5, 4) : x));
+  await page.click('.side [data-view="new"]');
+  await page.click('[data-new="story"]');
+  check(await page.inputValue('#f_series') === 'Goodnight Little Light' && (await page.inputValue('#f_goodnight')).startsWith('Goodnight, little light.'), 'story: a new bedtime story starts with the series and goodnight line');
+  check(!(await page.$('#f_today')), 'story: no Today toggle (stories live on Listen)');
+  await page.fill('#f_title', 'The Smallest Star');
+  await page.click('#postForm button[type=submit]');
+  const errs = await page.$$eval('.errmsg', (e) => e.map((x) => x.textContent).join(' | '));
+  check(/narration/.test(errs) && /story text/.test(errs) && /verse/.test(errs) && /prayer/.test(errs) && /three questions/.test(errs), 'story: publishing without audio, text, verse, prayer or questions is blocked');
+  await page.setInputFiles('#f_file', { name: 'smallest-star.wav', mimeType: 'audio/wav', buffer: silentWav(12) });
+  await page.waitForFunction(() => document.querySelector('.upload b')?.textContent === 'smallest-star.wav');
+  await page.fill('#f_story', 'Hi, little light.\n\nTwinkle was the smallest star.');
+  await page.fill('#f_verse', 'As you would like people to do to you, do exactly so to them.');
+  await page.fill('#f_ref', 'Luke 6:31');
+  await page.fill('#f_prayer', 'Dear Jesus, help me be kind. Amen.');
+  await page.fill('#f_questions', 'Why did Twinkle leave the parade?\nHow did she help?');
+  await page.click('#postForm button[type=submit]');
+  check((await text('.errmsg')).includes('three questions'), 'story: two questions are not enough');
+  await page.fill('#f_questions', 'Why did Twinkle leave the parade?\nHow did she help?\nWho could you help tomorrow?');
+  await page.setInputFiles('#f_timings', { name: 'bad-timings.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bad)) });
+  await page.waitForSelector('.errmsg');
+  check((await text('.errmsg')).includes('don’t match the story text'), 'story: timings that don’t match the text are refused');
+  await page.setInputFiles('#f_timings', { name: 'the-smallest-star-timings.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(good)) });
+  await page.waitForFunction(() => /line up/.test(document.querySelector('[data-drop="timings"] small')?.textContent || ''));
+  check(/6 of 7 sentences line up/.test(await text('[data-drop="timings"] small')), 'story: matching timings are attached and checked (“Let’s pray.” is skipped)');
+  await page.click('#postForm button[type=submit]');
+  await page.waitForSelector('.list .row');
+  check(await rowStatus('The Smallest Star') === 'Published', 'story: published');
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('ll.posts.v1')).find((p) => p.type === 'story'));
+  check(st && st.slug === 'the-smallest-star-bedtime-story' && st.fields.questions.split('\n').length === 3 && /^local-media:/.test(st.fields.timings || ''), 'story: saved with a /listen/<title>-bedtime-story address, its questions and timings');
+}
+
 // ---------- game update: scheduled for tomorrow ----------
 await page.click('.side [data-view="new"]');
 await page.click('[data-new="game"]');
@@ -233,6 +270,21 @@ await app.waitForTimeout(300);
 const firstSlide = await app.$eval('#pFeed .p-slide', (s) => s.textContent);
 check(firstSlide.includes('Psalm 23') || firstSlide.includes('Rest for the weary') || firstSlide.includes('Evening prayer'), 'app: Studio posts lead the Today feed');
 check(!(await app.$('#pFeed img')), 'app: text from the Studio is shown as text, never as HTML');
+// A bedtime story written in the Studio appears on Listen with its own page and read-along.
+{
+  const sp2 = await context.newPage();
+  sp2.on('pageerror', (e) => errors.push(e.message));
+  await sp2.goto(base + '#listen');
+  await sp2.waitForSelector('#app[data-ready]');
+  check((await sp2.$$eval('#pGn .p-gnrow', (r) => r.map((x) => x.textContent).join(' | '))).includes('The Smallest StarBedtime story ·'), 'app: the Studio story is listed under Goodnight Little Light, labelled “Bedtime story”');
+  await sp2.click('#pGn a[href="/listen/the-smallest-star-bedtime-story"]');
+  await sp2.waitForSelector('#pEpisode.on .p-ra-toggle', { timeout: 8000 }).catch(() => {});
+  const pg = await sp2.$eval('#pEpisode', (e) => ({ text: e.textContent, sens: e.querySelectorAll('.p-sen').length, toggle: !!e.querySelector('.p-ra-toggle'), src: e.querySelector('audio').getAttribute('src') }));
+  check(pg.text.includes('Twinkle was the smallest star.') && pg.text.includes('Who could you help tomorrow?') && pg.text.includes('Luke 6:31 (WEB)'), 'app: the story page shows the text, verse and questions from the Studio');
+  check(pg.toggle && pg.sens === 6 && /^blob:/.test(pg.src), 'app: its read-along timings line up and its audio plays from the Studio upload');
+  await sp2.close();
+}
+
 check(!(await app.isVisible('.p-tab[data-tab="verses"]')), 'menus: Verses is hidden by default');
 // The owner switches Verses on in the Studio.
 await page.click('.side [data-view="site"]');

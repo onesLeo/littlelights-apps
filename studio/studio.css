@@ -3,7 +3,7 @@
   --bg: #f6f4fa; --surface: #ffffff; --surface-2: #faf8fd; --ink: #1d1833; --muted: #6b6488; --line: #e5e0ef;
   --night: #1d1838; --night-ink: #fff4cf; --focus: #7a5cd6; --ok: #2f7d4a; --ok-bg: #e2f3e7; --warn: #8a5a12; --warn-bg: #fbeed2;
   --draft: #5b5677; --draft-bg: #ecebf2; --danger: #b3261e;
-  --verse: #f7c23f; --devotion: #ee8fb2; --reel: #e46a4c; --audio: #a07fd6; --game: #69ba7e;
+  --verse: #f7c23f; --devotion: #ee8fb2; --reel: #e46a4c; --audio: #a07fd6; --game: #69ba7e; --story: #3a2f74;
   --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --serif: "Newsreader", Georgia, "Times New Roman", serif;
   color-scheme: light;
@@ -126,7 +126,7 @@ p { margin: 0; }
 .type span { font-size: 13px; opacity: .8; }
 .type:hover { transform: translateY(-2px); }
 .t-verse { background: var(--verse); } .t-devotion { background: var(--devotion); } .t-reel { background: var(--reel); }
-.t-audio { background: var(--audio); } .t-game { background: var(--game); }
+.t-audio { background: var(--audio); } .t-game { background: var(--game); } .t-story { background: var(--story); color: #fff; }
 
 /* ---------- editor ---------- */
 .editor { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 28px; align-items: start; }

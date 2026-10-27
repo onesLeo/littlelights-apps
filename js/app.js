@@ -106,6 +106,7 @@
         var f = p.fields || {}, jobs = [];
         if (p.media_url) jobs.push(S.resolveMedia(p.media_url).then(function (u) { p._src = u; }));
         if (p.type === 'reel' && f.poster) jobs.push(S.resolveMedia(f.poster).then(function (u) { p._poster = u; }));
+        if (p.type === 'story' && f.timings) jobs.push(S.resolveMedia(f.timings).then(function (u) { p._timings = u; }));
         return Promise.all(jobs);
       })).then(function () { return posts; });
     }).then(function (posts) {
@@ -186,6 +187,8 @@
       C.verses = V.list;
       // Buttons written in index.html point at built-in items by position (see startApp).
       C.builtinAt = { 'ep': E.map, 'sheet': D.map, 'read': D.map, 'share-dev': D.map, 'reel': R.map, 'save-verse': V.map, 'share-verse': V.map };
+      // Bedtime stories written in the Studio (type 'story'): same shape as js/content.js, merged by slug.
+      var Q = window.LL_SEO; if (Q && Q.mergeStories) C.bedtimeStories = Q.mergeStories(C.bedtimeStories || [], posts.filter(function (p) { return p.type === 'story' && p.slug; }).map(Q.storyFromPost));
       C.news = news;
       C.featuredAudio = featured; // Studio posts come first in C.episodes, so the index stays valid.
       C.today = today.slice(0, 5);
@@ -1299,7 +1302,7 @@
     ep.setAttribute('data-ra-on', x.slug);
     var audio = $('audio', ep);
     if (!audio) return;
-    var get = raCache[x.timings] || (raCache[x.timings] = fetch('/' + x.timings.replace(/^\//, ''))
+    var get = raCache[x.timings] || (raCache[x.timings] = fetch(/^(https:\/\/|blob:)/i.test(x.timings) ? x.timings : '/' + x.timings.replace(/^\//, ''))
       .then(function (r) { if (!r.ok) throw new Error('timings ' + r.status); return r.json(); }));
     get.then(function (timings) {
       if (ep.getAttribute('data-slug') !== x.slug) return;

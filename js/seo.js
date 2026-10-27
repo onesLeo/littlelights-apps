@@ -98,25 +98,79 @@
   // A bedtime story's share image: its own `image` (js/content.js bedtimeStories) when set, else none
   // (the site's default share image is used).
   function storyImage(x) { var u = String((x && x.image) || ''); return !u ? '' : /^https:\/\//i.test(u) ? u : SITE + '/' + u.replace(/^\/+/, ''); }
+  // "Bedtime Bible story" for Bible-story series, "Bedtime story" for original stories (Goodnight Little Light).
+  function storyKind(x) { return /bible/i.test((x && x.series) || '') ? 'Bedtime Bible story' : 'Bedtime story'; }
+
+  // ---------- bedtime stories written in the Studio (posts.type = 'story') ----------
+  // A Studio story post in the same shape as js/content.js bedtimeStories, so the app, the build
+  // (scripts/prerender.mjs) and the Pages Function for /listen/<slug> (lib/edge.mjs) all show it the same way.
+  // fields: series, episode, desc, seo_title, narrator, story (paragraphs, empty line between), verse, ref,
+  // version, word, word_meaning, prayer, goodnight, questions (one per line), seconds, timings (URL of the
+  // read-along JSON), color, ink, next_title, next_when, image, image_width, image_height.
+  var HEX = /^#[0-9a-f]{6}$/i;
+  function storyFromPost(p) {
+    var f = (p && p.fields) || {};
+    var story = String(f.story || '').replace(/\r/g, '').split(/\n\s*\n/).map(function (s) { return s.replace(/\s*\n\s*/g, ' ').trim(); }).filter(Boolean);
+    var questions = String(f.questions || '').replace(/\r/g, '').split('\n').map(function (q) { return q.replace(/^\s*(\d+[.)]|[-•*])\s*/, '').trim(); }).filter(Boolean);
+    var episode = parseInt(f.episode, 10) > 0 ? parseInt(f.episode, 10) : 0;
+    var series = String(f.series || '').trim() || 'Bedtime stories';
+    var x = { slug: p.slug, title: p.title, series: series, episode: episode };
+    var word = String(f.word || '').trim();
+    x.seoTitle = String(f.seo_title || '').trim() || p.title + ' | ' + (/bible/i.test(series) ? 'Bedtime Bible Story for Kids' : 'Bedtime Story for Kids') + (episode ? ' #' + episode : '');
+    x.desc = String(f.desc || '').trim() || clip(story[0] || p.title);
+    x.narrator = String(f.narrator || '').trim();
+    x.src = p._src || p.media_url || ''; // _src: the app's resolved copy (local mode keeps files in the browser)
+    x.placeholder = false;
+    x.dur = +f.seconds || 0;
+    x.timings = /^https:\/\//i.test(f.timings || '') ? f.timings : /^blob:/.test(p._timings || '') ? p._timings : '';
+    x.color = HEX.test(f.color || '') ? f.color : '#a07fd6';
+    x.ink = HEX.test(f.ink || '') ? f.ink : '#1d1233';
+    x.story = story;
+    x.prayer = String(f.prayer || '').trim();
+    x.goodnight = String(f.goodnight || '').trim();
+    x.verse = { text: String(f.verse || '').trim(), ref: String(f.ref || '').trim(), version: String(f.version || '').trim() || 'WEB' };
+    // Only plain words can be highlighted (the word is used inside a pattern).
+    x.word = /^[A-Za-z][A-Za-z' -]{0,40}$/.test(word) ? { word: word, meaning: String(f.word_meaning || '').trim() } : null;
+    x.questions = questions;
+    x.image = /^https:\/\//i.test(f.image || '') ? f.image : '';
+    x.imageWidth = x.image ? +f.image_width || 0 : 0;
+    x.imageHeight = x.image ? +f.image_height || 0 : 0;
+    x.next = String(f.next_title || '').trim() ? { title: String(f.next_title).trim(), when: String(f.next_when || '').trim(), href: '/listen' } : null;
+    x.date = p.publish_at || p.created_at || '';
+    x.updated = p.updated_at || '';
+    x._id = p.id;
+    return x;
+  }
+  // Built-in stories (js/content.js) and Studio stories in one list: a Studio story with the same slug
+  // replaces the built-in one in place; the others follow, oldest first (so the newest is last, like
+  // episodes 1, 2, 3 on the page).
+  function mergeStories(builtins, studio) {
+    var bySlug = {}, used = {};
+    (studio || []).forEach(function (x) { if (x && x.slug) bySlug[x.slug] = x; });
+    var out = (builtins || []).map(function (b) { if (bySlug[b.slug]) { used[b.slug] = 1; return bySlug[b.slug]; } return b; });
+    var rest = (studio || []).filter(function (x) { return x && x.slug && !used[x.slug]; })
+      .sort(function (a, b) { return (Date.parse(a.date) || 0) - (Date.parse(b.date) || 0); });
+    return out.concat(rest);
+  }
   // Rows for the "Goodnight Little Light" section on /listen: each opens the story's own page.
   function storyRowsHtml(list) {
     return (list || []).map(function (x) {
       var m = Math.floor((x.dur || 0) / 60), s = Math.round((x.dur || 0) % 60);
       return '<a class="p-row p-gnrow" href="' + esc(path('listen', x.slug)) + '"><span class="p-art" style="background:' + esc(x.color || '#a07fd6') + '"><i></i></span>' +
-        '<span><b>' + esc(x.title) + '</b><small>Bedtime Bible story' + (x.episode ? ' #' + x.episode : '') + ' \u00b7 ' + m + ':' + (s < 10 ? '0' : '') + s + '</small></span>' +
+        '<span><b>' + esc(x.title) + '</b><small>' + storyKind(x) + (x.episode ? ' #' + x.episode : '') + ' \u00b7 ' + m + ':' + (s < 10 ? '0' : '') + s + '</small></span>' +
         '<span class="p-pp" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>';
     }).join('');
   }
   function storyHtml(x, h) {
     h = h || 'h1';
-    var src = /^https?:/i.test(x.src || '') ? x.src : '/' + String(x.src || '').replace(/^\/+/, '');
+    var src = /^(https?:|blob:)/i.test(x.src || '') ? x.src : '/' + String(x.src || '').replace(/^\/+/, '');
     var mins = Math.floor((x.dur || 0) / 60), secs = Math.round((x.dur || 0) % 60);
     var qs = x.questions && x.questions.length === 3 ? x.questions : null;
     return '<a class="back" href="/listen" data-ep-back>← Listen</a>' +
       '<div class="hero" style="background:' + esc(x.color || '#a07fd6') + ';color:' + esc(x.ink || '#1d1233') + '">' +
         '<span class="p-kicker">' + esc(x.series) + (x.episode ? ' · #' + x.episode : '') + '</span>' +
         '<' + h + '>' + esc(x.title) + '</' + h + '>' +
-        '<span class="p-ep-by">Bedtime Bible story' + (x.narrator ? ', read by ' + esc(x.narrator) : '') + ' · about ' + (mins ? mins + ' min ' : '') + (secs ? secs + ' s' : '') + '</span>' +
+        '<span class="p-ep-by">' + storyKind(x) + (x.narrator ? ', read by ' + esc(x.narrator) : '') + ' · about ' + (mins ? mins + ' min ' : '') + (secs ? secs + ' s' : '') + '</span>' +
       '</div>' +
       '<div class="body p-txt p-sbody">' +
         '<div class="p-ep-player">' +
@@ -215,5 +269,5 @@
     }).filter(Boolean).join('').trim();
   }
 
-  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml };
+  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, storyImage: storyImage, storyKind: storyKind, storyFromPost: storyFromPost, mergeStories: mergeStories, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml };
 })(typeof window !== 'undefined' ? window : globalThis);

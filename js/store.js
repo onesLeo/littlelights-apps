@@ -3,7 +3,7 @@
 // One post shape everywhere (it matches the `posts` table in supabase/schema.sql):
 //   { id, type, status, publish_at, title, slug, show_on_today, fields, media_url,
 //     author_email, created_at, updated_at }
-// type:   'verse' | 'devotion' | 'audio' | 'reel' | 'game'
+// type:   'verse' | 'devotion' | 'audio' | 'reel' | 'game' | 'story' (bedtime story, /listen/<slug>)
 // status: 'draft' | 'scheduled' | 'published'
 // A post is visible in the app when status is 'scheduled' or 'published' and
 // publish_at is in the past, so scheduled posts appear on time without a server job.

@@ -36,7 +36,7 @@ grant execute on function private.team_role(), private.is_team(), private.my_ema
 -- ---------- posts ----------
 create table if not exists public.posts (
   id            bigint generated always as identity primary key,
-  type          text not null check (type in ('verse', 'devotion', 'audio', 'reel', 'game')),
+  type          text not null check (type in ('verse', 'devotion', 'audio', 'reel', 'game', 'story')),
   status        text not null default 'draft' check (status in ('draft', 'scheduled', 'published')),
   publish_at    timestamptz,
   title         text not null default '',
