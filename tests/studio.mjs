@@ -617,7 +617,27 @@ await sctx.close();
     check(rows.length > 5 && rows.every((r) => r.inside && (phone ? r.tw > 0.8 && r.below : !r.below)) && navOk && await pp.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
       `built-ins at ${w}px: ${phone ? 'title full width, controls on their own row' : 'title and controls on one line'}, inside the card, current tab in view`);
   }
+  // Visible / Hidden filter
+  for (const w of [320, 1280]) {
+    await pp.setViewportSize({ width: w, height: 780 });
+    const n = (f) => pp.$eval(`[data-bfilter="${f}"] .n`, (e) => +e.textContent);
+    const total = await n('all');
+    check(total > 5 && await n('visible') + await n('hidden') === total && await pp.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `built-in filter at ${w}px: All, Visible and Hidden chips with counts that add up`);
+  }
+  const firstKey = await pp.$eval('#builtinList [data-bhide]', (e) => e.dataset.bhide);
+  await pp.click('[data-bfilter="hidden"]');
+  const hiddenBefore = await pp.$$eval('#builtinList .brow', (r) => r.length);
+  check(await pp.$eval('[data-bfilter="hidden"]', (e) => e.getAttribute('aria-pressed') === 'true' && document.activeElement === e) && (hiddenBefore > 0 || (await pp.textContent('#builtinList .empty')).includes('No hidden items')), 'built-in filter: Hidden is pressed, keeps focus, and says “No hidden items” when empty');
+  await pp.click('[data-bfilter="all"]');
+  await pp.click(`[data-bhide="${firstKey}"]`);
+  await pp.click('[data-bfilter="hidden"]');
+  check(await pp.$$eval('#builtinList .brow', (r) => r.length) === hiddenBefore + 1 && await pp.$$eval('#builtinList .pill', (p) => p.every((x) => x.textContent === 'Hidden')), 'built-in filter: Hidden shows only hidden items, including one just hidden');
+  await pp.click('[data-bfilter="visible"]');
+  check(await pp.$$eval('#builtinList .pill', (p) => p.length > 0 && p.every((x) => x.textContent === 'Visible')), 'built-in filter: Visible shows only visible items');
+  await pp.keyboard.press('Shift+Tab'); await pp.keyboard.press('Enter');
+  check(await pp.$eval('[data-bfilter="all"]', (e) => e.getAttribute('aria-pressed') === 'true'), 'built-in filter: works from the keyboard');
   await pp.setViewportSize({ width: 360, height: 780 });
+  await pp.screenshot({ path: 'test-results/builtin-filter-360.png' });
   await pp.click('.top .help');
   await pp.waitForSelector('.guide');
   check(await pp.evaluate(() => document.activeElement.id === 'g-builtins' && document.querySelectorAll('.gpart').length >= 10), 'guide: the “?” on a section opens the guide at that part');
