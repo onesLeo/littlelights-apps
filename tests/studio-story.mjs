@@ -36,7 +36,7 @@ await page.click('.side [data-view="new"]');
 check(await page.$('[data-new="story"]') !== null, 'New post offers Bedtime story');
 await page.click('[data-new="story"]');
 check(await page.$('#f_today') === null, 'stories are not offered on the Today feed');
-check((await page.inputValue('#f_series')) === 'Bedtime Bible Stories for Kids' && (await page.inputValue('#f_episode')) === '3', 'series pre-filled, next episode number is 3');
+check((await page.inputValue('#f_series')) === 'Bedtime Bible Stories for Kids' && (await page.inputValue('#f_episode')) === '2', 'series pre-filled, next episode number is 2 (only built-in Jonah here; Elijah is a Studio post)');
 check(await page.$('#f_publish_date') !== null, 'schedule asks for a publish date');
 
 // Validation before anything is filled in.

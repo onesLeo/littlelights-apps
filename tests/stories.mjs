@@ -59,7 +59,32 @@ check(pages.some((p) => p.meta.path === '/listen/test-live-story'), 'prerender w
 check(!pages.some((p) => p.meta.path === '/listen/test-future-story'), 'prerender skips the future story');
 const xml = sitemapXml(pages);
 check(xml.includes('/listen/test-live-story') && !xml.includes('test-future-story'), 'sitemap lists published, not future');
-check(pages.some((p) => p.meta.path === '/listen/jonah-and-the-whale-bedtime-story') && pages.some((p) => p.meta.path === '/listen/' + ELIJAH_SLUG), 'built-in Jonah and Elijah pages still built');
+check(pages.some((p) => p.meta.path === '/listen/jonah-and-the-whale-bedtime-story'), 'built-in Jonah page still built');
+
+// ---- Elijah is Studio-only: nothing until its post's publish date (simulated clock) ----
+check(!C.bedtimeStories.some((b) => b.slug === ELIJAH_SLUG) && !JSON.stringify(C).includes('/listen/' + ELIJAH_SLUG), 'no built-in Elijah and no link to its page in js/content.js');
+const ELIJAH_AT = '2026-11-04T00:00:00+08:00'; // post id 36 in the live database (read 27 Oct 2026)
+const eliPost = { id: 36, type: 'story', status: 'scheduled', publish_at: new Date(ELIJAH_AT).toISOString(), title: 'Elijah and the Still Small Voice', slug: ELIJAH_SLUG, show_on_today: false,
+  media_url: (await builtinStory(ELIJAH_SLUG)).src, fields: fieldsFromStory(await builtinStory(ELIJAH_SLUG)) };
+async function storeAt(iso) {
+  const RealDate = Date, now = new RealDate(iso).getTime();
+  class FakeDate extends RealDate { constructor(...a) { super(...(a.length ? a : [now])); } static now() { return now; } }
+  const c = { ...ctx, Date: FakeDate }; c.window = c; vm.createContext(c);
+  vm.runInContext(await readFile(new URL('js/content.js', root), 'utf8'), c);
+  vm.runInContext(await readFile(new URL('js/store.js', root), 'utf8'), c);
+  return { S: c.LLStore, C: JSON.parse(JSON.stringify(c.LL_CONTENT)) };
+}
+for (const [iso, due] of [['2026-11-03T23:59:00+08:00', false], ['2026-11-04T00:00:30+08:00', true], ['2026-11-20T09:00:00+08:00', true]]) {
+  const T = await storeAt(iso);
+  const list = T.S.mergeStories(T.C.bedtimeStories, [eliPost]);
+  const pg = pageList(siteContent({ C: T.C, S: T.S }, { posts: [eliPost], settings: {} }));
+  const has = pg.some((p) => p.meta.path === '/listen/' + ELIJAH_SLUG), inMap = sitemapXml(pg).includes('/listen/' + ELIJAH_SLUG);
+  check(list.some((b) => b.slug === ELIJAH_SLUG) === due && has === due && inMap === due, `Elijah at ${iso}: ${due ? 'listed, page built, in sitemap' : 'not listed, no page, not in sitemap'}`);
+  if (due) {
+    const st = list.find((b) => b.slug === ELIJAH_SLUG), old = await builtinStory(ELIJAH_SLUG);
+    check(SEO.storyHtml(st, 'h1') === SEO.storyHtml(old, 'h1') && st.timings === 'media/audio/elijah-still-small-voice-timings.json', `Elijah at ${iso}: the Studio post renders exactly like the old built-in, with its timings`);
+  }
+}
 
 // ---- Elijah seed renders exactly like the built-in ----
 const eli = await builtinStory(ELIJAH_SLUG);
@@ -112,6 +137,35 @@ try {
   await page.goto(base + '/listen/test-future-story');
   await page.waitForTimeout(500);
   check(!(await page.textContent('body')).includes('Para two.'), 'future story page shows nothing');
+
+  // Elijah in the browser, before and after its date (clock simulated, Supabase answers mocked).
+  for (const [iso, due] of [['2026-11-03T23:59:00+08:00', false], ['2026-11-04T00:00:30+08:00', true]]) {
+    const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+    const p2 = await ctx2.newPage();
+    await p2.clock.setFixedTime(new Date(iso));
+    // The real database also hides the post before its date; the app must not show it even if it got it.
+    await p2.route('**/rest/v1/posts?**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([eliPost]) }));
+    await p2.route('**/rest/v1/site_settings?**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+    await p2.route(/\.mp3(\?|$)/, (r) => r.fulfill({ status: 404, body: '' }));
+    if (!due) {
+      const resp = await p2.goto(base + '/listen/' + ELIJAH_SLUG);
+      await p2.waitForTimeout(800);
+      const body = await p2.textContent('body');
+      check(resp.status() === 404 && /got a little lost/i.test(body) && !body.includes('Who took care of Elijah'), `Elijah URL at ${iso}: the not-found page (HTTP ${resp.status()})`);
+    }
+    await p2.goto(base + '/listen'); await p2.waitForSelector('#pGn .p-gnrow');
+    const hrefs = await p2.$$eval('#pGn .p-gnrow', (els) => els.map((e) => e.getAttribute('href')));
+    check(hrefs.includes('/listen/' + ELIJAH_SLUG) === due, `/listen at ${iso}: Elijah ${due ? 'listed' : 'not listed'}`);
+    if (due) {
+      // (A direct visit before the next rebuild is answered by functions/listen/[slug].js: tests/edge.mjs.)
+      await p2.click(`a[href="/listen/${ELIJAH_SLUG}"]`);
+      await p2.waitForSelector('#pEpisode.on .p-ep-qs');
+      check((await p2.textContent('#pEpisode')).includes('Who took care of Elijah when he was tired?'), `Elijah at ${iso}: the Studio story opens from /listen`);
+      await p2.waitForSelector('.p-ra-toggle', { timeout: 8000 }).catch(() => {});
+      check((await p2.$$('#pEpisode .p-sen')).length > 50, `Elijah at ${iso}: read-along is on (${(await p2.$$('#pEpisode .p-sen')).length} sentences)`);
+    }
+    await ctx2.close();
+  }
 } finally { await browser.close(); server.close(); }
 
 if (failures) { console.error(`\n${failures} check(s) failed`); process.exit(1); }
