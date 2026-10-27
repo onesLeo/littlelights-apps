@@ -1,0 +1,30 @@
+name: Daily site rebuild
+
+# Every morning at 05:00 Singapore time (21:00 UTC the day before), ask Cloudflare Pages to rebuild the
+# site, so bedtime stories scheduled in the Studio for today get their prerendered page and sitemap entry
+# (scripts/build-pages.mjs only includes stories whose publish date has arrived).
+# Setup (once, see docs/studio.md "Daily rebuild"): create a Pages deploy hook for the `main` branch and save
+# its URL as the repository secret CF_PAGES_DEPLOY_HOOK. Without the secret this job does nothing.
+on:
+  schedule:
+    - cron: '0 21 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger the Cloudflare Pages deploy hook
+        env:
+          HOOK: ${{ secrets.CF_PAGES_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::warning::CF_PAGES_DEPLOY_HOOK is not set; skipping the rebuild (see docs/studio.md)."
+            exit 0
+          fi
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST --retry 3 --retry-all-errors "$HOOK")
+          echo "Deploy hook answered HTTP $code"
+          case "$code" in 2*) ;; *) exit 1 ;; esac

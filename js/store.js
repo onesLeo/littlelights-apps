@@ -3,7 +3,7 @@
 // One post shape everywhere (it matches the `posts` table in supabase/schema.sql):
 //   { id, type, status, publish_at, title, slug, show_on_today, fields, media_url,
 //     author_email, created_at, updated_at }
-// type:   'verse' | 'devotion' | 'audio' | 'reel' | 'game'
+// type:   'verse' | 'devotion' | 'audio' | 'reel' | 'game' | 'story' (bedtime story, /listen/<slug>)
 // status: 'draft' | 'scheduled' | 'published'
 // A post is visible in the app when status is 'scheduled' or 'published' and
 // publish_at is in the past, so scheduled posts appear on time without a server job.
@@ -140,6 +140,8 @@
       var id = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
       return idbDo('readwrite', function (s) { s.put(file, id); }).then(function () { return 'local-media:' + id; });
     },
+    // Local mode has no file names: same as uploadMedia.
+    uploadMediaAt: function (file) { return local.uploadMedia(file); },
     // Site settings (the `site_settings` table in Supabase mode), for example key 'nav'.
     getSetting: function (key) { var v = readJSON(SETTINGS_KEY, {})[key]; return Promise.resolve(v == null ? null : v); },
     saveSetting: function (key, value) {
@@ -298,6 +300,18 @@
       return loadClient().then(function (c) { return c.storage.from('media').upload(path, file, { contentType: file.type, upsert: false }); })
         .then(must).then(function () { return client.storage.from('media').getPublicUrl(path).data.publicUrl; });
     },
+    // Upload to a fixed, content-hashed path (bedtime stories: stories/<slug>.<sha8>.mp3). The name changes
+    // whenever the bytes change, so the file may be cached for a year. Uploading the same bytes again
+    // (same name) is not an error: the file is already there.
+    uploadMediaAt: function (file, path, opts) {
+      opts = opts || {};
+      return loadClient().then(function (c) {
+        return c.storage.from('media').upload(path, file, { contentType: opts.contentType || file.type, cacheControl: opts.cacheControl || '3600', upsert: false });
+      }).then(function (res) {
+        if (res && res.error && !/exists|duplicate/i.test(res.error.message || '')) throw res.error;
+        return client.storage.from('media').getPublicUrl(path).data.publicUrl;
+      });
+    },
     getSetting: function (key) {
       return publicSettings().then(function (all) { return Object.prototype.hasOwnProperty.call(all, key) ? all[key] : null; });
     },
@@ -395,4 +409,84 @@
   }
   window.LLStore.contentDefault = function () { return { verses: CONTENT_DEFAULT.verses }; };
   window.LLStore.normalizeContent = normalizeContent;
+  // ---------- bedtime stories posted in the Studio (type 'story') ----------
+  // Shared by the app (js/app.js), the build (scripts/prerender.mjs) and the Studio, so a Studio story is
+  // shown exactly like a built-in one in js/content.js `bedtimeStories`.
+  var SGT_OFFSET = '+08:00';
+  // 'YYYY-MM-DD' -> the moment that day starts in Singapore, as an ISO string (publish_at of a story).
+  function sgtDayStart(day) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(day || ''))) return '';
+    var t = new Date(day + 'T00:00:00' + SGT_OFFSET);
+    return isNaN(t) ? '' : t.toISOString();
+  }
+  // An ISO time -> its calendar day in Singapore ('YYYY-MM-DD').
+  function sgtDay(iso) {
+    var t = Date.parse(iso || '');
+    return isFinite(t) ? new Date(t + 8 * 3600 * 1000).toISOString().slice(0, 10) : '';
+  }
+  function num(v) { return typeof v === 'number' && isFinite(v); }
+  // Read-along timings: [{text,start,end,words:[{text,start,end}]}], seconds from the start of the audio.
+  // Returns { ok, error, sentences, words, end }. `dur` (seconds, optional) checks the file fits the audio.
+  function validateTimings(t, dur) {
+    function bad(msg) { return { ok: false, error: msg }; }
+    if (!Array.isArray(t)) return bad('The timings file must be a list: [{ "text", "start", "end", "words": [...] }, ...].');
+    if (!t.length) return bad('The timings file is empty.');
+    var words = 0, last = -1;
+    for (var i = 0; i < t.length; i++) {
+      var s = t[i], at = 'Sentence ' + (i + 1);
+      if (!s || typeof s !== 'object' || Array.isArray(s)) return bad(at + ' is not an object.');
+      if (typeof s.text !== 'string' || !s.text.trim()) return bad(at + ' has no "text".');
+      if (!num(s.start) || !num(s.end)) return bad(at + ': "start" and "end" must be numbers (seconds).');
+      if (s.start < 0 || s.end < s.start) return bad(at + ': "end" must not be before "start".');
+      if (s.start < last - 0.05) return bad(at + ' starts before the sentence before it. Keep sentences in order.');
+      last = s.start;
+      if (!Array.isArray(s.words) || !s.words.length) return bad(at + ' has no "words" list.');
+      for (var j = 0; j < s.words.length; j++) {
+        var w = s.words[j];
+        if (!w || typeof w.text !== 'string' || !num(w.start) || !num(w.end) || w.end < w.start) return bad(at + ', word ' + (j + 1) + ': needs "text", "start" and "end".');
+      }
+      words += s.words.length;
+    }
+    var end = t[t.length - 1].end;
+    if (num(dur) && dur > 0 && end > dur + 2) return bad('The timings run to ' + Math.round(end) + ' s but the audio is ' + Math.round(dur) + ' s long. Is it the right file?');
+    return { ok: true, sentences: t.length, words: words, end: end };
+  }
+  function lines(v) { return String(v || '').split(/\n/).map(function (x) { return x.trim(); }).filter(Boolean); }
+  function paragraphs(v) { return String(v || '').split(/\n\s*\n/).map(function (x) { return x.replace(/\s*\n\s*/g, ' ').trim(); }).filter(Boolean); }
+  // A published Studio story post -> the bedtimeStories shape (see js/content.js). `src` overrides media_url
+  // (the app resolves local-media: links first).
+  function storyFromPost(p, src) {
+    var f = (p && p.fields) || {};
+    var qs = lines(f.questions);
+    var x = {
+      slug: p.slug, title: p.title || '', series: f.series || 'Bedtime Bible Stories for Kids', episode: +f.episode || 0,
+      seoTitle: f.seo_title || '', desc: f.desc || '', narrator: f.narrator || '',
+      src: src || p.media_url || '', placeholder: false, dur: +f.seconds || 0,
+      timings: f.timings || '', color: /^#[0-9a-f]{6}$/i.test(f.color || '') ? f.color : '#a07fd6', ink: /^#[0-9a-f]{6}$/i.test(f.ink || '') ? f.ink : '#1d1233',
+      story: paragraphs(f.story), prayer: f.prayer || '', goodnight: f.goodnight || '',
+      verse: { text: f.verse || '', ref: f.ref || '', version: f.translation || 'WEB' },
+      questions: qs.length === 3 ? qs : qs.length ? qs.slice(0, 3) : [],
+      image: f.image || '', imageWidth: +f.image_width || 0, imageHeight: +f.image_height || 0,
+      date: p.publish_at || p.created_at || '', updated: p.updated_at || '', _studio: true
+    };
+    if (f.next_title) x.next = { title: f.next_title, when: f.next_when || '', href: f.next_href || '/listen' };
+    if (f.word && f.word_meaning) x.word = { word: f.word, meaning: f.word_meaning };
+    if (!x.image) { x.imageWidth = 0; x.imageHeight = 0; }
+    return x;
+  }
+  // Built-in stories first, then Studio stories by publish date (then episode). A Studio story with the
+  // same slug as a built-in one replaces it.
+  function mergeStories(builtins, posts) {
+    var studio = (posts || []).filter(function (p) { return p.type === 'story' && p.slug && isLive(p); })
+      .sort(function (a, b) { return String(a.publish_at).localeCompare(String(b.publish_at)); })
+      .map(function (p) { return storyFromPost(p, p._src); });
+    var taken = {};
+    studio.forEach(function (x) { taken[x.slug] = 1; });
+    return (builtins || []).filter(function (b) { return !taken[b.slug]; }).concat(studio);
+  }
+  window.LLStore.sgtDayStart = sgtDayStart;
+  window.LLStore.sgtDay = sgtDay;
+  window.LLStore.validateTimings = validateTimings;
+  window.LLStore.storyFromPost = storyFromPost;
+  window.LLStore.mergeStories = mergeStories;
 })();

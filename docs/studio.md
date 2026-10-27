@@ -98,3 +98,31 @@ existing name from the list or type a new one) and **Episode #**. Optionally add
 - Reels without a series show as standalone cards. Built-ins in `js/content.js` take the same `series`
   and `episode` keys.
 - Each episode plays on its own with one progress bar. The older `parts` field is no longer read.
+
+## Bedtime stories
+
+Studio → New post → **Bedtime story** makes a story that shows like the built-in Jonah and Elijah stories: its own page at `/listen/<slug>`, a row in the "Goodnight Little Light" section on /listen, read-along words, the prayer, the verse and three questions.
+
+- **Narration**: an MP3 only (`audio/mpeg`, checked by its first bytes), up to 50 MB, so a full 6–15 MB mix is fine. Its length is read and saved. It is stored as `stories/<slug>.<hash>.mp3`. The name includes a hash of the content, so a new mix always gets a new address and can be cached for a year.
+- **Timings**: the read-along JSON (`{ "words": [...], "sentences": [...] }`). It is checked before upload: times must go forward, sentences must not overlap, and nothing may end after the audio.
+- **Cover** (optional): JPG, PNG or WebP, 1200×630 is best.
+- **Publish date**: a date in Singapore time. The story stays hidden until 00:00 SGT that day (the database rule "Live posts are public" enforces this, as well as the app).
+
+A story with the same slug as a built-in one replaces it from its publish date.
+
+### One-time steps for Taman
+
+1. Apply the migration `supabase/migrations/20261027120000_bedtime_story_posts.sql` (Supabase → SQL Editor, or `supabase db push`). It only widens the allowed post types to include `story`.
+2. Optional: run `supabase/seed/20261027_elijah_story.sql` to add Elijah as a Studio story scheduled for Mon 9 Nov 2026 (00:00 SGT). It does nothing if a post with that slug already exists. Fix its audio first (see the TODO in the file).
+
+## Daily rebuild
+
+`.github/workflows/daily-rebuild.yml` runs every day at 05:00 SGT (21:00 UTC). It calls a Cloudflare Pages deploy hook, so the prerendered pages and sitemap pick up stories whose day has come. Before the rebuild, a newly due story still shows in the app, just without its prerendered page.
+
+Setup (once):
+
+1. Cloudflare dashboard → Workers & Pages → the project → Settings → Builds → **Deploy hooks** → Add, name it `daily-rebuild`, branch `main`. Copy the URL.
+2. GitHub → the repo → Settings → Secrets and variables → Actions → New repository secret named `CF_PAGES_DEPLOY_HOOK`. Paste the URL there.
+3. Actions → Daily rebuild → **Run workflow** to test it. A new deployment should appear in Cloudflare.
+
+If the secret is missing, the workflow skips with a warning instead of failing. Treat the hook URL like a password: anyone who has it can start builds.
