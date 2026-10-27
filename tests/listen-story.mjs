@@ -20,7 +20,7 @@ check(raw.includes('<title>Jonah and the Whale | Bedtime Bible Story for Kids #1
 check(raw.includes(`<link rel="canonical" href="https://littlesaltandlight.com${PATH}">`), 'own canonical');
 check(raw.includes(`<meta property="og:url" content="https://littlesaltandlight.com${PATH}">`) && raw.includes('og:title" content="Jonah and the Whale'), 'own Open Graph tags');
 check(raw.includes('"@type":"PodcastEpisode"') && raw.includes('"@type":"AudioObject"') && raw.includes('"isFamilyFriendly":true'), 'PodcastEpisode JSON-LD');
-check(raw.includes('Then Jonah was swallowed by a great big fish!') && raw.includes('Dear Jesus, thank You that You always hear me.'), 'story text and prayer are in the HTML without JavaScript');
+check(raw.includes('A great big fish swam up, opened its great big mouth') && raw.includes('Dear Jesus… thank You that You always hear me.'), 'story text and prayer are in the HTML without JavaScript');
 check(raw.includes('I called because of my <mark class="p-word">affliction</mark> to Yahweh. He answered me.') && raw.includes('Jonah 2:2 (WEB)'), 'verse is Jonah 2:2 (WEB) with Yahweh');
 check(raw.includes('Affliction means big trouble, and Yahweh is God’s special name.'), '"affliction" and "Yahweh" explained on screen');
 check(!/WEBBE|the LORD/.test(raw), 'no WEBBE / "the LORD" left on the page');
@@ -38,7 +38,7 @@ check(['Who trusted God?', 'How did God help?', 'How can we be like that tomorro
 }
   check((await fetch(cover.replace('https://littlesaltandlight.com', base))).status === 200, 'cover file is in the build');
 }
-check(/<audio controls[^>]+src="https:\/\/media\.littlesaltandlight\.com\/audio\/jonah-and-the-whale\.[0-9a-f]{8}\.mp3"/.test(raw), 'an <audio> player with the v2 narration on R2 (content-hashed name)');
+check(/<audio controls[^>]+src="https:\/\/media\.littlesaltandlight\.com\/audio\/jonah-and-the-whale\.[0-9a-f]{8}\.mp3"/.test(raw), 'an <audio> player with the narration on R2 (content-hashed name)');
 check(!raw.includes('data-placeholder-audio') && !raw.includes('PLACEHOLDER AUDIO'), 'no placeholder-audio note now the narration is real');
 check(raw.includes('href="/join"') && raw.includes('Next story'), 'Next story and Join testers cards');
 check((raw.match(/<h1[\s>]/g) || []).length === 1, 'exactly one <h1>');

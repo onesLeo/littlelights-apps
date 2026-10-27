@@ -67,7 +67,7 @@ window.LL_CONTENT = {
   // Bedtime Bible Stories: one page each at /listen/<slug> (written by scripts/prerender.mjs, opened by
   // js/app.js). Wording comes from littlelights-growth content/2026-11-content-plan.md; do not edit it here
   // without updating the plan. Jonah 2:2 is WEB (with "Yahweh" explained), per plan commit 7ca1d09.
-  // AUDIO: v2 narration on R2 (docs/media-r2.md, "Bedtime story audio"). A new recording gets a new
+  // AUDIO: v3 narration on R2 (docs/media-r2.md, "Bedtime story audio"). A new recording gets a new
   // audio/<name>.<sha8>.mp3 key; set `src`, `dur` (seconds) and the timings file together, then bump VERSION in sw.js.
   bedtimeStories: [
     {
@@ -75,24 +75,26 @@ window.LL_CONTENT = {
       series: 'Bedtime Bible Stories for Kids', episode: 1,
       title: 'Jonah and the Whale',
       seoTitle: 'Jonah and the Whale | Bedtime Bible Story for Kids #1',
-      desc: 'A gentle bedtime Bible story about Jonah and the great fish, with a short prayer.',
+      desc: 'A gentle bedtime Bible story about Jonah and the great fish, with soft sea sounds, a lullaby and a short prayer.',
       narrator: 'Mr. Ginting',
-      src: MEDIA_BASE + 'audio/jonah-and-the-whale.fe8ea840.mp3', placeholder: false, dur: 99.84,
+      // v3 (27 Oct 2026): Eleven v4 narration with gentle sound effects and The Moon's Lullaby, mixed to -20 LUFS.
+      // Source and mix settings: littlelights-growth content/bedtime/01-jonah (tools/mix_bedtime.py).
+      src: MEDIA_BASE + 'audio/jonah-and-the-whale.2f761925.mp3', placeholder: false, dur: 238.34,
       // Read-along timings: [{text,start,end,words:[{text,start,end}]}] in seconds, one entry per spoken sentence.
-      // Swap it together with the audio and the text above (docs/media-r2.md, "Read-along timings").
-      // Current file: Audio Bot's alignment of the v2 recording (jonah-01/v2).
+      // v3: ElevenLabs Scribe word alignment of each narration section, shifted to its place in the mix.
       timings: 'media/audio/jonah-and-the-whale-timings.json',
       color: '#a07fd6', ink: '#1d1233',
-      // Narration v2 (jonah-01/v2/narration-v2.txt, with the 3 interaction lines), split into paragraphs.
-      // The word in `word` is highlighted in the text.
+      // Narration v3, split into paragraphs (one per narration section). The word in `word` is highlighted in the text.
       story: [
-        'Hi, little light. It\u2019s bedtime story time. Snuggle in.',
-        'Once there was a man named Jonah. God asked him to go to the city of Nineveh, but Jonah went the other way and got on a boat. A big wind blew, and the boat rocked up and down. Can you make the sound of the wind with me? Whoooosh\u2026 Then Jonah was swallowed by a great big fish!',
-        'It was dark inside the fish, but Jonah wasn\u2019t alone. Let\u2019s close our eyes, just like Jonah\u2026 He prayed. Later he said, \u2018I called because of my affliction to Yahweh. He answered me.\u2019 Affliction means big trouble, and Yahweh is God\u2019s special name. And God did answer.',
-        'The fish brought Jonah safely to the land, and this time Jonah said yes to God. So remember: wherever you are, you can always talk to God, and He always hears you.'
+        "Hi, little light… It’s bedtime story time. Are you all cozy? Let’s make a little nest with your blanket… there we go. Tonight’s story is about a man who ran away… and a God who never stopped loving him. It’s called… Jonah and the Great Fish.",
+        "A long time ago, there was a man named Jonah. One day, God spoke to him. “Jonah,” God said, “go to the big city of Nineveh, and tell the people to turn back to Me.” But Jonah didn’t want to go. So he did something very silly… he went the other way. He walked all the way down to the sea, found a boat that was sailing far, far away, and climbed on board. Then Jonah went down to the bottom of the boat… and fell fast asleep.",
+        "Out on the sea, the wind began to blow. Whoosh… whoosh… The waves rocked the boat up… and down… up… and down. The sailors were worried, so they woke Jonah up. And Jonah said, “This storm is because of me. I ran away from God.” So the sailors lifted Jonah into the sea… and right away, the wind stopped. The waves grew calm and still. And Jonah? Well… God had a plan. A great big fish swam up, opened its great big mouth… and gulp! Jonah was safe inside.",
+        "Inside the fish, it was dark… and quiet… and a little bit squishy. Jonah stayed there for three days and three nights. But Jonah wasn’t alone. God was with him, even there. So Jonah did the very best thing he could do… he prayed. Later, Jonah said, “I called because of my affliction to Yahweh. He answered me.” Affliction means… big trouble. And Yahweh is God’s special name. When Jonah was in big trouble, he talked to God. And God heard every word.",
+        "Then God spoke to the fish… and the fish swam all the way to the shore, and… bloop! Out came Jonah, onto the warm, dry sand. Jonah was safe! And God gave Jonah a second chance. “Jonah,” God said again, “go to Nineveh.” And this time… Jonah said yes. He went to the big city and told the people about God, and they were sorry for the wrong things they had done. And God, who is so kind, forgave them all.",
+        "You know, little one… wherever you are, you can always talk to God. In the dark, in a storm, even in the middle of the sea… He hears you. And when we get things wrong, God is kind. He gives us another chance, just like He did for Jonah."
       ],
-      prayer: 'Let\u2019s fold our hands together. Dear Jesus, thank You that You always hear me. When I\u2019m scared, help me talk to You. Amen.',
-      goodnight: 'Goodnight, little light. \u{1F319}',
+      prayer: "Dear Jesus… thank You that You always hear me. When I’m scared, help me talk to You. And when I make mistakes, thank You for giving me another chance. Amen.",
+      goodnight: 'Goodnight, little light. Sleep tight. \u{1F319}',
       verse: { text: 'I called because of my affliction to Yahweh. He answered me.', ref: 'Jonah 2:2', version: 'WEB' },
       word: { word: 'affliction', meaning: 'Affliction means big trouble, and Yahweh is God\u2019s special name.' },
       // From the plan's post 2 (Wed 4 Nov), "Try them with our Jonah bedtime story".
