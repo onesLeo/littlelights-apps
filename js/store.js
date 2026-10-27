@@ -419,6 +419,18 @@
     var t = new Date(day + 'T00:00:00' + SGT_OFFSET);
     return isNaN(t) ? '' : t.toISOString();
   }
+  // 'YYYY-MM-DD' + 'HH:MM' (Singapore time, default 00:00) -> ISO string. The schedule time of every post.
+  function sgtStart(day, hm) {
+    hm = hm == null || hm === '' ? '00:00' : String(hm);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(day || '')) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(hm)) return '';
+    var t = new Date(day + 'T' + hm + ':00' + SGT_OFFSET);
+    return isNaN(t) ? '' : t.toISOString();
+  }
+  // An ISO time -> its clock time in Singapore ('HH:MM').
+  function sgtTime(iso) {
+    var t = Date.parse(iso || '');
+    return isFinite(t) ? new Date(t + 8 * 3600 * 1000).toISOString().slice(11, 16) : '';
+  }
   // An ISO time -> its calendar day in Singapore ('YYYY-MM-DD').
   function sgtDay(iso) {
     var t = Date.parse(iso || '');
@@ -485,6 +497,8 @@
     return (builtins || []).filter(function (b) { return !taken[b.slug]; }).concat(studio);
   }
   window.LLStore.sgtDayStart = sgtDayStart;
+  window.LLStore.sgtStart = sgtStart;
+  window.LLStore.sgtTime = sgtTime;
   window.LLStore.sgtDay = sgtDay;
   window.LLStore.validateTimings = validateTimings;
   window.LLStore.storyFromPost = storyFromPost;

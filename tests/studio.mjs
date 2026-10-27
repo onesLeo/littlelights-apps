@@ -203,15 +203,27 @@ await page.click('[data-new="game"]');
 await page.fill('#f_title', 'Jonah is coming soon');
 await page.fill('#f_text', 'Journey 5 is being built.');
 await page.click('[data-mode="schedule"]');
-await page.fill('#f_when', '2020-01-01T08:00');
+check(await page.inputValue('#f_publish_time') === '00:00', 'schedule: time defaults to 00:00 (SGT)');
+await page.fill('#f_publish_date', '2020-01-01'); await page.fill('#f_publish_time', '08:00');
 await page.click('#postForm button[type=submit]');
 check((await text('.errmsg')).includes('future'), 'game: a past schedule time is rejected');
-const tomorrow = new Date(Date.now() + 86400000);
-const local = new Date(tomorrow - tomorrow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-await page.fill('#f_when', local);
+const tomorrowSgt = new Date(Date.now() + 86400000 + 8 * 3600e3).toISOString().slice(0, 10);
+await page.fill('#f_publish_date', tomorrowSgt); await page.fill('#f_publish_time', '18:30');
+check((await text('#whenSay')).includes('6:30 PM SGT'), 'schedule: the chosen moment is spelled out in SGT');
+await page.screenshot({ path: 'test-results/studio-schedule-picker.png' });
 await page.click('#postForm button[type=submit]');
 await page.waitForSelector('.list .row');
 check(await rowStatus('Jonah is coming soon') === 'Scheduled', 'game: scheduled for tomorrow');
+{
+  const g = await page.evaluate(() => JSON.parse(localStorage.getItem('ll.posts.v1')).find((p) => p.title === 'Jonah is coming soon'));
+  check(g && g.publish_at === new Date(tomorrowSgt + 'T18:30:00+08:00').toISOString(), 'game: stored at 18:30 Singapore time');
+  const cell = await page.$$eval('.list .row', (rs) => rs.find((r) => r.textContent.includes('Jonah is coming soon')).querySelector('.c-date').textContent);
+  check(/Goes live/.test(cell) && /6:30 PM SGT/.test(cell) && /20\d\d/.test(cell), 'table: scheduled row says Goes live, year and 6:30 PM SGT (' + cell.trim() + ')');
+  await page.click('.list .row:has-text("Jonah is coming soon") .titlebtn');
+  await page.waitForSelector('#f_publish_time');
+  check(await page.inputValue('#f_publish_time') === '18:30' && await page.inputValue('#f_publish_date') === tomorrowSgt, 'game: reopening keeps the date and 18:30');
+  await page.click('[data-view="posts"]'); await page.waitForSelector('.list .row');
+}
 await page.screenshot({ path: 'test-results/studio-posts.png', fullPage: true });
 
 // ---------- media and team ----------
