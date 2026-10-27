@@ -51,7 +51,7 @@ existing key with different bytes.
 ## Bedtime story audio (`/listen/<slug>`)
 
 Bedtime story pages (`bedtimeStories` in `js/content.js`) play their narration from the same bucket, under
-`audio/`. **Jonah now:** `audio/jonah-and-the-whale.2f761925.mp3` (v3 narration with sound effects and lullaby, 238.34 s, 27 Oct 2026).
+`audio/`. **Jonah now:** `audio/jonah-and-the-whale.2f761925.mp3` (v3 narration with sound effects and lullaby, 238.34 s, 27 Oct 2026). **Elijah:** `audio/elijah-still-small-voice.0d7d251e.mp3` (257.98 s, 27 Oct 2026).
 Until the real file arrives an entry points at a small silent placeholder in
 `media/audio/<name>-placeholder.mp3` and has `placeholder: true` (the page then shows a
 "[PLACEHOLDER AUDIO]" note). To swap in the real narration:
