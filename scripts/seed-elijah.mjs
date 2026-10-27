@@ -11,7 +11,9 @@ const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 export const ELIJAH_SLUG = 'elijah-still-small-voice-bedtime-story';
 export const ELIJAH_PUBLISH_AT = '2026-11-09T00:00:00+08:00';
 
+// The story as it was in js/content.js (until it became Studio-only): supabase/seed/elijah-story.json.
 export async function builtinStory(slug) {
+  if (slug === ELIJAH_SLUG) return JSON.parse(await readFile(resolve(root, 'supabase/seed/elijah-story.json'), 'utf8'));
   const ctx = { window: {} };
   vm.createContext(ctx);
   vm.runInContext(await readFile(resolve(root, 'js/content.js'), 'utf8'), ctx);

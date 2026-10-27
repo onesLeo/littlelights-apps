@@ -54,6 +54,28 @@ check(html.includes('<meta property="og:image" content="https://media.example.co
 check(html.includes('"thumbnailUrl":"https://media.example.com/v2-poster.webp"'), 'its VideoObject thumbnailUrl is the poster');
 check(html.includes('<link rel="preload" as="image" fetchpriority="high" href="https://media.example.com/v2-poster.webp">'), 'its poster is preloaded first');
 
+// /listen/<slug>: a bedtime story that went live after the build (e.g. Elijah at 00:00 SGT, before the 05:00 rebuild).
+{
+  const listenShell = readFileSync(new URL('../index.html', import.meta.url), 'utf8').replace('class="p-view v-today on"', 'class="p-view v-today"').replace('class="p-view v-listen"', 'class="p-view v-listen on"').replace('<div class="p-head glass glass--bar"><h2>Listen</h2>', '<div class="p-head glass glass--bar"><h1>Listen</h1>');
+  posts.push({ id: 36, type: 'story', status: 'scheduled', publish_at: '2026-11-03T16:00:00Z', title: 'Elijah and the Still Small Voice', slug: 'elijah-still-small-voice-bedtime-story', media_url: 'https://media.littlesaltandlight.com/audio/elijah-still-small-voice.0d7d251e.mp3?v=2',
+    fields: { series: 'Bedtime Bible Stories for Kids', episode: 2, narrator: 'Mr. Ginting', desc: 'A calm bedtime Bible story.', seconds: 257.98, story: 'Para one.\n\nPara two.', prayer: 'Dear God. Amen.', goodnight: 'Night.', verse: 'In peace.', ref: 'Psalm 4:8', translation: 'WEBBE', questions: 'A?\nB?\nC?', timings: 'media/audio/elijah-still-small-voice-timings.json' } });
+  const lctx = { ...ctx('/listen/elijah-still-small-voice-bedtime-story'), env: { ASSETS: { fetch: async (u) => { check(new URL(u).pathname === '/listen', 'the story page is built on the /listen shell'); return new Response(listenShell, { status: 200, headers: { 'content-type': 'text/html' } }); } } } };
+  res = await postPage(lctx, 'story', fakeFetch);
+  html = await res.text();
+  check(res.status === 200 && html.includes('<link rel="canonical" href="https://littlesaltandlight.com/listen/elijah-still-small-voice-bedtime-story">') && /id="pEpisode"[^>]*data-slug="elijah-still-small-voice-bedtime-story"/.test(html) && html.includes('Para two.') && html.includes('data-ra="story-1"'), 'a bedtime story live after the build gets its page, canonical, text and read-along hooks');
+  check((html.match(/<h1[\s>]/g) || []).length === 1, 'the story page has exactly one h1');
+  check(asked[asked.length - 1].includes('type=eq.story') && asked[asked.length - 1].includes('publish_at=lte.'), 'it only asks for a live story');
+  res = await postPage(ctx('/listen/the-smallest-star'), 'story', fakeFetch);
+  check(res.status === 404, 'a story that is not live (draft or future: the database returns nothing) stays a 404');
+  // Same mapping as the app's js/store.js.
+  const vm = await import('node:vm');
+  const c = { console, Date, JSON, Math, Promise, document: { currentScript: null }, localStorage: { getItem: () => null, setItem() {}, removeItem() {} } }; c.window = c; vm.createContext(c);
+  vm.runInContext(readFileSync(new URL('../js/store.js', import.meta.url), 'utf8'), c);
+  const { storyFromPost } = await import('../lib/head.mjs');
+  const p36 = posts[posts.length - 1];
+  check(JSON.stringify(storyFromPost(p36)) === JSON.stringify(c.LLStore.storyFromPost(p36)), 'edge storyFromPost matches js/store.js');
+}
+
 res = await postPage(ctx('/read/no-such-post'), 'devotion', fakeFetch);
 check(res.status === 404 && (await res.text()) === 'not found page', 'an unknown devotion stays a real 404');
 res = await postPage(ctx('/read/Bad%20Slug!'), 'devotion', fakeFetch);
@@ -66,7 +88,7 @@ check(res.status === 404, 'if the database is down the visitor gets the normal 4
   const built = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url>\n    <loc>https://littlesaltandlight.com/watch</loc>\n    <lastmod>2026-10-24</lastmod>\n  </url>\n  <url>\n    <loc>https://littlesaltandlight.com/read</loc>\n    <lastmod>2026-10-24</lastmod>\n  </url>\n  <url>\n    <loc>https://littlesaltandlight.com/watch/the-whisper</loc>\n    <lastmod>2026-10-18</lastmod>\n  </url>\n</urlset>\n';
   const rows = [{ type: 'reel', title: 'A new video', slug: 'a-new-video', publish_at: '2026-10-26T00:00:00Z', updated_at: '2026-10-27T00:00:00Z' }, { type: 'reel', title: 'The Whisper', slug: 'the-whisper', publish_at: '2026-10-18T00:00:00Z' }, { type: 'devotion', title: 'A new devotion', slug: 'a-new-devotion', publish_at: '2026-10-25T00:00:00Z' }];
   const sctx = { request: new Request('https://littlesaltandlight.com/sitemap.xml'), next: async () => new Response(built, { status: 200, headers: { 'content-type': 'application/xml' } }) };
-  let r = await sitemap(sctx, async (url) => { check(/type=in\.\(reel,devotion\)/.test(url) && url.includes('publish_at=lte.'), 'the sitemap asks only for live videos and devotions'); return new Response(JSON.stringify(rows)); });
+  let r = await sitemap(sctx, async (url) => { check(/type=in\.\(reel,devotion,story\)/.test(url) && url.includes('publish_at=lte.'), 'the sitemap asks only for live videos, devotions and stories'); return new Response(JSON.stringify(rows)); });
   const x = await r.text();
   check(r.status === 200 && x.includes('<loc>https://littlesaltandlight.com/watch/a-new-video</loc>\n    <lastmod>2026-10-27</lastmod>') && x.includes('<loc>https://littlesaltandlight.com/read/a-new-devotion</loc>'), 'sitemap.xml adds posts published after the build, with lastmod');
   check(x.split('/watch/the-whisper<').length === 2 && x.trim().endsWith('</urlset>'), 'sitemap.xml does not repeat posts the build already listed');

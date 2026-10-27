@@ -108,7 +108,9 @@ Studio → New post → **Bedtime story** makes a story that shows like the buil
 - **Cover** (optional): JPG, PNG or WebP, 1200×630 is best.
 - **Publish date**: a date in Singapore time. The story stays hidden until 00:00 SGT that day (the database rule "Live posts are public" enforces this, as well as the app).
 
-A story with the same slug as a built-in one replaces it from its publish date.
+A story with the same slug as a built-in one replaces it from its publish date. Elijah (Bedtime #2) is Studio-only: it is no longer built in (its original entry is kept in `supabase/seed/elijah-story.json`), so it appears only when its Studio post goes live.
+
+A story that goes live between rebuilds is listed on /listen straight away, and a direct visit to `/listen/<slug>` is answered by `functions/listen/[slug].js` (the page is built from the database) until the next daily rebuild writes the file. Before its publish time the address is the not-found page.
 
 ### One-time steps for Taman
 
