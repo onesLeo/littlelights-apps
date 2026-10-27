@@ -65,7 +65,12 @@ export function siteContent({ C, S }, { posts, settings }) {
   const seriesMap = new Map();
   for (const r of reels) if (r.series) { const s = seriesMap.get(r.series) || { series: r.series, desc: '', reels: [] }; s.reels.push(r); if (r.seriesDesc && !s.desc) s.desc = r.seriesDesc; seriesMap.set(r.series, s); }
   for (const s of seriesMap.values()) s.reels.sort((a, b) => a.episode - b.episode);
-  return { nav, episodes, devotions, reels, series: [...seriesMap.values()], stories: C.bedtimeStories || [] };
+  return { nav, episodes, devotions, reels, series: [...seriesMap.values()], stories: storiesFor(S, C, posts) };
+}
+// Built-in bedtime stories plus the Studio's (type 'story') whose publish time has passed. Future ones are
+// left out (no page, not in the sitemap) until the daily rebuild after their date (.github/workflows/daily-rebuild.yml).
+export function storiesFor(S, C, posts) {
+  return S.mergeStories ? S.mergeStories(C.bedtimeStories || [], posts || []) : (C.bedtimeStories || []);
 }
 
 // The Watch gallery (js/app.js renderWatch/units) leads with its newest video or series, the biggest

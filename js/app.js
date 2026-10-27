@@ -187,6 +187,8 @@
       // Buttons written in index.html point at built-in items by position (see startApp).
       C.builtinAt = { 'ep': E.map, 'sheet': D.map, 'read': D.map, 'share-dev': D.map, 'reel': R.map, 'save-verse': V.map, 'share-verse': V.map };
       C.news = news;
+      // Bedtime stories posted in the Studio (type 'story'), after the built-in ones (js/store.js mergeStories).
+      if (S.mergeStories) C.bedtimeStories = S.mergeStories(C.bedtimeStories, posts);
       C.featuredAudio = featured; // Studio posts come first in C.episodes, so the index stays valid.
       C.today = today.slice(0, 5);
       // Topics added in the Studio get their own chip in Verses.
@@ -1299,7 +1301,7 @@
     ep.setAttribute('data-ra-on', x.slug);
     var audio = $('audio', ep);
     if (!audio) return;
-    var get = raCache[x.timings] || (raCache[x.timings] = fetch('/' + x.timings.replace(/^\//, ''))
+    var get = raCache[x.timings] || (raCache[x.timings] = fetch(/^https:\/\//i.test(x.timings) ? x.timings : '/' + x.timings.replace(/^\//, ''))
       .then(function (r) { if (!r.ok) throw new Error('timings ' + r.status); return r.json(); }));
     get.then(function (timings) {
       if (ep.getAttribute('data-slug') !== x.slug) return;

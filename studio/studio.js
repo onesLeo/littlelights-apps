@@ -24,6 +24,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     devotion: { name: 'Devotion', color: 'var(--devotion)', ink: '#3a1426', hint: 'A short reading with a prayer' },
     reel:     { name: 'Reel', color: 'var(--reel)', ink: '#2b0d05', hint: 'A short vertical video' },
     audio:    { name: 'Audio', color: 'var(--audio)', ink: '#1a0f33', hint: 'A recorded devotion, prayer or story' },
+    story:    { name: 'Bedtime story', color: 'var(--story)', ink: '#10233a', hint: 'A Bible story with audio and read-along, on Listen' },
     game:     { name: 'Game update', color: 'var(--game)', ink: '#0f2a17', hint: 'News about Little Light: Bible Journeys' }
   };
   // Fields kept in posts.fields for each kind of post.
@@ -32,8 +33,13 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     devotion: ['teaser', 'body', 'ref', 'family', 'prayer', 'audioId'],
     audio: ['kind', 'minutes', 'seconds', 'file', 'transcript'],
     reel: ['caption', 'youtube', 'minutes', 'seconds', 'file', 'poster', 'poster_auto', 'series', 'episode', 'series_description', 'page_style', 'page_color'],
-    game: ['text', 'button']
+    game: ['text', 'button'],
+    // Bedtime story (/listen/<slug>, "Goodnight Little Light"): the same fields as js/content.js bedtimeStories.
+    story: ['series', 'episode', 'narrator', 'desc', 'seo_title', 'seconds', 'minutes', 'file', 'story', 'prayer', 'goodnight', 'verse', 'ref', 'translation',
+      'questions', 'word', 'word_meaning', 'timings', 'timings_file', 'timings_info', 'image', 'image_width', 'image_height', 'image_file', 'color', 'ink',
+      'next_title', 'next_when', 'next_href', 'publish_date']
   };
+  var STORY_SERIES = 'Bedtime Bible Stories for Kids', STORY_GOODNIGHT = 'Goodnight, little light. Sleep tight. \u{1F319}';
   // Desktop caption page (book spread) for reels: fields.page_style and fields.page_color; empty colour = from the reel.
   var PAGE_STYLES = ['auto', 'dark', 'light', 'clear'], PAGE_STYLE_LABEL = { auto: 'Auto from reel', dark: 'Dark', light: 'Light', clear: 'Glass clear' };
   var TOPICS = ['When I’m afraid', 'Trust', 'Friendship', 'Mercy', 'God sees me', 'Light'];
@@ -173,6 +179,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       slug: p.slug, created_at: p.created_at, author_email: p.author_email, _fields: p.fields || {} };
     FIELDS[p.type].forEach(function (k) { e[k] = (p.fields || {})[k]; });
     if (p.type === 'verse') { e.topics = e.topics || []; e.translation = e.translation || 'WEB'; }
+    if (p.type === 'story') { e.publish_date = e.publish_date || S.sgtDay(p.publish_at); if (e.seconds != null) e.seconds = +e.seconds || 0; }
     e._mode = p.status === 'scheduled' && !S.isLive(p) ? 'schedule' : 'now';
     return e;
   }
@@ -190,6 +197,14 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (p.fields.page_style === 'auto' || (p.fields.page_style && PAGE_STYLES.indexOf(p.fields.page_style) < 0)) delete p.fields.page_style;
     if (p.fields.page_color != null && !/^#[0-9a-f]{6}$/i.test(p.fields.page_color)) delete p.fields.page_color;
     if (p.fields.episode != null) { var n = parseInt(p.fields.episode, 10); if (n > 0) p.fields.episode = n; else delete p.fields.episode; }
+    if (e.type === 'story') {
+      // Stories are released by day (Singapore time); the number fields stay numbers.
+      p.show_on_today = false;
+      ['seconds', 'image_width', 'image_height', 'timings_info'].forEach(function (k) { if (p.fields[k] != null && k !== 'timings_info') p.fields[k] = +p.fields[k] || 0; });
+      if (status === 'scheduled') { p.publish_at = S.sgtDayStart(e.publish_date); p.fields.publish_date = e.publish_date; return p; }
+      if (status === 'published') p.fields.publish_date = S.sgtDay(p.publish_at = e.status === 'published' && e.publish_at ? e.publish_at : new Date().toISOString());
+      if (status !== 'draft') return p;
+    }
     if (status === 'scheduled') p.publish_at = new Date(e.when).toISOString();
     else if (status === 'published') p.publish_at = e.status === 'published' && e.publish_at ? e.publish_at : new Date().toISOString();
     else p.publish_at = null;
@@ -478,6 +493,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
         '<label class="field"><span>Page colour</span><span class="colorrow"><input type="color" id="f_page_color_pick" data-pick="page_color" value="' + esc(/^#[0-9a-f]{6}$/i.test(p.page_color || '') ? p.page_color : '#c8742e') + '" aria-label="Pick page colour">' +
         '<input class="input" id="f_page_color" data-f="page_color" value="' + esc(p.page_color || '') + '" placeholder="Auto (from the reel)" maxlength="7" pattern="#[0-9a-fA-F]{6}"></span>' +
         '<small>Leave empty to use the reel’s own colour. Text and buttons are adjusted so they stay easy to read.</small></label></div>';
+    } else if (p.type === 'story') {
+      f = storyFields(p);
     } else {
       f = field('title', 'Headline', p.title, { ph: 'Noah’s Ark is ready to play' }) +
         field('text', 'Text', p.text, { textarea: true, ph: 'What’s new in the game' }) +
@@ -490,12 +507,14 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     return '<div class="top"><div><h2>' + (p.id ? 'Edit ' : 'New ') + t.name.toLowerCase() + help('write') + '</h2><p>' + t.hint + '. The preview updates as you type.</p></div>' +
       '<button class="btn ghost" type="button" data-view="posts">← All posts</button></div>' +
       '<div class="editor"><div class="edit-col"><form class="form" id="postForm" novalidate><h3>' + t.name + '</h3>' + f +
-      '<label class="toggle"><input type="checkbox" id="f_today" data-check="show_on_today"' + (p.show_on_today ? ' checked' : '') + '> Show on the Today feed</label>' +
+      (p.type === 'story' ? '' : '<label class="toggle"><input type="checkbox" id="f_today" data-check="show_on_today"' + (p.show_on_today ? ' checked' : '') + '> Show on the Today feed</label>') +
       '<div class="publish">' +
       (pub ? '<div class="seg" role="group" aria-label="When to publish">' +
         '<button type="button" data-mode="now" class="' + (mode === 'now' ? 'on' : '') + '" aria-pressed="' + (mode === 'now') + '">Publish now</button>' +
         '<button type="button" data-mode="schedule" class="' + (mode === 'schedule' ? 'on' : '') + '" aria-pressed="' + (mode === 'schedule') + '">Schedule</button></div>' +
-        (mode === 'schedule' ? '<label class="field"><span>Date and time</span><input class="input' + (state.errors.when ? ' err' : '') + '" type="datetime-local" id="f_when" data-f="when" value="' + esc(p.when) + '">' +
+        (mode === 'schedule' && p.type === 'story' ? '<label class="field"><span>Publish date</span><input class="input' + (state.errors.when ? ' err' : '') + '" type="date" id="f_publish_date" data-f="publish_date" value="' + esc(p.publish_date || '') + '">' +
+          (state.errors.when ? '<span class="errmsg" role="alert">' + state.errors.when + '</span>' : '<small>The story appears at midnight Singapore time on this day. The site rebuilds every morning at 5:00 (SGT), so its Google-readable page appears the same day.</small>') + '</label>' : '') +
+        (mode === 'schedule' && p.type !== 'story' ? '<label class="field"><span>Date and time</span><input class="input' + (state.errors.when ? ' err' : '') + '" type="datetime-local" id="f_when" data-f="when" value="' + esc(p.when) + '">' +
           (state.errors.when ? '<span class="errmsg" role="alert">' + state.errors.when + '</span>' : '<small>Your local time. Good slots: 6:30 in the morning, 19:30 before bedtime.</small>') + '</label>' : '')
         : '<p class="role-note">' + (p.id && p.status !== 'draft' ? 'This post is live or scheduled. Only an owner or editor can change it.' : 'Contributors save drafts. An owner or editor publishes them.') + '</p>') +
       '<div class="actions">' +
@@ -513,10 +532,11 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   function preview(p) {
     var t = TYPES[p.type], ph = function (v, d) { return v ? esc(v) : '<span class="placeholder">' + d + '</span>'; }, inner = '';
     var bg = { verse: 'radial-gradient(120% 80% at 80% 25%, #ffe089, #f7c23f 45%, #e0a820)', devotion: '#ee8fb2', reel: '#e46a4c',
-      audio: 'radial-gradient(120% 70% at 50% 30%, #b99ae4, #a07fd6 50%, #6f52a8)', game: 'linear-gradient(180deg, #9ad8aa, #69ba7e 55%, #3f8a55)' }[p.type];
+      audio: 'radial-gradient(120% 70% at 50% 30%, #b99ae4, #a07fd6 50%, #6f52a8)', story: 'linear-gradient(180deg, #b7cdea, #8fb0e0)', game: 'linear-gradient(180deg, #9ad8aa, #69ba7e 55%, #3f8a55)' }[p.type];
     if (p.type === 'verse') inner = '<div class="sun"></div><div class="kick">Verse of the week</div><div class="verse' + (isLongVerse(p.verse) ? ' preview' : '') + '">“' + ph((p.verse || '').trim(), 'Your verse appears here') + '”</div><div class="ref">' + ph((p.ref || '').toUpperCase(), 'REFERENCE') + ' · ' + esc((p.translation || '').trim() || 'WEB') + '</div><div class="btns"><span class="pbtn">' + (isLongVerse(p.verse) ? 'Read full passage' : 'More verses') + '</span><span class="pbtn g">Save image</span></div>';
     else if (p.type === 'devotion') inner = '<div class="kick">Devotion · ' + readMinutes(p) + ' min</div><div class="big">' + ph(p.title, 'Your title') + '</div><p>' + ph(p.teaser, 'Your one-line summary') + '</p><div class="btns"><span class="pbtn">Read ↑</span>' + (p.audioId ? '<span class="pbtn g">▶ Listen</span>' : '') + '</div>';
     else if (p.type === 'audio') inner = '<div class="wave">' + [30, 70, 45, 90, 55, 80, 35, 65, 50, 85, 40, 60].map(function (h) { return '<i style="height:' + h + '%"></i>'; }).join('') + '</div><div class="kick">Audio · ' + esc(p.minutes || '0:00') + '</div><div class="big">' + ph(p.title, 'Your title') + '</div><p>' + esc(p.kind || 'Devotion') + '</p><div class="btns"><span class="pbtn">▶ Play</span></div>';
+    else if (p.type === 'story') inner = '<div class="kick">' + esc(p.series || STORY_SERIES) + (p.episode ? ' · #' + esc(p.episode) : '') + '</div><div class="big">' + ph(p.title, 'Your story title') + '</div><p>Bedtime Bible story' + (p.narrator ? ', read by ' + esc(p.narrator) : '') + ' · ' + esc(p.minutes || '0:00') + '</p><p>' + ph(storyParas(p.story)[0] ? storyParas(p.story)[0].slice(0, 140) + '…' : '', 'The first paragraph appears here') + '</p><div class="btns"><span class="pbtn">▶ Listen</span></div>';
     else if (p.type === 'reel') inner = '<div class="play"></div><div class="kick">Reel · ' + esc(p.minutes || '0:00') + '</div><div class="big">' + ph(p.title, 'Your title') + '</div><div class="btns"><span class="pbtn">▶ Watch</span></div>';
     else inner = '<div class="kick">Game</div><div class="big">' + ph(p.title, 'Your headline') + '</div><p>' + ph(p.text, 'What’s new') + '</p><div class="btns"><span class="pbtn">' + esc(p.button || 'See the game') + '</span></div>';
     return '<div class="pv" style="background:' + bg + ';color:' + t.ink + '">' + inner + '</div>' +
@@ -606,7 +626,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   }
   // ---------- Guide: short, task-based steps for new team members (only features this Studio has) ----------
   var GUIDE_TITLE = { start: 'Sign in', account: 'Your password and signing out', posts: 'Find and edit posts', write: 'Write a new post',
-    publish: 'Publish, schedule or keep a draft', reelpage: 'Reel page colours and styles', media: 'Media', menus: 'Menus and content switches',
+    publish: 'Publish, schedule or keep a draft', story: 'Post a bedtime story', reelpage: 'Reel page colours and styles', media: 'Media', menus: 'Menus and content switches',
     builtins: 'Built-in content', insights: 'Insights', team: 'Team and roles' };
   function guideView() {
     var part = function (id, steps, note) {
@@ -620,10 +640,18 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
         'Only people on the team can sign in. There is no sign-up: the owner adds you on the Team page.') +
       part('account', ['Press <b>Change password</b> at the top (beside Sign out).', 'Type a new password twice. Use at least 12 characters; a short phrase of random words works well.', 'Press <b>Sign out</b> when you finish on a shared device.']) +
       part('posts', ['Open <b>Posts</b> to see everything on Today, Watch, Listen, Read and Verses.', 'Type in the search box, or use the kind and status chips (Published, Scheduled, Drafts) to narrow the list.', 'On a computer, press a column title to sort by title, type, status, date or views.', 'Tap a post to open it and change it.']) +
-      part('write', ['Press <b>New post</b> and pick a kind: Verse, Devotion, Reel, Audio or Game update.', 'Fill in the fields. The phone preview on the right shows how it will look on Today.', 'For audio and reels, choose or drop the file to upload it. For a reel you can also add a poster image or use a frame from the video.', 'Tick <b>Show on the Today feed</b> if it should appear there.'],
+      part('write', ['Press <b>New post</b> and pick a kind: Verse, Devotion, Reel, Audio, Bedtime story or Game update.', 'Fill in the fields. The phone preview on the right shows how it will look on Today.', 'For audio and reels, choose or drop the file to upload it. For a reel you can also add a poster image or use a frame from the video.', 'Tick <b>Show on the Today feed</b> if it should appear there.'],
         'Each saved change is kept in <b>History</b> under the form. Press <b>Restore this version</b> to go back to an older one.') +
       part('publish', ['Choose <b>Publish now</b> or <b>Schedule</b>. For Schedule, pick a date and time (your local time).', 'Press <b>Publish</b> (or <b>Schedule</b>, or <b>Update</b> for a live post).', 'Not ready? Press <b>Save draft</b>. A live post can go back with <b>Move to drafts</b>.', 'To remove a post for everyone, press <b>Delete</b>, then confirm.'],
         'Contributors save drafts only. An owner or editor publishes them.') +
+      part('story', ['Press <b>New post</b> and pick <b>Bedtime story</b>.', 'Type the <b>Title</b> first (it names the files), then the series, episode number, narrator and a one-line description for Google and link previews.',
+        'Under <b>Narration (MP3)</b>, choose the final mix. It must be an MP3 (audio/mpeg), up to 50 MB; files of 6 MB or more are fine. The length is read from the file.',
+        'Paste the <b>story</b>, one paragraph per narration section, with an empty line between paragraphs. Copy it word for word from the script, so the read-along lines up.',
+        'Fill in the <b>Bible verse</b> and its reference, the <b>prayer</b>, the goodnight line and the <b>3 questions</b> (one per line). Add a <b>Word to know</b> only if the story explains one.',
+        'Under <b>Read-along timings</b>, choose the timings JSON for this mix (a list of sentences, each with text, start, end and words). The Studio checks it and says how many sentences it found.',
+        'Optional: a <b>cover image</b> (1200×630 JPG works best for link previews). Without one, the site’s default share image is used.',
+        'Choose <b>Schedule</b>, pick the <b>Publish date</b> and press <b>Schedule</b>. Or press <b>Save draft</b> to finish later.'],
+        'The story appears on Listen (Goodnight Little Light) and at its own page from midnight Singapore time on its date. Before that, visitors can’t see it. Each morning at 5:00 (SGT) the site rebuilds, so the Google-readable page and sitemap include it the same day. A new mix of the audio or timings gets a new file name automatically; just upload it again and press <b>Update</b>.') +
       part('reelpage', ['Open a reel post.', 'Under <b>Page style</b>, choose Auto from reel, Dark, Light or Glass clear. This is the caption page on computers.', 'Under <b>Page colour</b>, pick a colour, or leave it empty to use the reel’s own colour. Text and buttons are adjusted so they stay easy to read.', 'To set the default for every reel left on Auto, go to <b>Menus</b> → <b>Reel caption page</b> and press <b>Save page style</b> (owner only).']) +
       part('media', ['Open <b>Media</b> to see the audio and video files attached to posts.', 'Press play to check a file, and see which post uses it.', 'To add a file, upload it while writing an audio or reel post.']) +
       part('menus', ['Open <b>Menus</b> (owner only).', 'For Watch, Listen, Read, Verses and Play, choose On, Coming soon or Hidden. Today is always on.', 'Write a short, friendly coming-soon message, then press <b>Save menus</b>.', 'Under <b>Content</b>, switch the verse cards on Today on or off and press <b>Save content</b>.']) +
@@ -846,7 +874,12 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       if (p.type === 'devotion' && !(p.teaser || '').trim()) e.teaser = 'Add a one-line summary for the Today card.';
       if (p.type === 'audio' && !p.media_url) e.file = 'Upload the recording before publishing, or save it as a draft.';
       if (p.type === 'reel' && !p.media_url && !p.youtube) e.file = 'Upload a video or paste a YouTube link before publishing.';
-      if (p._mode === 'schedule') {
+      if (p.type === 'story') Object.assign(e, validateStory(p));
+      if (p._mode === 'schedule' && p.type === 'story') {
+        var start = S.sgtDayStart(p.publish_date);
+        if (!start) e.when = 'Pick the publish date.';
+        else if (new Date(start) <= new Date()) e.when = 'Pick a day after today (Singapore time), or choose Publish now.';
+      } else if (p._mode === 'schedule') {
         if (!p.when) e.when = 'Pick a date and time.';
         else if (new Date(p.when) <= new Date()) e.when = 'Pick a time in the future.';
       }
@@ -967,6 +1000,150 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     savePoster(file, '', false).then(function () { if (!state.errors.poster) toast('Poster saved: ' + file.name); });
   }
 
+  // ---------- bedtime stories (type 'story') ----------
+  function storyParas(v) { return String(v || '').split(/\n\s*\n/).map(function (x) { return x.trim(); }).filter(Boolean); }
+  function storyLines(v) { return String(v || '').split(/\n/).map(function (x) { return x.trim(); }).filter(Boolean); }
+  function nextStoryEpisode() {
+    var n = (C.bedtimeStories || []).reduce(function (m, x) { return Math.max(m, +x.episode || 0); }, 0);
+    state.posts.forEach(function (p) { if (p.type === 'story') n = Math.max(n, +(p.fields || {}).episode || 0); });
+    return n + 1;
+  }
+  var C = window.LL_CONTENT || {};
+  function storyUpload(kind, label, accept, name, help) {
+    var e = state.editing, busy = state.uploading === kind, err = state.errors[kind];
+    return '<div class="field"><span>' + label + '</span><label class="upload' + (busy ? ' busy' : '') + '" data-drop="' + kind + '"><b>' +
+      (busy ? 'Uploading…' : name ? esc(name) : 'Choose a file or drop it here') + '</b><small>' + help + '</small>' +
+      '<input class="sr" type="file" accept="' + accept + '" data-file="' + kind + '" id="f_' + kind + '"></label>' +
+      (err ? '<span class="errmsg" role="alert">' + err + '</span>' : '') + '</div>';
+  }
+  function storyFields(p) {
+    var qs = storyLines(p.questions).length;
+    return field('title', 'Title', p.title, { ph: 'Jesus Calms the Storm' }) +
+      '<div class="two">' + field('series', 'Series', p.series, { ph: STORY_SERIES }) + field('episode', 'Episode #', p.episode, { type: 'number', ph: '3' }) + '</div>' +
+      '<div class="two">' + field('narrator', 'Read by', p.narrator, { ph: 'Mr. Ginting' }) + field('minutes', 'Length', p.minutes, { ph: 'Filled in from the file' }) + '</div>' +
+      field('desc', 'One-line description (Google and link previews)', p.desc, { ph: 'A calm bedtime Bible story about…', help: 'About 120 to 160 characters.' }) +
+      field('seo_title', 'Search title (optional)', p.seo_title, { ph: 'Jesus Calms the Storm | Bedtime Bible Story for Kids #3' }) +
+      storyUpload('story_audio', 'Narration (MP3)', 'audio/mpeg,.mp3', p.file, 'The final mix as MP3 (audio/mpeg), up to 50 MB. The length is read from the file and the file gets a name that changes with its contents.') +
+      field('story', 'The story', p.story, { textarea: true, tall: true, ph: 'One paragraph per narration section. Leave an empty line between paragraphs. Word for word as narrated.' }) +
+      '<div class="two">' + field('verse', 'Bible verse', p.verse, { textarea: true, ph: 'In peace I will both lay myself down and sleep…' }) +
+      '<div>' + field('ref', 'Reference', p.ref, { ph: 'Psalm 4:8' }) + field('translation', 'Translation', p.translation, { ph: 'WEB' }) + '</div></div>' +
+      '<div class="two">' + field('word', 'Word to know (optional)', p.word, { ph: 'affliction' }) + field('word_meaning', 'What it means', p.word_meaning, { ph: 'Affliction means big trouble.' }) + '</div>' +
+      field('prayer', 'Prayer', p.prayer, { textarea: true, ph: 'Dear God… Amen.' }) +
+      field('goodnight', 'Goodnight line', p.goodnight, { ph: STORY_GOODNIGHT }) +
+      field('questions', '3 questions to ask afterwards', p.questions, { textarea: true, ph: 'One question per line', help: qs === 3 ? '3 questions.' : 'One per line: ' + qs + ' of 3 so far.' }) +
+      storyUpload('story_timings', 'Read-along timings (JSON)', 'application/json,.json', p.timings_file ? p.timings_file + (p.timings_info ? ' · ' + p.timings_info : '') : '', 'A list of sentences: [{"text","start","end","words":[{"text","start","end"}]}], times in seconds. Upload the narration first, so the lengths can be checked.') +
+      storyUpload('story_cover', 'Cover image (optional)', 'image/jpeg,image/png,image/webp', p.image_file ? p.image_file + (p.image_width ? ' · ' + p.image_width + '×' + p.image_height : '') : '', 'Share image for link previews and Google. 1200×630 JPG, up to 5 MB. Without one, the site’s default image is used.') +
+      '<div class="two">' + field('next_title', 'Next story title (optional)', p.next_title, { ph: 'Jesus Calms the Storm' }) + field('next_when', 'Next story day (optional)', p.next_when, { ph: 'Mon 16 Nov' }) + '</div>';
+  }
+  function validateStory(p) {
+    var e = {};
+    if (!p.media_url) e.story_audio = 'Upload the narration (MP3) before publishing, or save a draft.';
+    if (!storyParas(p.story).length) e.story = 'Paste the story before publishing.';
+    if (!(p.prayer || '').trim()) e.prayer = 'Add the prayer.';
+    if (!(p.verse || '').trim()) e.verse = 'Add the Bible verse.';
+    if (!(p.ref || '').trim()) e.ref = 'Add the verse reference, for example Psalm 4:8.';
+    if (storyLines(p.questions).length !== 3) e.questions = 'Write exactly 3 questions, one per line.';
+    if (!p.timings) e.story_timings = 'Upload the read-along timings file.';
+    if (!(p.desc || '').trim()) e.desc = 'Add a one-line description.';
+    return e;
+  }
+  function sha8(buf) {
+    if (!(window.crypto && crypto.subtle)) return Promise.reject(new Error('This browser can’t fingerprint files. Use a recent Chrome, Safari or Firefox.'));
+    return crypto.subtle.digest('SHA-256', buf).then(function (h) {
+      return Array.prototype.map.call(new Uint8Array(h).slice(0, 4), function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+    });
+  }
+  // A real MP3 starts with an ID3 tag or an MPEG audio frame (0xFFE…).
+  function looksLikeMp3(buf) {
+    var b = new Uint8Array(buf.slice(0, 3));
+    return (b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0);
+  }
+  function storyBase() { var t = (state.editing.title || '').trim(); return t ? S.slugify(t) : ''; }
+  function storyFail(kind, msg) { state.uploading = ''; state.errors[kind] = msg; render(); }
+  function readDuration(file) {
+    return new Promise(function (resolve) {
+      var a = document.createElement('audio'), url = URL.createObjectURL(file);
+      a.preload = 'metadata';
+      a.onloadedmetadata = function () { URL.revokeObjectURL(url); resolve(isFinite(a.duration) ? a.duration : 0); };
+      a.onerror = function () { URL.revokeObjectURL(url); resolve(0); };
+      a.src = url;
+    });
+  }
+  // Narration: MP3 only (audio/mpeg), checked by its first bytes too, named stories/<slug>.<sha8>.mp3 and
+  // cached for a year (the name changes with the bytes). The length in seconds is stored with the post.
+  function handleStoryAudio(file) {
+    if (!file) return;
+    syncFields();
+    var k = 'story_audio', base = storyBase();
+    delete state.errors[k];
+    if (!base) return storyFail(k, 'Type the title first: it names the file.');
+    var type = file.type === 'audio/mp3' ? 'audio/mpeg' : file.type;
+    if (type !== 'audio/mpeg' && !(type === '' && /\.mp3$/i.test(file.name))) return storyFail(k, 'Choose an MP3 file (audio/mpeg). This one is ' + (file.type || 'an unknown type') + '.');
+    if (file.size > 50 * 1024 * 1024) return storyFail(k, 'This file is ' + Math.round(file.size / 1048576) + ' MB. The limit is 50 MB.');
+    state.uploading = k; render();
+    file.arrayBuffer().then(function (buf) {
+      if (!looksLikeMp3(buf)) throw new Error('This file doesn’t look like an MP3. Export the mix as MP3 and try again.');
+      return Promise.all([sha8(buf), readDuration(file)]);
+    }).then(function (r) {
+      if (!r[1]) throw new Error('The browser couldn’t read the length of this MP3.');
+      return S.uploadMediaAt(file, 'stories/' + base + '.' + r[0] + '.mp3', { contentType: 'audio/mpeg', cacheControl: '31536000' }).then(function (url) {
+        var e = state.editing, s = Math.round(r[1] * 100) / 100;
+        e.media_url = url; e.file = file.name; e.seconds = s;
+        e.minutes = Math.floor(s / 60) + ':' + ('0' + Math.round(s % 60)).slice(-2);
+        state.uploading = ''; render(); refreshPreview(); toast('Uploaded ' + file.name + ' (' + e.minutes + ')');
+      });
+    }).catch(function (err) { storyFail(k, 'Upload failed: ' + err.message); });
+  }
+  function handleStoryTimings(file) {
+    if (!file) return;
+    syncFields();
+    var k = 'story_timings', base = storyBase();
+    delete state.errors[k];
+    if (!base) return storyFail(k, 'Type the title first: it names the file.');
+    if (file.size > 2 * 1024 * 1024) return storyFail(k, 'This file is too big for a timings file (over 2 MB).');
+    state.uploading = k; render();
+    file.text().then(function (text) {
+      var json;
+      try { json = JSON.parse(text); } catch (err) { throw new Error('This isn’t valid JSON (' + err.message + ').'); }
+      var v = S.validateTimings(json, +state.editing.seconds || 0);
+      if (!v.ok) throw new Error(v.error);
+      var body = new Blob([JSON.stringify(json)], { type: 'application/json' });
+      return body.arrayBuffer().then(sha8).then(function (h) {
+        return S.uploadMediaAt(new File([body], base + '-timings.json', { type: 'application/json' }), 'stories/' + base + '-timings.' + h + '.json', { contentType: 'application/json', cacheControl: '31536000' });
+      }).then(function (url) {
+        var e = state.editing;
+        e.timings = url; e.timings_file = file.name; e.timings_info = v.sentences + ' sentences, ' + v.words + ' words';
+        state.uploading = ''; render(); toast('Timings checked: ' + e.timings_info);
+      });
+    }).catch(function (err) { storyFail(k, err.message); });
+  }
+  function imageSize(file) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image(), url = URL.createObjectURL(file);
+      img.onload = function () { URL.revokeObjectURL(url); resolve([img.naturalWidth, img.naturalHeight]); };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('This image can’t be read.')); };
+      img.src = url;
+    });
+  }
+  function handleStoryCover(file) {
+    if (!file) return;
+    syncFields();
+    var k = 'story_cover', base = storyBase(), ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
+    delete state.errors[k];
+    if (!base) return storyFail(k, 'Type the title first: it names the file.');
+    if (!ext) return storyFail(k, 'Choose a JPG, PNG or WebP image.');
+    if (file.size > POSTER_MAX) return storyFail(k, 'This image is ' + (file.size / 1048576).toFixed(1) + ' MB. The limit is 5 MB.');
+    state.uploading = k; render();
+    Promise.all([file.arrayBuffer().then(sha8), imageSize(file)]).then(function (r) {
+      return S.uploadMediaAt(file, 'stories/' + base + '-cover.' + r[0] + '.' + ext, { contentType: file.type, cacheControl: '31536000' }).then(function (url) {
+        var e = state.editing;
+        e.image = url; e.image_file = file.name; e.image_width = r[1][0]; e.image_height = r[1][1];
+        state.uploading = ''; render();
+        toast(r[1][0] === 1200 && r[1][1] === 630 ? 'Cover saved' : 'Cover saved (' + r[1][0] + '×' + r[1][1] + '; 1200×630 suits link previews best)');
+      });
+    }).catch(function (err) { storyFail(k, 'Upload failed: ' + err.message); });
+  }
+
   // ---------- events ----------
   root.addEventListener('submit', function (ev) {
     ev.preventDefault();
@@ -1070,6 +1247,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     else if (b.id === 'clearFilters') { state.q = ''; state.filter = 'all'; state.statusFilter = 'all'; state.limit = PAGE_SIZE; render(); }
     else if (d.new) {
       state.editing = { type: d.new, status: 'draft', show_on_today: true, topics: [], translation: 'WEB', kind: 'Devotion', _mode: 'now' };
+      if (d.new === 'story') Object.assign(state.editing, { show_on_today: false, series: STORY_SERIES, goodnight: STORY_GOODNIGHT, episode: nextStoryEpisode(), _mode: 'schedule' });
       state.view = 'edit'; state.errors = {}; state.confirmDelete = false; render(); window.scrollTo(0, 0);
     }
     else if (d.edit) {
@@ -1152,11 +1330,14 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (ev.target.dataset.check) state.editing[ev.target.dataset.check] = ev.target.checked;
     if (ev.target.dataset.f) { state.editing[ev.target.dataset.f] = ev.target.value; refreshPreview(); }
     if (ev.target.dataset.file === 'poster') handlePoster(ev.target.files[0]);
+    else if (ev.target.dataset.file === 'story_audio') handleStoryAudio(ev.target.files[0]);
+    else if (ev.target.dataset.file === 'story_timings') handleStoryTimings(ev.target.files[0]);
+    else if (ev.target.dataset.file === 'story_cover') handleStoryCover(ev.target.files[0]);
     else if (ev.target.dataset.file) handleFile(ev.target.files[0]);
   });
   root.addEventListener('dragover', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); z.classList.add('drag'); } });
   root.addEventListener('dragleave', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) z.classList.remove('drag'); });
-  root.addEventListener('drop', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); (z.dataset.drop === 'poster' ? handlePoster : handleFile)(ev.dataTransfer.files[0]); } });
+  root.addEventListener('drop', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); ({ poster: handlePoster, story_audio: handleStoryAudio, story_timings: handleStoryTimings, story_cover: handleStoryCover }[z.dataset.drop] || handleFile)(ev.dataTransfer.files[0]); } });
 
   boot();
 })();
