@@ -575,17 +575,30 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     return out;
   }
   function builtinsView() {
-    var owner = isOwner(), hidden = state.hidden || [];
+    var owner = isOwner(), hidden = state.hidden || [], bf = state.builtinFilter || 'all';
+    var shownBuiltins = builtItemsBy(bf, hidden);
     return '<div class="top"><div><h2>Built-in content' + help('builtins') + '</h2><p>Items that came with the app. Hide any you don’t want visitors to see. A published Studio copy of an item replaces it anyway.</p></div></div>' +
       (state.hiddenError ? '<p class="role-note" role="alert">The hidden list could not be loaded (' + esc(state.hiddenError) + '). Nothing is hidden until it can be.</p>' : '') +
       (owner ? '' : '<p class="role-note">Only owners can change this.</p>') +
-      '<div class="list" id="builtinList">' + builtinItems().map(function (it) {
+      builtinFilterChips(hidden) +
+      '<div class="list" id="builtinList">' + (shownBuiltins.length ? '' : '<div class="empty" role="status">' + (bf === 'hidden' ? 'No hidden items.' : 'No visible items.') + '</div>') + shownBuiltins.map(function (it) {
         var off = hidden.indexOf(it.key) >= 0;
         return '<div class="row brow" data-key="' + esc(it.key) + '"><span class="btitle"><b>' + esc(it.title) + '</b><small>' + esc(it.type) + (it.silent ? ' · no recording yet, not shown in the app' : '') + '</small></span>' +
           '<span class="bctrls"><span class="pill ' + (off ? 'draft' : 'published') + '">' + (off ? 'Hidden' : 'Visible') + '</span>' + (it.byDefault ? '<small>hidden by default</small>' : '') +
           (owner ? '<button class="btn ghost small" type="button" data-bhide="' + esc(it.key) + '" aria-pressed="' + off + '">' + (off ? 'Show' : 'Hide') + '</button>' : '') + '</span></div>';
       }).join('') + '</div>' +
       (owner ? '<div style="margin-top:16px"><button class="btn primary" type="button" id="saveHidden"' + (state.busy ? ' disabled' : '') + '>Save</button></div>' : '');
+  }
+  // Built-in content filter: All, Visible, Hidden (by the list as it stands, including unsaved changes).
+  function builtItemsBy(f, hidden) {
+    return builtinItems().filter(function (it) { var off = hidden.indexOf(it.key) >= 0; return f === 'hidden' ? off : f === 'visible' ? !off : true; });
+  }
+  function builtinFilterChips(hidden) {
+    var bf = state.builtinFilter || 'all';
+    return '<div class="filters"><div class="chips" role="group" aria-label="Show built-in items">' +
+      [['all', 'All'], ['visible', 'Visible'], ['hidden', 'Hidden']].map(function (o) {
+        return '<button class="chip' + (bf === o[0] ? ' on' : '') + '" type="button" data-bfilter="' + o[0] + '" aria-pressed="' + (bf === o[0]) + '">' + o[1] + ' <span class="n">' + builtItemsBy(o[0], hidden).length + '</span></button>';
+      }).join('') + '</div></div>';
   }
   // A small “?” beside a section title that opens its part of the guide.
   function help(part) {
@@ -614,7 +627,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       part('reelpage', ['Open a reel post.', 'Under <b>Page style</b>, choose Auto from reel, Dark, Light or Glass clear. This is the caption page on computers.', 'Under <b>Page colour</b>, pick a colour, or leave it empty to use the reel’s own colour. Text and buttons are adjusted so they stay easy to read.', 'To set the default for every reel left on Auto, go to <b>Menus</b> → <b>Reel caption page</b> and press <b>Save page style</b> (owner only).']) +
       part('media', ['Open <b>Media</b> to see the audio and video files attached to posts.', 'Press play to check a file, and see which post uses it.', 'To add a file, upload it while writing an audio or reel post.']) +
       part('menus', ['Open <b>Menus</b> (owner only).', 'For Watch, Listen, Read, Verses and Play, choose On, Coming soon or Hidden. Today is always on.', 'Write a short, friendly coming-soon message, then press <b>Save menus</b>.', 'Under <b>Content</b>, switch the verse cards on Today on or off and press <b>Save content</b>.']) +
-      part('builtins', ['Open <b>Built-in content</b> to see items that came with the app.', 'Press <b>Hide</b> on any item visitors should not see, or <b>Show</b> to bring it back.', 'Press <b>Save</b>.'],
+      part('builtins', ['Open <b>Built-in content</b> to see items that came with the app.', 'Press <b>Hide</b> on any item visitors should not see, or <b>Show</b> to bring it back.', 'Press <b>Save</b>.', 'Use the <b>All</b>, <b>Visible</b> and <b>Hidden</b> chips to see just one group.'],
         'A published Studio copy of an item replaces it anyway.') +
       part('insights', ['Open <b>Insights</b>.', 'Pick 7, 30 or 90 days.', 'See visits, the most-read pages, countries, where visitors came from, and plays and “read to the end”.'],
         'Counts only: no names and no personal data.') +
@@ -1045,6 +1058,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     else if (b.id === 'posterFrame' && state.editing && state.editing.media_url) S.resolveMedia(state.editing.media_url).then(function (u) { if (u) autoPoster(u); });
     else if (d.days) loadInsights(+d.days);
     else if (d.view) { state.pwOpen = false; if (d.guide) state.guideAt = d.guide; go(d.view); if (state.guideAt) render(); }
+    else if (d.bfilter) { state.builtinFilter = d.bfilter; render(); var bfb = root.querySelector('[data-bfilter="' + d.bfilter + '"]'); if (bfb) bfb.focus(); }
     else if (d.filter) { state.filter = d.filter; state.limit = PAGE_SIZE; render(); }
     else if (d.sfilter) { state.statusFilter = d.sfilter; state.limit = PAGE_SIZE; render(); }
     else if (d.sort) {
