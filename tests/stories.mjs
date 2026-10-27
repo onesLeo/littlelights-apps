@@ -9,6 +9,7 @@ import { chromium } from 'playwright';
 import { SEO } from '../lib/head.mjs';
 import { siteContent, pageList, sitemapXml } from '../scripts/prerender.mjs';
 import { builtinStory, fieldsFromStory, seedSql, ELIJAH_SLUG, ELIJAH_PUBLISH_AT } from '../scripts/seed-elijah.mjs';
+import { seedSql as starSql, starFields, STAR_SLUG, STAR_AUDIO } from '../scripts/seed-smallest-star.mjs';
 import { serve } from '../scripts/serve.mjs';
 
 let failures = 0;
@@ -68,10 +69,25 @@ const m1 = SEO.meta('story', seeded), m2 = SEO.meta('story', eli);
 check(JSON.stringify(m1) === JSON.stringify(m2), 'Elijah Studio copy has the same head (title, description, image)');
 check(SEO.storyRowsHtml([seeded]) === SEO.storyRowsHtml([eli]), 'Elijah Studio copy has the same Goodnight row');
 const sql = await seedSql();
-check(sql.includes("'scheduled', '2026-11-09T00:00:00+08:00'") && sql.includes('on conflict (slug) do nothing') && /TODO \(audio\)/.test(sql) && !/\b(delete|update|drop)\b/i.test(sql.replace(/--.*$/gm, '')), 'seed SQL: scheduled 9 Nov SGT, idempotent, audio TODO flagged, insert only');
+check(sql.includes("'scheduled', '2026-11-09T00:00:00+08:00'") && sql.includes('on conflict (slug) do nothing') && !/TODO/.test(sql) && sql.includes('elijah-still-small-voice.0d7d251e.mp3') && !/\b(delete|update|drop)\b/i.test(sql.replace(/--.*$/gm, '')), 'seed SQL: scheduled 9 Nov SGT, idempotent, 0d7d251e audio, no TODO, insert only');
 check(sql === await readFile(new URL('supabase/seed/20261027_elijah_story.sql', root), 'utf8'), 'committed seed file is up to date with js/content.js');
 const mig = await readFile(new URL('supabase/migrations/20261027120000_bedtime_story_posts.sql', root), 'utf8');
 check(/'story'/.test(mig) && /'verse', 'devotion', 'audio', 'reel', 'game'/.test(mig), 'migration allows type story and keeps the others');
+
+// ---- The Smallest Star: draft seed, word-for-word fields, timings match the text ----
+{
+  const f = await starFields(), sq = await starSql();
+  check(sq === await readFile(new URL('supabase/seed/20261027_smallest_star_story.sql', root), 'utf8'), 'Smallest Star seed file is up to date');
+  check(sq.includes("('story', 'draft', null, 'The Smallest Star', 'the-smallest-star', false") && sq.includes('on conflict (slug) do nothing') && sq.includes(STAR_AUDIO) && !/\b(delete|update|drop)\b/i.test(sq.replace(/--.*$/gm, '')), 'Smallest Star seed: draft, idempotent, R2 audio, insert only');
+  check(f.story.split('\n\n').length === 7 && f.goodnight === 'Goodnight, little light. Sleep tight. 🌙' && f.prayer.startsWith('Dear Jesus… help me') && f.story.includes('“I’m so small,”') && f.questions.split('\n').length === 3 && f.word === '', 'Smallest Star fields keep curly quotes, ellipses, emoji; 7 paragraphs, 3 questions, no word');
+  const t = JSON.parse(await readFile(new URL('media/audio/the-smallest-star-timings.json', root), 'utf8'));
+  check(S.validateTimings(t, 357.19).ok, 'Smallest Star timings pass validation against the MP3 length');
+  const star = S.storyFromPost({ type: 'story', status: 'draft', title: 'The Smallest Star', slug: STAR_SLUG, media_url: STAR_AUDIO, fields: f });
+  const html = SEO.storyHtml(star, 'h1');
+  const parts = [...html.matchAll(/data-ra="([^"]+)"[^>]*>([\s\S]*?)<\/(p|blockquote|div)>/g)].map((m) => ({ key: m[1], text: m[2].replace(/<[^>]+>/g, '').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&') }));
+  const mm = SEO.raMatch(parts, t);
+  check(mm && mm.count === t.length - 1, `Smallest Star read-along matches every shown sentence (${mm ? mm.count : 0}/${t.length}; only the spoken “Let’s pray.” is not shown, as with Jonah and Elijah)`);
+}
 
 // ---- app: a live Studio story shows, a future one does not (Supabase answers mocked) ----
 execFileSync(process.execPath, [new URL('../scripts/build-pages.mjs', import.meta.url).pathname], { stdio: 'ignore', env: { ...process.env, PRERENDER_STUDIO: '0' } });
