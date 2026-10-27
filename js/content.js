@@ -77,9 +77,10 @@ window.LL_CONTENT = {
       seoTitle: 'Jonah and the Whale | Bedtime Bible Story for Kids #1',
       desc: 'A gentle bedtime Bible story about Jonah and the great fish, with soft sea sounds, a lullaby and a short prayer.',
       narrator: 'Mr. Ginting',
+      // ?v=2: a fresh URL, because browsers that asked before the R2 upload cached its 404 for a year (27 Oct 2026).
       // v3 (27 Oct 2026): Eleven v4 narration with gentle sound effects and The Moon's Lullaby, mixed to -20 LUFS.
       // Source and mix settings: littlelights-growth content/bedtime/01-jonah (tools/mix_bedtime.py).
-      src: MEDIA_BASE + 'audio/jonah-and-the-whale.2f761925.mp3', placeholder: false, dur: 238.34,
+      src: MEDIA_BASE + 'audio/jonah-and-the-whale.2f761925.mp3?v=2', placeholder: false, dur: 238.34,
       // Read-along timings: [{text,start,end,words:[{text,start,end}]}] in seconds, one entry per spoken sentence.
       // v3: ElevenLabs Scribe word alignment of each narration section, shifted to its place in the mix.
       timings: 'media/audio/jonah-and-the-whale-timings.json',
@@ -104,36 +105,7 @@ window.LL_CONTENT = {
       // at a new one) and keep imageWidth/imageHeight equal to its real size.
       // Empty `image` = the site's default share image.
       image: 'media/audio/jonah-and-the-whale-cover.jpg', imageWidth: 1200, imageHeight: 630,
-      next: { title: 'Elijah and the Still Small Voice', when: 'Mon 9 Nov', href: '/listen/elijah-still-small-voice-bedtime-story' }
-    },
-    {
-      slug: 'elijah-still-small-voice-bedtime-story',
-      series: 'Bedtime Bible Stories for Kids', episode: 2,
-      title: 'Elijah and the Still Small Voice',
-      seoTitle: 'Elijah and the Still Small Voice | Bedtime Bible Story for Kids #2',
-      desc: 'A calm bedtime Bible story about tired Elijah, God\u2019s care and His gentle whisper, with a lullaby and a short prayer.',
-      narrator: 'Mr. Ginting',
-      // 27 Oct 2026: Eleven v4 narration with gentle sound effects and The Moon's Lullaby, mixed to -20 LUFS.
-      // Source and mix settings: littlelights-growth content/bedtime/02-elijah (tools/mix_bedtime.py).
-      src: MEDIA_BASE + 'audio/elijah-still-small-voice.0d7d251e.mp3', placeholder: false, dur: 257.98,
-      // Read-along timings: ElevenLabs Scribe word alignment of each narration section, shifted to its place in the mix.
-      timings: 'media/audio/elijah-still-small-voice-timings.json',
-      color: '#7fa6d6', ink: '#10233a',
-      story: [
-        "Hi, little light… It’s bedtime story time. Are you all snuggled in? Pull your blanket up, nice and cozy. Tonight’s story is about a man who was very, very tired… and about how God took care of him. It’s called… Elijah and the Still Small Voice.",
-        "A long time ago, there lived a man named Elijah. Elijah loved God, and he had done many brave things for Him. But one day, Elijah felt tired. Not just sleepy-tired… but tired all the way down inside. He walked a long, long way into the desert, all by himself. He sat down under a little tree, and he said, “God, I’m so tired. I can’t do this anymore.” And then… Elijah lay down, and he fell fast asleep.",
-        "But God had not forgotten Elijah. Not for one second. While Elijah was sleeping, an angel came and gently touched him. “Get up and eat,” the angel said. And there, right beside him, was warm bread, baked on hot stones… and a jar of cool, fresh water. Elijah ate, and he drank, and he lay down to sleep again. Then the angel came a second time. “Eat some more,” he said kindly. “You have a long journey ahead.” God knew Elijah needed food. And God knew Elijah needed rest. God knows what you need, too.",
-        "With his tummy full and his body rested, Elijah walked for many days and many nights, until he came to a great mountain. He found a little cave, and he went inside to sleep. Then God said, “Go out and stand on the mountain.” So Elijah stood at the opening of the cave… and waited. First, there came a big, strong wind. Whoosh… whoosh… It blew so hard that rocks tumbled down the mountain. But God was not in the wind. Then the ground began to shake… rumble, rumble. But God was not in the shaking. Then there was a fire, far away, glowing orange in the dark. But God was not in the fire.",
-        "And then… everything became quiet. So quiet. And the Bible says, “After the fire, there was a still small voice.” A gentle whisper. Elijah pulled his cloak over his face, and he stepped outside… and God spoke to him, quietly and kindly. God told Elijah that he was not alone. God still had good work for him to do… and God gave him a friend, named Elisha, to help him.",
-        "You know, little one… God doesn’t always speak in big, loud ways. Sometimes, He speaks in the quiet. When you’re lying in bed, and the house is still… that’s a good time to talk to God. And to listen. Here’s a verse for sleepy time: “In peace I will both lay myself down and sleep, for you alone, the LORD, make me live in safety.”"
-      ],
-      prayer: "Dear God… thank You for taking care of me, just like You took care of Elijah. When I’m tired, help me rest. When it’s quiet, help me hear You. Amen.",
-      goodnight: 'Goodnight, little light. Sleep tight. \u{1F319}',
-      verse: { text: 'In peace I will both lay myself down and sleep, for you alone, the LORD, make me live in safety.', ref: 'Psalm 4:8', version: 'WEBBE' },
-      questions: ['Who took care of Elijah when he was tired?', 'Was God in the wind, the shaking, the fire or the quiet?', 'When is a good time for you to talk to God and listen?'],
-      // No cover yet: the site's default share image is used until `image` is set (1200x630 JPEG in media/audio/).
-      image: '', imageWidth: 0, imageHeight: 0,
-      next: { title: 'Jesus Calms the Storm', when: 'Mon 16 Nov', href: '/listen' }
+      next: { title: 'Elijah and the Still Small Voice', when: 'Mon 9 Nov', href: '/listen' }
     }
   ],
 

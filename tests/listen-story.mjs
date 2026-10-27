@@ -38,7 +38,7 @@ check(['Who trusted God?', 'How did God help?', 'How can we be like that tomorro
 }
   check((await fetch(cover.replace('https://littlesaltandlight.com', base))).status === 200, 'cover file is in the build');
 }
-check(/<audio controls[^>]+src="https:\/\/media\.littlesaltandlight\.com\/audio\/jonah-and-the-whale\.[0-9a-f]{8}\.mp3"/.test(raw), 'an <audio> player with the narration on R2 (content-hashed name)');
+check(/<audio controls[^>]+src="https:\/\/media\.littlesaltandlight\.com\/audio\/jonah-and-the-whale\.[0-9a-f]{8}\.mp3(\?v=\d+)?"/.test(raw), 'an <audio> player with the narration on R2 (content-hashed name)');
 check(!raw.includes('data-placeholder-audio') && !raw.includes('PLACEHOLDER AUDIO'), 'no placeholder-audio note now the narration is real');
 check(raw.includes('href="/join"') && raw.includes('Next story'), 'Next story and Join testers cards');
 check((raw.match(/<h1[\s>]/g) || []).length === 1, 'exactly one <h1>');
