@@ -79,7 +79,7 @@ window.LL_CONTENT = {
       narrator: 'Mr. Ginting',
       // v3 (27 Oct 2026): Eleven v4 narration with gentle sound effects and The Moon's Lullaby, mixed to -20 LUFS.
       // Source and mix settings: littlelights-growth content/bedtime/01-jonah (tools/mix_bedtime.py).
-      src: MEDIA_BASE + 'audio/jonah-and-the-whale.2f761925.mp3', placeholder: false, dur: 238.34,
+      src: 'media/audio/preview/jonah-and-the-whale.2f761925.mp3', placeholder: false, dur: 238.34,
       // Read-along timings: [{text,start,end,words:[{text,start,end}]}] in seconds, one entry per spoken sentence.
       // v3: ElevenLabs Scribe word alignment of each narration section, shifted to its place in the mix.
       timings: 'media/audio/jonah-and-the-whale-timings.json',
@@ -115,7 +115,7 @@ window.LL_CONTENT = {
       narrator: 'Mr. Ginting',
       // 27 Oct 2026: Eleven v4 narration with gentle sound effects and The Moon's Lullaby, mixed to -20 LUFS.
       // Source and mix settings: littlelights-growth content/bedtime/02-elijah (tools/mix_bedtime.py).
-      src: MEDIA_BASE + 'audio/elijah-still-small-voice.0d7d251e.mp3', placeholder: false, dur: 257.98,
+      src: 'media/audio/preview/elijah-still-small-voice.0d7d251e.mp3', placeholder: false, dur: 257.98,
       // Read-along timings: ElevenLabs Scribe word alignment of each narration section, shifted to its place in the mix.
       timings: 'media/audio/elijah-still-small-voice-timings.json',
       color: '#7fa6d6', ink: '#10233a',
