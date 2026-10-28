@@ -1062,6 +1062,7 @@
       if (others.length) html += '<div class="p-rnexts" role="group" aria-label="More to watch">' + others.map(function (o) {
         return '<button type="button" class="p-rnext" ' + (o.series ? 'data-series="' + esc(o.series) + '"' : 'data-story="' + o.eps[0] + '"') + ' style="--bg:' + esc(o.cover.bg) + '"><span class="p-wthumb">' + thumb(o.cover) + '</span><span class="p-rnext-t"><small>' + (o.series ? 'Series · ' + o.eps.length + ' episodes' : 'Watch next') + '</small><b>' + esc(o.title) + '</b></span></button>'; }).join('') + '</div>';
     }
+    if (window.LL_SEO && LL_SEO.followHtml) html += LL_SEO.followHtml({ tag: 'p', cls: 'in-reel', sub: false });
     end.innerHTML = html; end.hidden = false; updateReels(); renderWatch();
     (end.querySelector('.p-rnextep') || end.querySelector('.p-ragain')).focus();
   }

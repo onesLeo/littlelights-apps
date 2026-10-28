@@ -136,7 +136,32 @@
           (x.next ? '<a class="p-ep-card" href="' + esc(x.next.href || '/listen') + '"><span class="p-kicker">Next story' + (x.next.when ? ' · ' + esc(x.next.when) : '') + '</span><b>' + esc(x.next.title) + '</b><span>' + (x.next.href && x.next.href !== '/listen' ? 'Play it now \u2192' : 'More bedtime stories on Listen \u2192') + '</span></a>' : '') +
           '<a class="p-ep-card join" href="/join"><span class="p-kicker">Join the testers</span><b>Little Light is a free Bible adventure game for kids 5\u20138, coming to Android.</b><span>Join the test families \u2192</span></a>' +
         '</div>' +
+        followHtml({ tag: 'h2', cls: 'in-story' }) +
       '</div>';
+  }
+
+  // ---------- follow us (social links) ----------
+  // Our accounts only (Instagram first, then TikTok). Plain links with inline icons: no embeds, scripts or trackers.
+  var SOCIAL = [
+    { name: 'Instagram', handle: '@littlesaltandlight_', href: 'https://www.instagram.com/littlesaltandlight_/',
+      icon: '<rect x="3" y="3" width="18" height="18" rx="5.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.1" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.2" cy="6.8" r="1.25" fill="currentColor"/>' },
+    { name: 'TikTok', handle: '@littlesaltandlight', href: 'https://www.tiktok.com/@littlesaltandlight',
+      icon: '<path fill="currentColor" d="M12.53.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>' }
+  ];
+  // Optional line under the heading. To remove it everywhere: set FOLLOW_SUBLINE = '' here AND delete the
+  // <p class="p-follow-sub"> lines in index.html (tests/social.mjs checks the two agree).
+  var FOLLOW_SUBLINE = 'New Bible stories every week';
+  // 'Follow Little Salt & Light' block. opts: { tag: 'h2' | 'p' (heading element), cls: extra class, sub: false to leave the subline out }
+  function followHtml(opts) {
+    opts = opts || {};
+    var tag = opts.tag || 'h2';
+    return '<section class="p-follow' + (opts.cls ? ' ' + opts.cls : '') + '" aria-label="Follow Little Salt &amp; Light">' +
+      '<' + tag + ' class="p-follow-h">Follow Little Salt &amp; Light</' + tag + '>' +
+      (FOLLOW_SUBLINE && opts.sub !== false ? '<p class="p-follow-sub">' + esc(FOLLOW_SUBLINE) + '</p>' : '') +
+      '<ul class="p-follow-links">' + SOCIAL.map(function (x) {
+        return '<li><a class="p-follow-a" href="' + x.href + '" target="_blank" rel="noopener noreferrer" title="' + x.handle + ' on ' + x.name + '">' +
+          '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">' + x.icon + '</svg><span>' + x.name + '</span></a></li>';
+      }).join('') + '</ul></section>';
   }
 
   // ---------- read-along (bedtime stories) ----------
@@ -215,5 +240,5 @@
     }).filter(Boolean).join('').trim();
   }
 
-  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml };
+  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml, SOCIAL: SOCIAL, followHtml: followHtml };
 })(typeof window !== 'undefined' ? window : globalThis);
