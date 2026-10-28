@@ -866,7 +866,7 @@
     reelsEl.innerHTML = parts.map(function (pt, k) {
       var yid = ytId(pt.youtube);
       var scene = pt.src
-        ? '<video src="' + esc(pt.src) + '"' + (pt.poster ? ' poster="' + esc(pt.poster) + '"' : '') + ' width="1080" height="1920" playsinline muted preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
+        ? '<video src="' + esc(pt.src) + '"' + (pt.poster ? ' poster="' + esc(pt.poster) + '"' : '') + ' width="1080" height="1920" playsinline muted preload="none" style="width:100%;height:100%;object-fit:cover"></video>'
         : yid ? '<div class="p-yt-slot" data-yt="' + yid + '" style="position:absolute;inset:0;background:#000"></div>'
         : reelScene(pt.kind);
       return '<article class="p-reel' + (pt.src ? ' is-video' : '') + '" data-i="' + i + '" data-p="' + k + '" style="--rc:' + esc(pt.bg) + ';background:' + esc(pt.bg) + '" aria-label="' + esc(r.title) + (many ? ', part ' + (k + 1) + ' of ' + parts.length : '') + '">' +
@@ -874,6 +874,8 @@
         '<div class="p-rtop"><div class="p-rsegs" aria-hidden="true"></div><div class="p-rtoprow"><span class="p-rchip">Reel' + (many ? ' · ' + (k + 1) + '/' + parts.length : '') + (pt.len ? ' · ' + esc(pt.len) : '') + '</span>' +
           (pt.src ? '<button type="button" class="p-rsound" aria-pressed="' + reelSound + '" aria-label="' + (reelSound ? 'Turn sound off' : 'Turn sound on') + '">' + soundIcon(reelSound) + '<span class="p-rsound-t">' + (reelSound ? 'Sound on' : 'Tap for sound') + '</span></button>' : '') + '</div></div>' +
         '<div class="tapzone p-rzones"><button type="button" class="z-prev" aria-label="Previous part"><span aria-hidden="true">‹</span></button><button type="button" class="z-mid" aria-label="Pause or play"></button><button type="button" class="z-next" aria-label="Next part"><span aria-hidden="true">›</span></button></div>' +
+        (pt.src ? '<div class="p-rwait" hidden><span class="p-rspin" aria-hidden="true"></span><span class="p-rwait-t" role="status">Loading the video…</span><button type="button" class="p-rretry" hidden>Try again</button></div>' +
+          '<button type="button" class="p-rtap" hidden aria-label="Tap to play the video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span>Tap to play</span></button>' : '') +
         '<div class="p-rend" hidden></div><div class="paused" aria-hidden="true"><span class="ic-pause"></span><span class="ic-play"></span></div>' +
         '<div class="side">' + acts + '</div>' +
         '<div class="cap">' + (r.series ? '<span class="p-rseries">' + esc(r.series) + (r.episode ? ' · Episode ' + r.episode : '') + '</span>' : r.topic ? '<span class="p-rseries">' + esc(r.topic) + '</span>' : '') + '<b class="p-rtitle">' + esc(r.title) + '</b>' + (r.caption ? '<p>' + esc(r.caption) + '</p>' : '') +
@@ -953,7 +955,8 @@
     // The blurred reel art seen through the page: built-in scenes are SVG copies; a video reel shows
     // its own video (a muted twin kept in sync with playback, see syncBookArt).
     var src = reelEl(visibleReel), kb = src && src.querySelector('.p-rkb'), art = rSheet.querySelector('.bk-art'), sv0 = kb && kb.querySelector('video');
-    if (sv0) { var tw = art.querySelector('video'); if (!tw || tw.getAttribute('src') !== sv0.getAttribute('src')) { art.innerHTML = '<video muted playsinline preload="auto" tabindex="-1" src="' + esc(sv0.getAttribute('src')) + '"' + (sv0.getAttribute('poster') ? ' poster="' + esc(sv0.getAttribute('poster')) + '"' : '') + '></video>'; } syncBookArt(); }
+    // A video reel shows its poster here (no second download of the video).
+    if (sv0) { var pst = sv0.getAttribute('poster'); art.innerHTML = pst ? '<img alt="" src="' + esc(pst) + '" style="width:100%;height:100%;object-fit:cover">' : ''; }
     else art.innerHTML = kb && !kb.querySelector('iframe, .p-yt-slot') ? kb.innerHTML : '';
     art.style.background = base;
     var sv = src && src.querySelector('.save'); rSheet.querySelector('.bk-save').setAttribute('aria-pressed', String(!!(sv && sv.classList.contains('saved'))));
@@ -1018,7 +1021,9 @@
     raf = 0; if (!watchOpen) return;
     var el = reelEl(visibleReel), v = el && el.querySelector('video'), dt = clock.last ? (now - clock.last) / 1000 : 0; clock.last = now;
     if (v && isFinite(v.duration) && v.duration > 0) { clock.real = true; clock.dur = v.duration; clock.t = v.currentTime; if (v.ended) clock.t = clock.dur; }
-    else if (!clock.real && isPlaying()) clock.t += dt;  // fallback: the chip duration
+    // Fallback (built-in scenes only): the chip duration. A video's clock only moves with its own
+    // currentTime once its duration is known, so a stalled or blocked video never skips ahead.
+    else if (!v && !clock.real && isPlaying()) clock.t += dt;
     paint(); syncBookArt();
     if (clock.dur && clock.t >= clock.dur - 0.05 && !ended) { nextReel(true); }
     raf = requestAnimationFrame(reelTick);
@@ -1051,10 +1056,42 @@
       var v = el.querySelector('video');
       if (v) {
         v.muted = !reelSound;
-        if (playing) { var p = v.play(); if (p && p.catch) p.catch(function (err) { if (!v.muted && err && err.name === 'NotAllowedError') { v.muted = true; reelSound = false; paintSound(); var q = v.play(); if (q && q.catch) q.catch(function () {}); } }); } else v.pause();
+        var near = on || (watchOpen && +el.dataset.p === seq[pos + 1]);
+        if (near && v.getAttribute('preload') !== 'metadata') v.setAttribute('preload', 'metadata');
+        else if (!near && v.getAttribute('preload') !== 'none') v.setAttribute('preload', 'none');
+        wireVideo(el, v);
+        if (playing && !el.classList.contains('needtap')) playVideo(el, v); else v.pause();
       }
     });
     if (watchOpen && !raf) { clock.last = 0; raf = requestAnimationFrame(reelTick); }
+  }
+  // Video health: a calm spinner while it waits for data, a retry if it fails, and a visible
+  // "Tap to play" whenever the browser refuses to start it (Low Power Mode, data saver, etc.).
+  function setWait(el, mode) {
+    var w = el.querySelector('.p-rwait'); if (!w) return;
+    el.classList.toggle('vwait', mode === 'wait'); el.classList.toggle('verror', mode === 'error');
+    w.hidden = !mode; w.querySelector('.p-rretry').hidden = mode !== 'error';
+    w.querySelector('.p-rwait-t').textContent = mode === 'error' ? 'The video didn’t load.' : 'Loading the video…';
+  }
+  function needTap(el, on) { var b = el.querySelector('.p-rtap'); if (!b) return; el.classList.toggle('needtap', !!on); b.hidden = !on; if (on) setWait(el, ''); }
+  function playVideo(el, v) {
+    var p; try { p = v.play(); } catch (x) { needTap(el, true); return; }
+    if (!p || !p.then) return;
+    p.then(function () { needTap(el, false); }, function (err) {
+      if (err && err.name === 'AbortError') return;                 // paused or swapped on purpose
+      if (!v.muted && err && err.name === 'NotAllowedError') {       // sound not allowed: try muted
+        v.muted = true; reelSound = false; paintSound();
+        v.play().then(function () { needTap(el, false); }, function (e2) { if (!e2 || e2.name !== 'AbortError') needTap(el, true); });
+      } else needTap(el, true);
+    });
+  }
+  function wireVideo(el, v) {
+    if (v._ll) return; v._ll = 1; var timer = 0;
+    var waitSoon = function () { clearTimeout(timer); timer = setTimeout(function () { if (!v.paused && v.readyState < 3) setWait(el, 'wait'); }, 600); };
+    v.addEventListener('waiting', waitSoon); v.addEventListener('stalled', waitSoon);
+    ['playing', 'canplay', 'pause'].forEach(function (t) { v.addEventListener(t, function () { clearTimeout(timer); if (!el.classList.contains('verror')) setWait(el, ''); }); });
+    v.addEventListener('playing', function () { needTap(el, false); });
+    v.addEventListener('error', function () { clearTimeout(timer); setWait(el, 'error'); });
   }
   function showReel(k, again) {
     if (k < 0 || k >= seq.length) return;
@@ -1115,6 +1152,12 @@
     if (!reel) return;
     var i = +reel.dataset.i;
     if (e.target.closest('.p-rsound')) { e.stopPropagation(); e.preventDefault(); setSound(!reelSound); return; }
+    var tapB = e.target.closest('.p-rtap, .p-rretry');
+    if (tapB) {
+      var rl = tapB.closest('.p-reel'), vv = rl && rl.querySelector('video'); if (!vv) return;
+      if (tapB.classList.contains('p-rretry')) { setWait(rl, 'wait'); var cur = vv.currentTime || 0; vv.load(); try { vv.currentTime = cur; } catch (x) {} }
+      rl.classList.remove('userpaused'); needTap(rl, false); playVideo(rl, vv); updateReels(); return;
+    }
     if (e.target.closest('.p-rzones') && !e.target.closest('.p-rend')) {
       if (reelsEl._suppress && Date.now() - reelsEl._suppress < 400) { reelsEl._suppress = 0; return; }
       if (e.target.closest('.z-next')) nextReel(); else if (e.target.closest('.z-prev')) prevReel(); else togglePause(reel);
@@ -1152,7 +1195,7 @@
         '<img src="' + esc(r.thumb) + '-720.webp" alt="" width="720" height="405" ' + load + '></picture>';
     }
     if (r.src && r.poster) return '<img src="' + esc(r.poster) + '" alt="" ' + load + '>';
-    if (r.src) return '<video src="' + esc(r.src) + '#t=0.5" muted playsinline preload="metadata" tabindex="-1" aria-hidden="true"></video>';
+    if (r.src) return '<div class="p-wscene" aria-hidden="true">' + reelScene(r.kind) + '</div>';  // no poster yet: scene art, never a <video>
     if (yid) return '<img src="https://i.ytimg.com/vi/' + yid + '/hqdefault.jpg" alt="" ' + load + ' referrerpolicy="no-referrer">';
     return '<div class="p-wscene" aria-hidden="true">' + reelScene(r.kind) + '</div>';
   }

@@ -165,6 +165,23 @@ await page.click('.side [data-view="posts"]').catch(() => {});
   await app.close();
 }
 
+// ---------- reel: pasted video link needs a poster ----------
+{
+  await page.click('.side [data-view="new"]');
+  await page.click('[data-new="reel"]');
+  await page.fill('#f_title', 'Pasted link reel');
+  await page.fill('#f_media_url', 'https://media.littlesaltandlight.com/reels/the-whisper.d5d7e0a3.mp4');
+  await page.click('#postForm button[type=submit]');
+  await page.waitForTimeout(300);
+  check(await page.$('.poster-need') !== null, 'poster: a video with no poster shows a clear prompt');
+  check((await page.$$eval('.errmsg', (e) => e.map((x) => x.textContent).join(' '))).includes('Add a poster before publishing'), 'poster: publishing a video without a poster is blocked');
+  await page.fill('#f_poster_url', 'https://media.littlesaltandlight.com/reels/test-poster.jpg');
+  await page.click('#postForm button[type=submit]');
+  await page.waitForSelector('.list .row');
+  const pp = await page.evaluate(async () => (await window.LLStore.publishedPosts()).filter((p) => p.title === 'Pasted link reel')[0]);
+  check(pp && pp.media_url === 'https://media.littlesaltandlight.com/reels/the-whisper.d5d7e0a3.mp4' && pp.fields.poster === 'https://media.littlesaltandlight.com/reels/test-poster.jpg' && !pp.fields.poster_auto, `poster: pasted video and poster links are saved (${JSON.stringify(pp && { m: pp.media_url, p: pp.fields.poster })})`);
+}
+
 // ---------- devotion: draft, then publish after fixing ----------
 await page.click('.side [data-view="new"]');
 await page.click('[data-new="devotion"]');
