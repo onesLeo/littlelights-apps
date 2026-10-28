@@ -1,6 +1,6 @@
 // Offline support: the app shell is cached on install; fonts are cached the first time they load.
 // Bump VERSION whenever a cached file changes so visitors get the new one.
-const VERSION = 'll-v86';
+const VERSION = 'll-v87';
 const SHELL = [
   './',
   'index.html',
@@ -13,6 +13,7 @@ const SHELL = [
   'fonts/newsreader-normal-400.woff2',
   'fonts/newsreader-italic-400.woff2',
   'fonts/newsreader-italic-500.woff2',
+  'js/analytics.js',
   'js/config.js',
   'js/store.js',
   'js/vendor/supabase-2.117.2.js',
