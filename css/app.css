@@ -1557,3 +1557,32 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
 .p-app.night .p-ra .p-w.on { text-decoration-color: #fbe6a6; }
 .p-app.calm .p-ra .p-sen { transition: none; }
 @media (prefers-reduced-motion: reduce) { .p-ra .p-sen { transition: none; } }
+
+/* Follow Little Salt & Light (js/seo.js followHtml): Midnight & Gold in day and night alike.
+   Navy card, cream text (#F6EEDC on #151028 ≈ 15:1), gold icons and edge; plain links, no motion beyond a colour fade. */
+.p-follow { display: grid; gap: 8px; }
+.p-follow-h { margin: 0; font: 800 17px/1.2 var(--display); color: #F5C26B; }
+.p-follow-sub { margin: 0; font-size: 13.5px; line-height: 1.4; color: #ddd5f0; }
+.p-follow-links { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.p-follow-a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px 0 13px; border-radius: 999px;
+  background: #151028; color: #F6EEDC; border: 1px solid rgba(245,194,107,.6); text-decoration: none; font: 700 14px var(--display); }
+.p-follow-a svg { color: #F5C26B; flex: none; }
+.p-follow-a:hover { background: #221b4a; border-color: #F5C26B; }
+.p-follow-a:focus-visible { outline: 3px solid #F5C26B; outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) { .p-follow-a { transition: background-color .2s, border-color .2s; } }
+/* Desktop side column card and the bedtime story page: a navy card with a gold hairline. */
+.sc-follow, .p-follow.in-story { background: #17123a linear-gradient(160deg, #1d1745, #120e2a); color: #F6EEDC; border: 1px solid rgba(245,194,107,.35); }
+.sc-follow .p-follow-a, .p-follow.in-story .p-follow-a { background: #221b48; }
+.sc-follow .p-follow-a:hover, .p-follow.in-story .p-follow-a:hover { background: #2c2459; }
+.p-follow.in-story { margin-top: 12px; padding: 18px; border-radius: 18px; }
+.p-sbody .p-follow.in-story h2 { margin: 0; font: 800 18px/1.2 var(--display); color: #F5C26B; }
+/* Phone: top of the Today footer (already navy). */
+.p-follow.in-feed { justify-items: center; text-align: center; padding: 6px 4px 10px; margin-bottom: 4px; border-bottom: 1px solid rgba(245,194,107,.2); }
+.p-follow.in-feed .p-follow-links { justify-content: center; }
+.p-legal .p-follow-a { opacity: 1; color: #F6EEDC; padding: 0 16px 0 13px; font-size: 14px; }
+/* End of a reel: a quiet row under the buttons, no subline. */
+.p-follow.in-reel { justify-items: center; gap: 6px; margin-top: 4px; }
+.p-rend .p-follow.in-reel .p-follow-h { font: 700 13px var(--display); color: #F6EEDC; opacity: .9; }
+.p-follow.in-reel .p-follow-links { justify-content: center; margin: 0; }
+.p-follow.in-reel .p-follow-a { min-height: 40px; font-size: 13px; background: #151028; }
+.p-sbody .p-follow.in-story .p-follow-sub { margin: 0; font: 500 13.5px/1.4 var(--display); color: #ddd5f0; }
