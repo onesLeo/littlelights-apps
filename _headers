@@ -37,7 +37,10 @@
 /sitemap.xml
   Cache-Control: public, max-age=3600
 
+# The Studio never loads the analytics beacon (the team isn't counted). This second policy is combined
+# with the one above (a browser applies both), so even a beacon added by Cloudflare can't run here.
 /studio/*
+  Content-Security-Policy: script-src 'self'
   X-Robots-Tag: noindex, nofollow
   Cache-Control: no-cache
 

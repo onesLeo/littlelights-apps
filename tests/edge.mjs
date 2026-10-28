@@ -64,6 +64,7 @@ check(html.includes('<link rel="preload" as="image" fetchpriority="high" href="h
   html = await res.text();
   check(res.status === 200 && html.includes('<link rel="canonical" href="https://littlesaltandlight.com/listen/elijah-still-small-voice-bedtime-story">') && /id="pEpisode"[^>]*data-slug="elijah-still-small-voice-bedtime-story"/.test(html) && html.includes('Para two.') && html.includes('data-ra="story-1"'), 'a bedtime story live after the build gets its page, canonical, text and read-along hooks');
   check((html.match(/<h1[\s>]/g) || []).length === 1, 'the story page has exactly one h1');
+  check(html.includes('src="/js/analytics.js"') && !/cloudflareinsights/.test(html), 'the function-served story page loads the analytics loader (beacon only added by it, so ?nocount works)');
   check(asked[asked.length - 1].includes('type=eq.story') && asked[asked.length - 1].includes('publish_at=lte.'), 'it only asks for a live story');
   res = await postPage(ctx('/listen/the-smallest-star'), 'story', fakeFetch);
   check(res.status === 404, 'a story that is not live (draft or future: the database returns nothing) stays a 404');

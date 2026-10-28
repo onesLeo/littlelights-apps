@@ -645,7 +645,17 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   // ---------- Guide: short, task-based steps for new team members (only features this Studio has) ----------
   var GUIDE_TITLE = { start: 'Sign in', account: 'Your password and signing out', posts: 'Find and edit posts', write: 'Write a new post',
     publish: 'Publish, schedule or keep a draft', story: 'Post a bedtime story', reelpage: 'Reel page colours and styles', media: 'Media', menus: 'Menus and content switches',
-    builtins: 'Built-in content', insights: 'Insights', team: 'Team and roles' };
+    builtins: 'Built-in content', insights: 'Insights', nocount: 'Don’t count your own visits', team: 'Team and roles' };
+  // "Don't count me" (js/analytics.js): while localStorage 'll.nocount' is '1', this device never loads the
+  // Cloudflare Web Analytics beacon. The Studio itself never loads it.
+  var NOCOUNT_URL = 'https://littlesaltandlight.com/?nocount=1';
+  function nocountOn() { try { return localStorage.getItem('ll.nocount') === '1'; } catch (e) { return false; } }
+  function nocountBox() {
+    var on = nocountOn();
+    return '<div class="nocount" id="nocountBox"><span class="pill ' + (on ? 'published' : 'draft') + '">' + (on ? 'Not counted' : 'Counted') + '</span> ' +
+      '<span>' + (on ? 'This browser on this device is <b>not counted</b> in visitor numbers.' : 'This browser on this device <b>is counted</b> in visitor numbers.') + '</span> ' +
+      '<button class="btn soft small" type="button" data-nocount="' + (on ? '0' : '1') + '">' + (on ? 'Count this device again' : 'Don’t count this device') + '</button></div>';
+  }
   function guideView() {
     var part = function (id, steps, note) {
       return '<section class="gpart" aria-labelledby="gh-' + id + '"><h3 id="g-' + id + '" tabindex="-1"><span id="gh-' + id + '">' + GUIDE_TITLE[id] + '</span></h3>' +
@@ -675,6 +685,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       part('menus', ['Open <b>Menus</b> (owner only).', 'For Watch, Listen, Read, Verses and Play, choose On, Coming soon or Hidden. Today is always on.', 'Write a short, friendly coming-soon message, then press <b>Save menus</b>.', 'Under <b>Content</b>, switch the verse cards on Today on or off and press <b>Save content</b>.']) +
       part('builtins', ['Open <b>Built-in content</b> to see items that came with the app.', 'Press <b>Hide</b> on any item visitors should not see, or <b>Show</b> to bring it back.', 'Press <b>Save</b>.', 'Use the <b>All</b>, <b>Visible</b> and <b>Hidden</b> chips to see just one group.'],
         'A published Studio copy of an item replaces it anyway.') +
+      part('nocount', ['Open <a href="' + NOCOUNT_URL + '" target="_blank" rel="noopener"><b>' + NOCOUNT_URL.replace('https://', '') + '</b></a> once on each of your devices (and each browser you use). A small note confirms it.'],
+        'Your visits then stop being counted in Insights. To be counted again, open the same link with <b>?nocount=0</b>, or use the button below. The Studio itself is never counted.' + nocountBox()) +
       part('insights', ['Open <b>Insights</b>.', 'Pick 7, 30 or 90 days.', 'See visits, the most-read pages, countries, where visitors came from, and plays and “read to the end”.'],
         'Counts only: no names and no personal data.') +
       part('team', ['Open <b>Team</b> (owner only to add or remove people).', 'Type the person’s email, choose a role and press <b>Add to team</b>.', 'They sign in with the same page. Press <b>Remove</b> to take someone off the team.'],
@@ -809,7 +821,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   }
   function insightsView() {
     var I = state.insights || { loading: true, days: 7 }, days = I.days || 7;
-    var head = '<div class="top"><div><h2>Insights' + help('insights') + '</h2><p>How families are finding and enjoying Salt and Light. Counts only — no names, no personal data.</p></div>' +
+    var head = '<div class="top"><div><h2>Insights' + help('insights') + '</h2><p>How families are finding and enjoying Salt and Light. Counts only — no names, no personal data.</p>' + nocountBox() + '</div>' +
       '<div class="chips" role="group" aria-label="Time range">' + [7, 30, 90].map(function (n) { return '<button class="chip' + (days === n ? ' on' : '') + '" type="button" data-days="' + n + '" aria-pressed="' + (days === n) + '">' + n + ' days</button>'; }).join('') + '</div></div>';
     if (I.loading) return head + '<div class="list"><div class="empty">Counting visits…</div></div>';
     if (I.error && I.connected === undefined) return head + '<div class="list"><div class="empty">' + esc(I.error) + '</div></div>';
@@ -1349,6 +1361,13 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     render();
     var again = document.getElementById('newTopic'); if (again) again.focus();
   }
+  root.addEventListener('click', function (ev) {
+    var b = ev.target.closest && ev.target.closest('[data-nocount]');
+    if (!b) return;
+    try { if (b.dataset.nocount === '1') localStorage.setItem('ll.nocount', '1'); else localStorage.removeItem('ll.nocount'); } catch (e) {}
+    Array.prototype.forEach.call(root.querySelectorAll('#nocountBox'), function (x) { x.outerHTML = nocountBox(); });
+    toast(nocountOn() ? 'This device won’t be counted in visitor numbers.' : 'This device is counted in visitor numbers again.');
+  });
   root.addEventListener('change', function (ev) {
     if (ev.target.id === 'postSort') { var sv = ev.target.value.split('-'); state.sortKey = sv[0]; state.sortDir = sv[1]; render(); return; }
     if (!state.editing) return;

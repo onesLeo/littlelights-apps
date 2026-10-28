@@ -61,7 +61,7 @@ async function replaceAsync(text, re, fn) {
 // changed file gets a new name, the pages (served fresh every time) point at the new name, and sw.js
 // lists the new names too, so the browser sees a new service worker and updates. The plain files
 // (/js/app.js and so on) stay for the Studio and local development.
-export const FINGERPRINTED = ['css/app.css', 'fonts/fonts.css', 'js/config.js', 'js/store.js', 'js/content.js', 'js/seo.js', 'js/app.js'];
+export const FINGERPRINTED = ['css/app.css', 'fonts/fonts.css', 'js/analytics.js', 'js/config.js', 'js/store.js', 'js/content.js', 'js/seo.js', 'js/app.js'];
 await mkdir(resolve(output, 'assets'), { recursive: true });
 const renamed = {};
 for (const file of FINGERPRINTED) {

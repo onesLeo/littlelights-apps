@@ -135,3 +135,12 @@ Setup (once):
 3. Actions → Daily rebuild → **Run workflow** to test it. A new deployment should appear in Cloudflare.
 
 If the secret is missing, the workflow skips with a warning instead of failing. Treat the hook URL like a password: anyone who has it can start builds.
+
+
+## Not counting the team (Cloudflare Web Analytics)
+
+Visitor numbers in **Insights** come from Cloudflare Web Analytics (cookie-free). The site loads the beacon itself, from `js/analytics.js`, which every public page runs first (index.html, so also the prerendered pages and the `/listen`, `/read` and `/watch` functions, and 404.html). No other tracking is added.
+
+- **The Studio is never counted.** `/studio` doesn't include the loader, the loader skips `/studio` anyway, and `_headers` adds a second policy on `/studio/*` (`script-src 'self'`) so no beacon can run there.
+- **Don't count me, per device.** Open **https://littlesaltandlight.com/?nocount=1** once on each device and browser you use. It saves `ll.nocount` in that browser's local storage, removes `?nocount=1` from the address and shows a short note. While it is set, the beacon is never loaded on any page. **?nocount=0** turns it off again. Studio → Guide → *Don't count your own visits* (and the Insights page) show this device's state with a button to switch it. Clearing the browser's site data clears it too.
+- **Cloudflare setting:** Web Analytics' *automatic setup* (auto-install) for littlesaltandlight.com must be **off**, otherwise Cloudflare adds its own beacon to every page as well and the switch can't stop it. Turn it off when this change goes live (Cloudflare dashboard → Analytics & Logs → Web Analytics → littlesaltandlight.com → Manage site → automatic setup / "Disable"); the site tag and token stay the same, so Insights keeps its history.
