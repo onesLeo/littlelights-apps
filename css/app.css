@@ -1147,14 +1147,14 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
 .p-rend { position: absolute; inset: 0; z-index: 7; display: grid; place-content: center; justify-items: center; gap: 16px; background: rgba(8,5,20,.72); color: #fff; text-align: center; }
 .p-rend[hidden] { display: none; }
 /* Video health: a calm loading spinner with retry, and a visible Tap to play when autoplay is refused. */
-.p-rwait { position: absolute; inset: 0; z-index: 6; display: grid; place-content: center; justify-items: center; gap: 12px; pointer-events: none; color: #fff; text-align: center; background: rgba(8,5,20,.35); }
+.p-rwait { position: absolute; inset: 0; z-index: 6; display: grid; place-content: center; justify-items: center; gap: 12px; pointer-events: none; color: #fff; text-align: center; }
 .p-rwait[hidden], .p-rtap[hidden] { display: none; }
 .p-rwait-t { font: 700 15px var(--body, inherit); background: rgba(8,5,20,.72); padding: 6px 12px; border-radius: 999px; }
-.p-rspin { width: 40px; height: 40px; border-radius: 50%; border: 4px solid rgba(255,255,255,.3); border-top-color: #fff; animation: p-rspin 1.1s linear infinite; }
+.p-rspin { width: 40px; height: 40px; border-radius: 50%; box-shadow: 0 0 0 3px rgba(8,5,20,.45), inset 0 0 0 3px rgba(8,5,20,.45); border: 4px solid rgba(255,255,255,.3); border-top-color: #fff; animation: p-rspin 1.1s linear infinite; }
 @keyframes p-rspin { to { transform: rotate(360deg); } }
 .p-reel.verror .p-rspin { display: none; }
 .p-rretry { pointer-events: auto; min-height: 44px; padding: 0 20px; border-radius: 999px; border: 0; background: #fff; color: #1a1330; font: 800 16px var(--body, inherit); cursor: pointer; }
-.p-rtap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 7; display: inline-flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 24px 0 18px; border-radius: 999px; border: 2px solid #fff; background: rgba(8,5,20,.78); color: #fff; font: 800 18px var(--body, inherit); cursor: pointer; }
+.p-rtap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 7; display: inline-flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 24px 0 18px; border-radius: 999px; border: 2px solid #fff; background: rgba(8,5,20,.78); color: #fff; font: 800 18px var(--body, inherit); cursor: pointer; pointer-events: none; }
 .p-rtap svg { width: 26px; height: 26px; fill: #fff; }
 .p-rtap:focus-visible, .p-rretry:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .p-app.calm .p-rspin { animation-duration: 2.4s; }

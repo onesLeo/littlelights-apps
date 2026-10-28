@@ -1082,7 +1082,8 @@
       if (!v.muted && err && err.name === 'NotAllowedError') {       // sound not allowed: try muted
         v.muted = true; reelSound = false; paintSound();
         v.play().then(function () { needTap(el, false); }, function (e2) { if (!e2 || e2.name !== 'AbortError') needTap(el, true); });
-      } else needTap(el, true);
+      } else if (err && err.name === 'NotAllowedError') needTap(el, true);
+      else setWait(el, 'error');                                     // can't decode/load: offer Try again
     });
   }
   function wireVideo(el, v) {
@@ -1152,7 +1153,9 @@
     if (!reel) return;
     var i = +reel.dataset.i;
     if (e.target.closest('.p-rsound')) { e.stopPropagation(); e.preventDefault(); setSound(!reelSound); return; }
-    var tapB = e.target.closest('.p-rtap, .p-rretry');
+    // "Tap to play" is drawn over the middle tap zone; a tap there (or on the button itself) starts the video.
+    var midR = e.target.closest('.z-mid') && e.target.closest('.p-reel.needtap');
+    var tapB = midR ? midR.querySelector('.p-rtap') : e.target.closest('.p-rtap, .p-rretry');
     if (tapB) {
       var rl = tapB.closest('.p-reel'), vv = rl && rl.querySelector('video'); if (!vv) return;
       if (tapB.classList.contains('p-rretry')) { setWait(rl, 'wait'); var cur = vv.currentTime || 0; vv.load(); try { vv.currentTime = cur; } catch (x) {} }
