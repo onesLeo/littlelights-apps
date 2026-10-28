@@ -996,6 +996,33 @@
     wakeT = setTimeout(function () { if (rSheet.hidden) reelsEl.classList.remove('awake'); else wakeOverlay(); }, 3000);
   }
   ['pointerdown', 'pointermove', 'focusin', 'keydown', 'wheel'].forEach(function (ev) { reelsEl.addEventListener(ev, wakeOverlay, { passive: true }); });
+  // Auto-hide: while a video reel plays, the close button, top row, actions, caption and nav arrows
+  // fade out after ~3s without interaction (the progress line stays). A tap while they are hidden only
+  // brings them back (it does not pause); a key press, focus or mouse move does too. They always show
+  // when paused, ended, loading, on an error, on "Tap to play" or with the caption sheet open.
+  var chromeT = 0, CHROME_MS = 3000;
+  function chromeHeld() {
+    var el = reelEl(visibleReel), v = el && el.querySelector('video');
+    return !watchOpen || !el || !v || v.paused || v.ended || !isPlaying() || ended || !rSheet.hidden ||
+      el.classList.contains('vwait') || el.classList.contains('verror') || el.classList.contains('needtap');
+  }
+  function chromeHidden() { return !!wPlayer && wPlayer.classList.contains('r-idle'); }
+  function showChrome() {
+    if (!wPlayer) return; wPlayer.classList.remove('r-idle'); clearTimeout(chromeT); chromeT = 0;
+    if (!chromeHeld()) chromeT = setTimeout(function () { chromeT = 0; if (!chromeHeld()) wPlayer.classList.add('r-idle'); }, CHROME_MS);
+  }
+  function syncChrome() {
+    if (!wPlayer) return;
+    if (chromeHeld()) { wPlayer.classList.remove('r-idle'); clearTimeout(chromeT); chromeT = 0; }
+    else if (!chromeT && !chromeHidden()) showChrome();
+  }
+  var wpEl = $('#pWatchPlayer');
+  if (wpEl) wpEl.addEventListener('pointerdown', function () {
+    if (!chromeHidden()) { showChrome(); return; }
+    showChrome(); reelsEl._suppress = Date.now();      // this tap only reveals: the click that follows is ignored
+  }, { capture: true, passive: true });
+  if (wpEl) wpEl.addEventListener('pointermove', function (e) { if (e.pointerType === 'mouse') showChrome(); }, { passive: true });
+  if (wpEl) ['keydown', 'focusin', 'wheel'].forEach(function (ev) { wpEl.addEventListener(ev, showChrome, { passive: true }); });
   // Press feedback: the pressed control shows at 100% at once (touch browsers apply :active late or not at all).
   reelsEl.addEventListener('pointerdown', function (e) { var b = e.target.closest('.side .p-ract, .p-rsound'); if (b) b.classList.add('pressed'); }, { passive: true });
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { reelsEl.addEventListener(ev, function () { $$('.pressed', reelsEl).forEach(function (b) { b.classList.remove('pressed'); }); }, { passive: true }); });
@@ -1064,6 +1091,7 @@
       }
     });
     if (watchOpen && !raf) { clock.last = 0; raf = requestAnimationFrame(reelTick); }
+    syncChrome();
   }
   // Video health: a calm spinner while it waits for data, a retry if it fails, and a visible
   // "Tap to play" whenever the browser refuses to start it (Low Power Mode, data saver, etc.).
@@ -1072,8 +1100,9 @@
     el.classList.toggle('vwait', mode === 'wait'); el.classList.toggle('verror', mode === 'error');
     w.hidden = !mode; w.querySelector('.p-rretry').hidden = mode !== 'error';
     w.querySelector('.p-rwait-t').textContent = mode === 'error' ? 'The video didn’t load.' : 'Loading the video…';
+    syncChrome();
   }
-  function needTap(el, on) { var b = el.querySelector('.p-rtap'); if (!b) return; el.classList.toggle('needtap', !!on); b.hidden = !on; if (on) setWait(el, ''); }
+  function needTap(el, on) { var b = el.querySelector('.p-rtap'); if (!b) return; el.classList.toggle('needtap', !!on); b.hidden = !on; if (on) setWait(el, ''); syncChrome(); }
   function playVideo(el, v) {
     var p; try { p = v.play(); } catch (x) { needTap(el, true); return; }
     if (!p || !p.then) return;
@@ -1092,6 +1121,7 @@
     v.addEventListener('waiting', waitSoon); v.addEventListener('stalled', waitSoon);
     ['playing', 'canplay', 'pause'].forEach(function (t) { v.addEventListener(t, function () { clearTimeout(timer); if (!el.classList.contains('verror')) setWait(el, ''); }); });
     v.addEventListener('playing', function () { needTap(el, false); });
+    ['playing', 'pause', 'ended'].forEach(function (t) { v.addEventListener(t, syncChrome); });
     v.addEventListener('error', function () { clearTimeout(timer); setWait(el, 'error'); });
   }
   function showReel(k, again) {
