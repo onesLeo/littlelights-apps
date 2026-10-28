@@ -268,6 +268,18 @@ await page.selectOption('#reel_page_style', 'clear');
 await page.click('#reelPageForm button[type=submit]');
 await page.waitForTimeout(200);
 check(await page.evaluate(() => JSON.parse(localStorage.getItem('ll.settings.v1')).reel_page.style === 'clear'), 'reel page: the owner saves the site default in site_settings key reel_page');
+// Footer style (site setting footer_style): B or C with a small drawing of each; saving changes the site on its next load.
+check(await page.$$eval('#footerForm .ff-choice', (c) => c.length === 2 && c.every((x) => x.querySelector('.ffp') && x.querySelector('small').textContent.length > 20)) && await page.$eval('#footerForm input[value="C"]', (i) => i.checked), 'footer: the Studio offers B and C with a preview and description, C selected by default');
+await page.$eval('#footerForm', (f) => f.scrollIntoView({ block: 'center' })); await page.waitForTimeout(100);
+if (process.env.SHOTS13) await page.screenshot({ path: process.env.SHOTS13 + '/studio-footer-style.png' });
+await page.click('#footerForm .ff-choice:has(input[value="B"])');
+await page.click('#footerForm button[type=submit]');
+await page.waitForTimeout(200);
+check(await page.evaluate(() => JSON.parse(localStorage.getItem('ll.settings.v1')).footer_style === 'B'), 'footer: saving stores "B" in site_settings key footer_style');
+await app.goto(base + 'read'); await app.waitForSelector('#app[data-ready]'); await app.waitForTimeout(200);
+check(await app.$eval('#app', (a) => a.classList.contains('ff-B') && !a.classList.contains('ff-C')), 'footer: the site switches to B on its next load (no rebuild)');
+await page.click('#footerForm .ff-choice:has(input[value="C"])'); await page.click('#footerForm button[type=submit]'); await page.waitForTimeout(200);
+await app.goto(base); await app.waitForSelector('#app[data-ready]');
 check(await app.$('#pFeed [data-open-verse]') !== null, 'app: long Today verse offers a full-passage action');
 await app.click('#pFeed [data-open-verse]');
 check(await app.$eval('#pStory', (el) => el.classList.contains('long')), 'app: long verse opens in a readable passage view');

@@ -40,7 +40,7 @@ check(/^\/join\s+https:\/\/\S+\s+302$/m.test(redirects), '_redirects is publishe
 for (const file of ['404.html', '_headers', 'robots.txt', 'sitemap.xml', 'favicon.ico', 'icons/apple-touch-icon.png', 'icons/og-image.png', 'css/404.css']) {
   check(existsSync(join(dist, file)), `${file} is in the build`);
 }
-const missing404 = refs('404.html').filter((f) => !existsSync(join(dist, f)));
+const missing404 = refs('404.html').filter((f) => !existsSync(join(dist, f)) && !existsSync(join(dist, f + '.html')));
 check(missing404.length === 0, `404.html: every linked file is in the build ${missing404.join(', ')}`);
 check(/Disallow: \/studio\//.test(readFileSync(join(dist, 'robots.txt'), 'utf8')) && /Sitemap: https:\/\/littlesaltandlight\.com\/sitemap\.xml/.test(readFileSync(join(dist, 'robots.txt'), 'utf8')),
   'robots.txt keeps the Studio out of search and points at the sitemap');

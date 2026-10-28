@@ -98,6 +98,30 @@
     return Promise.race([fresh, slow]).catch(function () {});
   }
 
+  // ---------- footer style (site setting 'footer_style', chosen in the Studio) ----------
+  // index.html and the prerendered pages ship .ff-C (also the no-JS look). The last value seen is kept on the
+  // device so a returning visitor gets the right look straight away; then the live value is read with the
+  // anon key and the class is swapped. Anything missing, unknown or failing falls back to C.
+  var FOOTER_KEY = 'll.footerStyle';
+  function setFooterStyle(v) {
+    var F = window.LL_SEO, style = (F && F.footerStyle(v)) || 'C', el = document.getElementById('app');
+    if (!el) return style;
+    ['B', 'C'].forEach(function (k) { el.classList.toggle('ff-' + k, k === style); });
+    el.setAttribute('data-footer', style);
+    return style;
+  }
+  function loadFooterStyle() {
+    var cached = null;
+    try { cached = localStorage.getItem(FOOTER_KEY); } catch (err) { /* storage blocked */ }
+    setFooterStyle(cached);
+    var S = window.LLStore;
+    if (!S || !S.getSetting) return Promise.resolve();
+    return S.getSetting('footer_style').then(function (v) {
+      var style = setFooterStyle(v);
+      try { localStorage.setItem(FOOTER_KEY, style); } catch (err) { /* storage blocked */ }
+    }, function () { setFooterStyle(cached); });
+  }
+
   function mergeStudioPosts() {
     var S = window.LLStore;
     if (!S) return Promise.resolve();
@@ -1546,7 +1570,7 @@
     if (pre && pre.innerHTML === same.innerHTML) {
       while (a.firstChild !== pre) a.removeChild(a.firstChild);
       pre.insertAdjacentHTML('beforebegin', top);
-    } else a.innerHTML = top + '<div class="body p-txt">' + d.html + '</div>' + (SEO && SEO.followRowHtml ? SEO.followRowHtml() : '');
+    } else a.innerHTML = top + '<div class="body p-txt">' + d.html + '</div>' + (SEO && SEO.footerHtml ? SEO.footerHtml('a') : '');
     closeOverlays();
     a.classList.add('on');
     a.scrollTop = 0;
@@ -1824,6 +1848,7 @@
   app.dataset.ready = '1';
   }
   tagBuiltins();
+  loadFooterStyle();
   Promise.all([mergeStudioPosts(), loadNav(), loadHidden(), loadContent()]).then(startApp);
 
   // ---------- offline support ----------
