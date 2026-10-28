@@ -121,7 +121,7 @@ A story that goes live between rebuilds is listed on /listen straight away, and 
 ### One-time steps for Taman
 
 1. Apply the migration `supabase/migrations/20261027120000_bedtime_story_posts.sql` (Supabase → SQL Editor, or `supabase db push`). It only widens the allowed post types to include `story`.
-2. Optional: run `supabase/seed/20261027_elijah_story.sql` to add Elijah as a Studio story scheduled for Mon 9 Nov 2026 (00:00 SGT). It does nothing if a post with that slug already exists. Its audio is `audio/elijah-still-small-voice.0d7d251e.mp3` on R2.
+2. Optional: run `supabase/seed/20261027_elijah_story.sql` to add Elijah as a Studio story scheduled for Wed 4 Nov 2026 (00:00 SGT; it was moved there in the Studio). It does nothing if a post with that slug already exists. Its audio is `audio/elijah-still-small-voice.0d7d251e.mp3` on R2.
 3. Optional: run `supabase/seed/20261027_smallest_star_story.sql` to add The Smallest Star (Goodnight Little Light #1) as a draft. Then open it in the Studio, pick a publish date and time and Schedule.
 
 ## Daily rebuild

@@ -90,6 +90,24 @@ for (const [iso, due] of [['2026-11-03T23:59:00+08:00', false], ['2026-11-04T00:
   }
 }
 
+// ---- Jonah's 'Next story' teaser follows Elijah's schedule (post 36, Wed 4 Nov 2026 00:00 SGT) ----
+const jonahNext = async (iso, posts) => { const T = await storeAt(iso); const j = T.S.mergeStories(T.C.bedtimeStories, posts).find((b) => b.slug === 'jonah-and-the-whale-bedtime-story'); return { n: j.next, html: SEO.storyHtml(j, 'h1') }; };
+{
+  const C0 = (await storeAt('2026-10-28T00:00:00+08:00')).C;
+  check(!/9 Nov/.test(JSON.stringify(C0.bedtimeStories)), 'no built-in story mentions 9 Nov for Elijah');
+  check(new Date(C0.bedtimeStories.find((b) => b.next).next.at).toISOString() === eliPost.publish_at, "Jonah's teaser time equals post 36's publish time");
+  let r = await jonahNext('2026-10-28T00:05:00+08:00', [eliPost]);
+  check(r.n.when === 'Wed 4 Nov' && r.n.href === '/listen' && r.html.includes('Next story · Wed 4 Nov'), `before: 'Next story · Wed 4 Nov' (${r.n.when})`);
+  r = await jonahNext('2026-11-03T23:59:00+08:00', [eliPost]);
+  check(r.n.when === 'Wed 4 Nov', 'a minute before: still Wed 4 Nov');
+  r = await jonahNext('2026-11-04T00:00:30+08:00', [eliPost]);
+  check(r.n.when === 'Out now' && r.n.href === '/listen/' + ELIJAH_SLUG && r.html.includes('href="/listen/' + ELIJAH_SLUG + '"') && r.html.includes('Play it now'), 'once live: links to Elijah, no date');
+  r = await jonahNext('2026-11-05T00:00:00+08:00', []);
+  check(r.n.when === 'Coming soon' && r.n.href === '/listen', 'time passed but post missing or moved: Coming soon, links to Listen');
+  const T = await storeAt('2026-10-28T00:00:00+08:00');
+  check(T.S.sgtShortDay('2026-11-03T16:00:00Z') === 'Wed 4 Nov' && T.S.sgtShortDay('2026-11-08T16:00:00Z') === 'Mon 9 Nov', "SGT day label ('Wed 4 Nov')");
+}
+
 // ---- Elijah seed renders exactly like the built-in ----
 const eli = await builtinStory(ELIJAH_SLUG);
 const seeded = S.storyFromPost({ type: 'story', status: 'scheduled', publish_at: new Date(ELIJAH_PUBLISH_AT).toISOString(), title: eli.title, slug: eli.slug, media_url: eli.src, fields: fieldsFromStory(eli) });
@@ -98,7 +116,7 @@ const m1 = SEO.meta('story', seeded), m2 = SEO.meta('story', eli);
 check(JSON.stringify(m1) === JSON.stringify(m2), 'Elijah Studio copy has the same head (title, description, image)');
 check(SEO.storyRowsHtml([seeded]) === SEO.storyRowsHtml([eli]), 'Elijah Studio copy has the same Goodnight row');
 const sql = await seedSql();
-check(sql.includes("'scheduled', '2026-11-09T00:00:00+08:00'") && sql.includes('on conflict (slug) do nothing') && !/TODO/.test(sql) && sql.includes('elijah-still-small-voice.0d7d251e.mp3') && !/\b(delete|update|drop)\b/i.test(sql.replace(/--.*$/gm, '')), 'seed SQL: scheduled 9 Nov SGT, idempotent, 0d7d251e audio, no TODO, insert only');
+check(sql.includes("'scheduled', '2026-11-04T00:00:00+08:00'") && sql.includes('on conflict (slug) do nothing') && !/TODO/.test(sql) && sql.includes('elijah-still-small-voice.0d7d251e.mp3') && !/\b(delete|update|drop)\b/i.test(sql.replace(/--.*$/gm, '')), 'seed SQL: scheduled Wed 4 Nov SGT, idempotent, 0d7d251e audio, no TODO, insert only');
 check(sql === await readFile(new URL('supabase/seed/20261027_elijah_story.sql', root), 'utf8'), 'committed seed file is up to date with js/content.js');
 const mig = await readFile(new URL('supabase/migrations/20261027120000_bedtime_story_posts.sql', root), 'utf8');
 check(/'story'/.test(mig) && /'verse', 'devotion', 'audio', 'reel', 'game'/.test(mig), 'migration allows type story and keeps the others');
