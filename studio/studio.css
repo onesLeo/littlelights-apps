@@ -466,3 +466,5 @@ th.c-views { text-align: right; }
 .ffp-C .ffp-ics i:nth-child(1) { background: #ee8fb2; } .ffp-C .ffp-ics i:nth-child(2) { background: #a07fd6; } .ffp-C .ffp-ics i:nth-child(3) { background: #e46a4c; }
 .ffp-legal { position: relative; width: 70px; height: 3px; border-radius: 2px; background: rgba(27,36,71,.3); }
 .ff-legend { font-weight: 700; font-size: 13px; margin-bottom: 4px; padding: 0; }
+.poster-need { margin: 4px 0 8px; padding: 8px 10px; border-radius: 8px; font-size: 13px; line-height: 1.4; background: var(--warn-bg); color: var(--warn); border: 1px solid currentColor; }
+.field.sub { margin-top: 10px; }

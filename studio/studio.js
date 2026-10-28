@@ -460,13 +460,18 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   function posterField() {
     var e = state.editing, busy = state.uploading === 'poster';
     if (!e.media_url && !e.poster) return '';
-    return '<div class="field"><span>Poster image (optional)</span><div class="poster-row">' +
+    var need = e.media_url && !e.poster;
+    return '<div class="field"><span>Poster image' + (e.media_url ? ' (needed for a video)' : '') + '</span>' +
+      (need ? '<p class="poster-need" role="note">This video has no poster yet. Without one, phones show a blank frame until the video loads, and the Watch page has no picture. Choose an image, use a frame from the video, or paste a poster link.</p>' : '') +
+      '<div class="poster-row">' +
       (e.poster ? '<img class="poster-pv" id="posterPv" alt="Poster preview" width="90" height="160" data-src="' + esc(e.poster) + '">' : '<div class="poster-pv empty" id="posterPv">No poster</div>') +
       '<div class="poster-acts"><label class="upload' + (busy ? ' busy' : '') + '" data-drop="poster"><b>' + (busy ? 'Saving poster…' : 'Choose a poster image') + '</b>' +
       '<small>JPG, PNG or WebP, up to 5 MB. Vertical 9:16 looks best. ' + (e.poster ? (e.poster_auto ? 'Now using a frame from the video.' : 'Now using your image.') : 'Without one, a frame from the video is used.') + '</small>' +
       '<input class="sr" type="file" accept="' + POSTER_TYPES.join(',') + '" data-file="poster" id="f_poster"></label>' +
       (e.media_url ? '<button class="btn soft small" type="button" id="posterFrame"' + (busy ? ' disabled' : '') + '>Use a frame from the video</button>' : '') +
-      '</div></div>' + (state.errors.poster ? '<span class="errmsg" role="alert">' + state.errors.poster + '</span>' : '') + '</div>';
+      '</div></div>' +
+      '<label class="field sub"><span>Or paste a poster link</span><input class="input' + (state.errors.poster ? ' err' : '') + '" id="f_poster_url" data-f="poster" type="url" value="' + esc(e.poster || '') + '" placeholder="https://media.littlesaltandlight.com/reels/…-poster.jpg"></label>' +
+      (state.errors.poster ? '<span class="errmsg" role="alert">' + state.errors.poster + '</span>' : '') + '</div>';
   }
 
   function editView() {
@@ -499,6 +504,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       f = field('title', 'Title', p.title, { ph: 'Noah kept building' }) +
         field('caption', 'Caption', p.caption, { textarea: true, ph: 'What the reel is about, with the Bible reference' }) +
         uploadField('Video', 'video/*', 'Vertical 9:16 MP4, up to 60 seconds and 50 MB. Or paste a YouTube Shorts link below.') +
+        field('media_url', 'Or paste a video link', p.media_url, { type: 'url', ph: 'https://media.littlesaltandlight.com/reels/….mp4', help: 'Use this when the MP4 is already uploaded, for example to R2.' }) +
         posterField() +
         '<div class="two">' + field('youtube', 'YouTube link (optional)', p.youtube, { ph: 'https://youtube.com/shorts/…', type: 'url' }) + field('minutes', 'Length', p.minutes, { ph: '0:52' }) + '</div>' +
         // Series: reels with the same series name are grouped on the Watch page, ordered by episode number.
@@ -925,12 +931,15 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       if (!(p.ref || '').trim()) e.ref = 'Add where the verse is from, for example Psalm 119:105.';
       if (!(p.translation || '').trim()) e.translation = 'Name the translation the text is from, for example WEB.';
     } else if (!(p.title || '').trim()) e.title = 'Add a title so the post can be found.';
+    if (p.type === 'reel' && /^\s*http:\/\//i.test(p.media_url || '')) e.media_url = 'Use a secure link starting with https://.';
+    if (p.type === 'reel' && /^\s*http:\/\//i.test(p.poster || '')) e.poster = 'Use a secure poster link starting with https://.';
     if (p.type === 'reel' && p.youtube && !/^https:\/\/(www\.)?(youtube\.com|youtu\.be)\//.test(p.youtube.trim())) e.youtube = 'Paste a full YouTube link starting with https://.';
     if (publishing) {
       if (p.type === 'devotion' && !(p.body || '').trim()) e.body = 'Write the devotion before publishing, or save it as a draft.';
       if (p.type === 'devotion' && !(p.teaser || '').trim()) e.teaser = 'Add a one-line summary for the Today card.';
       if (p.type === 'audio' && !p.media_url) e.file = 'Upload the recording before publishing, or save it as a draft.';
       if (p.type === 'reel' && !p.media_url && !p.youtube) e.file = 'Upload a video or paste a YouTube link before publishing.';
+      if (p.type === 'reel' && p.media_url && !(p.poster || '').trim()) e.poster = 'Add a poster before publishing: choose an image, use a frame from the video, or paste a poster link.';
       if (p.type === 'story') Object.assign(e, validateStory(p));
       if (p._mode === 'schedule') {
         var start = S.sgtStart(p.publish_date, p.publish_time);
@@ -1408,7 +1417,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (ev.target.id === 'postSort') { var sv = ev.target.value.split('-'); state.sortKey = sv[0]; state.sortDir = sv[1]; render(); return; }
     if (!state.editing) return;
     if (ev.target.dataset.check) state.editing[ev.target.dataset.check] = ev.target.checked;
-    if (ev.target.dataset.f) { state.editing[ev.target.dataset.f] = ev.target.value; refreshPreview(); }
+    if (ev.target.dataset.f) { state.editing[ev.target.dataset.f] = ev.target.value; if (ev.target.dataset.f === 'poster') state.editing.poster_auto = undefined; refreshPreview(); }
     if (/^publish_(date|time)$/.test(ev.target.dataset.f || '')) { var ws = document.getElementById('whenSay'); if (ws) ws.innerHTML = whenSay(state.editing); }
     if (ev.target.dataset.file === 'poster') handlePoster(ev.target.files[0]);
     else if (ev.target.dataset.file === 'story_audio') handleStoryAudio(ev.target.files[0]);
