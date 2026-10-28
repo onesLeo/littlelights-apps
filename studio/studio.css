@@ -448,3 +448,21 @@ th.c-views { text-align: right; }
 @media (max-width: 760px) { .ptable .c-title b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; } .ptable .row { align-items: start; } .ptable .c-status { align-self: start; } }
 .nocount { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 10px; font-size: 13px; color: var(--muted); }
 .nocount b { color: var(--ink); }
+
+/* Footer style choices (Menus > Footer style) with a tiny drawing of each look. */
+.ff-choices { border: 0; padding: 0; margin: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.ff-choice { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: start; padding: 12px; border-radius: 14px; border: 2px solid var(--line, #d9dbe6); cursor: pointer; }
+.ff-choice:has(input:checked) { border-color: var(--focus, #7b5cd6); background: rgba(123,92,214,.06); }
+.ff-choice:has(input:focus-visible) { outline: 3px solid var(--focus, #7b5cd6); outline-offset: 2px; }
+.ff-choice input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.ff-choices:disabled .ff-choice { cursor: default; opacity: .75; }
+.ff-txt { display: grid; gap: 3px; } .ff-txt small { color: var(--muted); font-size: 12.5px; line-height: 1.35; }
+.ffp { width: 120px; height: 72px; border-radius: 10px; overflow: hidden; background: #EEF1F8; position: relative; display: block; box-shadow: inset 0 0 0 1px rgba(27,36,71,.12); }
+.ffp-art { position: absolute; inset: 0; display: grid; justify-items: center; align-content: end; gap: 4px; padding-bottom: 6px; }
+.ffp-dome { position: absolute; left: -20%; right: -20%; top: 18px; bottom: 0; border-radius: 50% 50% 0 0 / 22px 22px 0 0; border-top: 1px solid rgba(200,128,31,.5); background: radial-gradient(60% 120% at 50% 115%, #FFCE78, #FFE7BA 45%, #FFF6E2 75%); }
+.ffp-rule { position: absolute; left: 10px; right: 10px; top: 20px; height: 2px; background: radial-gradient(circle, #C8801F 1px, transparent 1.4px) 0 0 / 6px 2px repeat-x; }
+.ffp-wm { position: relative; font: 800 9px/1 var(--display, system-ui); color: #3B1F4A; }
+.ffp-ics { position: relative; display: flex; gap: 4px; } .ffp-ics i { width: 12px; height: 12px; border-radius: 50%; background: #F5C26B; }
+.ffp-C .ffp-ics i:nth-child(1) { background: #ee8fb2; } .ffp-C .ffp-ics i:nth-child(2) { background: #a07fd6; } .ffp-C .ffp-ics i:nth-child(3) { background: #e46a4c; }
+.ffp-legal { position: relative; width: 70px; height: 3px; border-radius: 2px; background: rgba(27,36,71,.3); }
+.ff-legend { font-weight: 700; font-size: 13px; margin-bottom: 4px; padding: 0; }

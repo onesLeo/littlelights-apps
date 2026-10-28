@@ -1447,8 +1447,6 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
 /* Phone: a small band after the last post of the Today feed */
 .p-legal.in-feed { scroll-snap-align: end; padding: 14px 12px calc(14px + env(safe-area-inset-bottom, 0px)); background: #0f0d20; color: #cfc8e6; }
 /* Play page: under the store tiles */
-.p-legal.in-play { padding: 0 10px 18px; color: #7a5a2a; }
-.p-app.night .p-legal.in-play { color: #a8c8b2; }
 /* Computer: under the cards in the side panel */
 .p-legal.in-side { display: none; }
 @media (min-width: 900px) {
@@ -1586,3 +1584,82 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
 .p-follow.in-reel .p-follow-links { justify-content: center; margin: 0; }
 .p-follow.in-reel .p-follow-a { min-height: 40px; font-size: 13px; background: #151028; }
 .p-sbody .p-follow.in-story .p-follow-sub { margin: 0; font: 500 13.5px/1.4 var(--display); color: #ddd5f0; }
+
+/* ---------- Site footer (js/seo.js footerHtml) ----------
+   At the end of the page content, never fixed. On short pages the view becomes a column and the footer is
+   pushed to the bottom of the screen (margin-top: auto); the view already ends above the tab bar and the
+   safe area, so it never covers the bottom nav. Two looks, chosen in the Studio: .ff-B golden horizon,
+   .ff-C open columns (index.html ships .ff-C). Colours come from variables: light pages by day (Read, Play,
+   a devotion), dark pages (night, and Watch and Listen, which are dark by day too). */
+.p-view.on:has(> .p-sfoot), .p-over.on:has(> .p-sfoot) { display: flex; flex-direction: column; }
+:is(.p-view, .p-over):has(> .p-sfoot) > * { flex-shrink: 0; }
+/* Children keep the width they had as blocks (auto side margins would otherwise shrink them to fit). */
+.p-view.on:has(> .p-sfoot) > :not(.p-sfoot), .p-over.on:has(> .p-sfoot) > :not(.p-sfoot) { width: 100%; }
+.p-sfoot { --sf-ink: #1B2447; --sf-muted: #3D4670; --sf-h: #8A4A0C; --sf-rule: rgba(27,36,71,.16); --sf-gold: #C8801F; --sf-focus: #9A5410;
+  --sf-chip: rgba(255,255,255,.72); --sf-chip-ring: rgba(154,84,16,.35);
+  position: relative; isolation: isolate; margin-top: auto; padding: 22px max(18px, env(safe-area-inset-right, 0px)) 8px max(18px, env(safe-area-inset-left, 0px));
+  color: var(--sf-ink); font-family: var(--display); overflow: hidden; }
+.p-app.night .p-sfoot, .v-watch .p-sfoot, .v-listen .p-sfoot { --sf-ink: #EEF0FA; --sf-muted: #C9CEEA; --sf-h: #F2C46B; --sf-rule: rgba(242,196,107,.24); --sf-gold: #F2C46B; --sf-focus: #F2C46B;
+  --sf-chip: rgba(15,21,48,.45); --sf-chip-ring: rgba(242,196,107,.45); }
+.p-sfoot ul { list-style: none; margin: 0; padding: 0; }
+.p-sfoot a { color: inherit; text-decoration: none; }
+.p-sfoot a:focus-visible { outline: 3px solid var(--sf-focus); outline-offset: 2px; border-radius: 12px; }
+.p-sfoot .sf-grid { display: grid; gap: 8px; justify-items: center; text-align: center; }
+.p-sfoot .wm { font-size: 26px; }
+.p-app:not(.night) .p-view:not(.v-watch, .v-listen) .p-sfoot .wm, .p-app:not(.night) .p-article .p-sfoot .wm { --wm-s: #3B1F4A; --wm-g1: #9A5410; --wm-g2: #A63D2F; --wm-g0: #E9A23B; --wm-glow: rgba(245,194,107,.35); }
+.sf-line { margin: 4px 0 0; font-size: 14px; line-height: 1.4; color: var(--sf-muted); }
+.sf-h { margin: 0 0 6px; font: 800 12px/1.2 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--sf-h); }
+.sf-sub { margin: -2px 0 10px; font-size: 13.5px; color: var(--sf-muted); }
+.sf-follow ul { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.sf-soc { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 12px 4px 4px; border-radius: 999px; font-weight: 700; font-size: 13px; }
+.sf-ic { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.sf-quick ul { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.sf-quick a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px 0 6px; border-radius: 999px; font-weight: 700; font-size: 14px; }
+.sf-dot { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--tc); }
+.sf-dot svg { width: 18px; height: 18px; fill: none; stroke: #1B2447; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.sf-legal { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 2px; margin-top: 4px; font-size: 12.5px; }
+.sf-legal a { padding: 12px 8px; min-height: 44px; display: inline-flex; align-items: center; color: var(--sf-muted); }
+.sf-legal a:hover, .sf-quick a:hover, .sf-soc:hover .sf-n { text-decoration: underline; text-underline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) { .p-app:not(.calm) .p-sfoot :is(.sf-soc, .sf-quick a, .sf-ic) { transition: background-color .2s, transform .2s, box-shadow .2s; } .p-app:not(.calm) .sf-soc:hover .sf-ic { transform: translateY(-2px); } }
+/* Phone: compact. The tab bar already has Read, Listen, Watch and Play, so Explore and the line are left out. */
+@media (max-width: 759px) { .sf-quick, .sf-line { display: none; } }
+@media (min-width: 760px) {
+  .p-sfoot { padding: 40px 48px 12px; }
+  .p-sfoot .sf-grid { grid-template-columns: 1.2fr 1fr 1.3fr; align-items: start; justify-items: start; text-align: left; gap: 28px 48px; max-width: 1080px; margin: 0 auto; width: 100%; }
+  .sf-follow ul, .sf-quick ul { justify-content: flex-start; }
+  .sf-quick ul { display: grid; grid-template-columns: repeat(2, max-content); gap: 6px 14px; }
+  .p-sfoot .wm { font-size: 34px; }
+  .sf-line { max-width: 30ch; font-size: 15px; }
+  .sf-soc { padding-right: 16px; font-size: 14px; gap: 9px; }
+  .sf-legal { max-width: 1080px; margin: 22px auto 0; justify-content: flex-start; border-top: 1px solid var(--sf-rule); padding-top: 4px; }
+}
+
+/* B: golden horizon. A gentle dome rises from the bottom of the page with a warm sunrise glow; its edge is a
+   soft gold hairline. No solid fill, and the glow fades out at both sides, so there is no seam at night. */
+.p-app.ff-B .p-sfoot { padding-top: 52px; }
+.p-app.ff-B .p-sfoot::before { content: ""; position: absolute; z-index: -1; left: 0; right: 0; top: 14px; bottom: 0;
+  border-radius: 50% 50% 0 0 / 46px 46px 0 0; border-top: 1.5px solid rgba(200,128,31,.40);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  background: radial-gradient(60% 120% at 50% 115%, rgba(255,206,120,.70), rgba(255,231,186,.55) 45%, rgba(255,246,226,.45) 75%, rgba(255,250,240,.30)); }
+.p-app.ff-B.night .p-sfoot::before, .p-app.ff-B .v-watch .p-sfoot::before, .p-app.ff-B .v-listen .p-sfoot::before { border-top-color: rgba(242,196,107,.50);
+  background: radial-gradient(60% 120% at 50% 118%, rgba(242,196,107,.26), rgba(242,196,107,.10) 45%, rgba(242,196,107,.03) 75%, transparent); }
+.p-app.ff-B .sf-soc, .p-app.ff-B .sf-quick a { background: var(--sf-chip); box-shadow: inset 0 0 0 1.5px var(--sf-chip-ring); }
+.p-app.ff-B .sf-ic { background: linear-gradient(160deg, #FFE7A8, #F5C26B); color: #4A2605; }
+.p-app.ff-B.night .sf-ic, .p-app.ff-B .v-watch .sf-ic, .p-app.ff-B .v-listen .sf-ic { background: radial-gradient(circle at 50% 40%, #FFF1C9, #F2C46B 70%); color: #2A1A05; box-shadow: 0 0 16px rgba(242,196,107,.40); }
+.p-app.ff-B .sf-dot { background: color-mix(in srgb, var(--tc) 35%, #fff); }
+@media (min-width: 760px) { .p-app.ff-B .p-sfoot { padding-top: 84px; } .p-app.ff-B .p-sfoot::before { top: 18px; border-radius: 50% 50% 0 0 / 64px 64px 0 0; } }
+
+/* C: open columns. No panel: the footer sits on the page under a dotted golden rule; icons use the tab colours. */
+.p-app.ff-C .p-sfoot::before { content: ""; position: absolute; left: 24px; right: 24px; top: 0; height: 2px; background: radial-gradient(circle, var(--sf-gold) 1.2px, transparent 1.6px) 0 0 / 10px 2px repeat-x; opacity: .85; }
+.p-app.ff-C .sf-soc { padding-left: 2px; }
+.p-app.ff-C .sf-instagram .sf-ic { background: var(--t-read); color: #3a1426; }
+.p-app.ff-C .sf-tiktok .sf-ic { background: var(--t-listen); color: #1d1240; }
+.p-app.ff-C .sf-youtube .sf-ic { background: var(--t-watch); color: #2b0d05; }
+.p-app.ff-C.night .sf-ic, .p-app.ff-C.night .sf-dot { box-shadow: 0 0 14px rgba(242,196,107,.22); }
+@media (min-width: 760px) {
+  .p-app.ff-C .p-sfoot .sf-grid { grid-template-columns: 1.3fr .9fr 1.2fr; }
+  .p-app.ff-C .sf-follow ul { display: grid; gap: 4px; }
+  .p-app.ff-C .sf-quick ul { grid-template-columns: max-content; gap: 2px; }
+  .p-app.ff-C .p-sfoot::before { left: max(48px, calc((100% - 1080px) / 2)); right: max(48px, calc((100% - 1080px) / 2)); }
+}
+.p-article .p-sfoot { padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }

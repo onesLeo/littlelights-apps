@@ -151,6 +151,25 @@ The "Follow Little Salt & Light" links show on Today (phone footer, computer sid
 bedtime story page and on a reel's end screen. They never show in the Studio, and they are plain links with
 inline icons (no embeds, scripts or trackers).
 
+- Site footer: Watch, Listen, Read, Verses, Play, every devotion page and 404.html end with the site footer
+  (`footerHtml` in `js/seo.js`: wordmark, Explore links, "Follow Little Salt & Light" with the three icons, legal
+  links). Today, bedtime story pages and reel end screens show the bigger card instead, and the Studio has none. The
+  five copies in `index.html` and the one in `404.html` must match `footerHtml()`; `tests/social.mjs` checks this.
+  On short pages the footer rests at the bottom of the screen, above the tab bar.
+
+### Switching the footer style
+
+Two looks: **B, Golden horizon** (a soft sunrise glow with gold buttons) and **C, Open columns** (no panel, a dotted
+gold line, icons in the tab colours). C is the default.
+
+1. Run `supabase/migrations/20261028120000_footer_style.sql` once in the Supabase SQL Editor. It lets owners and
+   editors (the people who can publish) change the `footer_style` row of `site_settings`, and seeds it as `"C"`.
+2. In the Studio open **Menus**, go to **Footer style**, pick B or C and press **Save footer style**.
+
+No rebuild or deploy is needed. The site reads the setting with the anon key when it loads and swaps the `ff-B` /
+`ff-C` class on `#app`; the last value is kept on the device (`ll.footerStyle`) so there is no flicker next time.
+Prerendered pages and visitors without JavaScript get C. A missing row, an unknown value or a network error also
+means C.
 - Accounts: `SOCIAL` in `js/seo.js` (Instagram first, then TikTok, then YouTube). The two static copies in `index.html`
   (`<section class="p-follow ...">`) must list the same links; `tests/social.mjs` checks this.
 - Subline "New Bible stories every week": `FOLLOW_SUBLINE` in `js/seo.js`. To remove it, set it to `''` and delete

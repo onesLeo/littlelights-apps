@@ -206,5 +206,23 @@ insert into public.site_settings (key, value) values ('nav', '{
 }'::jsonb)
 on conflict (key) do nothing;
 
+-- Footer style (Studio > Site > Footer style): owners and editors, like publishing posts. "B" or "C"; the site falls back to C.
+drop policy if exists "Editors add the footer style" on public.site_settings;
+create policy "Editors add the footer style" on public.site_settings for insert
+  with check (key = 'footer_style' and private.team_role() in ('owner', 'editor'));
+
+drop policy if exists "Editors change the footer style" on public.site_settings;
+create policy "Editors change the footer style" on public.site_settings for update
+  using (key = 'footer_style' and private.team_role() in ('owner', 'editor'))
+  with check (key = 'footer_style' and private.team_role() in ('owner', 'editor'));
+
+-- Only "B" or "C" may be stored.
+alter table public.site_settings drop constraint if exists site_settings_footer_style_value;
+alter table public.site_settings add constraint site_settings_footer_style_value
+  check (key <> 'footer_style' or value in ('"B"'::jsonb, '"C"'::jsonb));
+
+insert into public.site_settings (key, value) values ('footer_style', '"C"'::jsonb)
+on conflict (key) do nothing;
+
 -- ---------- make yourself the owner (change the email) ----------
 -- insert into public.team_members (email, role) values ('you@example.com', 'owner');

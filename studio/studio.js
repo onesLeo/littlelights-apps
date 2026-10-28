@@ -222,7 +222,9 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var nav = S.getSetting('nav').then(function (v) { state.navError = ''; return v; }, function (err) { state.navError = err.message; return null; });
     var content = S.getSetting('content').then(function (v) { return v; }, function () { return null; });
     var reelPage = S.getSetting('reel_page').then(function (v) { return v; }, function () { return null; });
-    return Promise.all([S.listPosts(), S.listTeam(), nav, hid, content, reelPage]).then(function (r) {
+    var footer = S.getSetting('footer_style').then(function (v) { return v; }, function () { return null; });
+    return Promise.all([S.listPosts(), S.listTeam(), nav, hid, content, reelPage, footer]).then(function (r) {
+      state.footerStyle = FOOTER_STYLES.indexOf(r[6]) >= 0 ? r[6] : 'C';
       state.reelPage = { style: r[5] && PAGE_STYLES.indexOf(r[5].style) >= 0 ? r[5].style : 'auto' };
       state.content = S.normalizeContent(r[4]) || S.contentDefault();
       state.hidden = S.effectiveHidden(r[3] && S.normalizeHidden(r[3]) ? r[3] : null);
@@ -574,6 +576,28 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   }
   var NAV_LABEL = { watch: 'Watch', listen: 'Listen', read: 'Read', verses: 'Verses', play: 'Play' };
   var NAV_STATE_LABEL = { on: 'On', coming_soon: 'Coming soon', hidden: 'Hidden' };
+  // Footer style (site setting 'footer_style'): owners and editors, the same people who can publish.
+  var FOOTER_STYLES = ['B', 'C'];
+  var FOOTER_INFO = {
+    B: ['Golden horizon', 'A soft sunrise glow rises behind the footer, with gold pill buttons for Instagram, TikTok and YouTube.'],
+    C: ['Open columns', 'No panel: the footer sits on the page under a dotted gold line, with icons in the tab colours. The default.']
+  };
+  function footerPreview(k) {
+    var dots = '<i></i><i></i><i></i>';
+    return '<span class="ffp ffp-' + k + '" aria-hidden="true"><span class="ffp-art">' + (k === 'B' ? '<b class="ffp-dome"></b>' : '<b class="ffp-rule"></b>') +
+      '<span class="ffp-wm">Little Salt &amp; Light</span><span class="ffp-ics">' + dots + '</span><span class="ffp-legal"></span></span></span>';
+  }
+  function footerForm() {
+    var can = canPublish(), cur = state.footerStyle || 'C';
+    return '<h3 class="sub">Footer style</h3>' +
+      '<form class="form" id="footerForm" novalidate><fieldset class="ff-choices"' + (can ? '' : ' disabled') + '><legend class="ff-legend">Choose a look</legend>' +
+      FOOTER_STYLES.map(function (k) {
+        return '<label class="ff-choice"><input type="radio" name="footer_style" value="' + k + '"' + (cur === k ? ' checked' : '') + '>' + footerPreview(k) +
+          '<span class="ff-txt"><strong>' + k + ' · ' + esc(FOOTER_INFO[k][0]) + '</strong><small>' + esc(FOOTER_INFO[k][1]) + '</small></span></label>';
+      }).join('') + '</fieldset>' +
+      '<small>Changes the footer at the end of Read, Listen, Watch, Play and devotion pages. No rebuild needed: visitors see it the next time the site loads. Today, bedtime stories, the reel end screen and the Studio have no footer.</small>' +
+      (can ? '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>Save footer style</button>' : '<small>Only owners and editors can change this.</small>') + '</form>';
+  }
   function siteView() {
     var n = state.nav || S.navDefault(), owner = isOwner();
     return '<div class="top"><div><h2>Menus' + help('menus') + '</h2><p>Choose which menus visitors see in the app. “Coming soon” keeps the menu but shows a friendly message when tapped.</p></div></div>' +
@@ -598,7 +622,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       '<form class="form" id="reelPageForm" novalidate><label class="field"><span>Default page style (computers)</span><select class="select" id="reel_page_style"' + (owner ? '' : ' disabled') + '>' +
       PAGE_STYLES.map(function (st) { return '<option value="' + st + '"' + (((state.reelPage || {}).style || 'auto') === st ? ' selected' : '') + '>' + PAGE_STYLE_LABEL[st] + '</option>'; }).join('') + '</select>' +
       '<small>Used for reels whose Page style is Auto. Auto here means dark at night and light by day.</small></label>' +
-      (owner ? '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>Save page style</button>' : '') + '</form>';
+      (owner ? '<button class="btn primary" type="submit"' + (state.busy ? ' disabled' : '') + '>Save page style</button>' : '') + '</form>' +
+      footerForm();
   }
   // Items written into the app (js/content.js). A Studio post with the same `builtin` key replaces one
   // once published; here they can be hidden altogether.
@@ -644,7 +669,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   }
   // ---------- Guide: short, task-based steps for new team members (only features this Studio has) ----------
   var GUIDE_TITLE = { start: 'Sign in', account: 'Your password and signing out', posts: 'Find and edit posts', write: 'Write a new post',
-    publish: 'Publish, schedule or keep a draft', story: 'Post a bedtime story', reelpage: 'Reel page colours and styles', media: 'Media', menus: 'Menus and content switches',
+    publish: 'Publish, schedule or keep a draft', story: 'Post a bedtime story', reelpage: 'Reel page colours and styles', media: 'Media', menus: 'Menus and content switches', footer: 'Switch the footer style',
     builtins: 'Built-in content', insights: 'Insights', nocount: 'Don’t count your own visits', team: 'Team and roles' };
   // "Don't count me" (js/analytics.js): while localStorage 'll.nocount' is '1', this device never loads the
   // Cloudflare Web Analytics beacon. The Studio itself never loads it.
@@ -683,6 +708,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       part('reelpage', ['Open a reel post.', 'Under <b>Page style</b>, choose Auto from reel, Dark, Light or Glass clear. This is the caption page on computers.', 'Under <b>Page colour</b>, pick a colour, or leave it empty to use the reel’s own colour. Text and buttons are adjusted so they stay easy to read.', 'To set the default for every reel left on Auto, go to <b>Menus</b> → <b>Reel caption page</b> and press <b>Save page style</b> (owner only).']) +
       part('media', ['Open <b>Media</b> to see the audio and video files attached to posts.', 'Press play to check a file, and see which post uses it.', 'To add a file, upload it while writing an audio or reel post.']) +
       part('menus', ['Open <b>Menus</b> (owner only).', 'For Watch, Listen, Read, Verses and Play, choose On, Coming soon or Hidden. Today is always on.', 'Write a short, friendly coming-soon message, then press <b>Save menus</b>.', 'Under <b>Content</b>, switch the verse cards on Today on or off and press <b>Save content</b>.']) +
+      part('footer', ['Open <b>Menus</b> and scroll to <b>Footer style</b> (owners and editors).', 'Pick <b>B · Golden horizon</b> (a soft sunrise glow) or <b>C · Open columns</b> (no panel, a dotted gold line). The small drawing shows each look.', 'Press <b>Save footer style</b>. No rebuild is needed: visitors see it the next time the site loads (a page already open changes on its next load).'],
+        'C is the default, and the site uses C if the setting is missing. Today, bedtime stories, the reel end screen and the Studio have no footer.') +
       part('builtins', ['Open <b>Built-in content</b> to see items that came with the app.', 'Press <b>Hide</b> on any item visitors should not see, or <b>Show</b> to bring it back.', 'Press <b>Save</b>.', 'Use the <b>All</b>, <b>Visible</b> and <b>Hidden</b> chips to see just one group.'],
         'A published Studio copy of an item replaces it anyway.') +
       part('nocount', ['Open <a href="' + NOCOUNT_URL + '" target="_blank" rel="noopener"><b>' + NOCOUNT_URL.replace('https://', '') + '</b></a> once on each of your devices (and each browser you use). A small note confirms it.'],
@@ -1229,6 +1256,15 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       S.saveSetting('reel_page', rp, state.email).then(function (saved) {
         state.busy = false; state.reelPage = saved && saved.style ? saved : rp;
         toast('Reel page style saved. Visitors see the change next time the app loads.'); render();
+      }).catch(fail);
+    } else if (id === 'footerForm') {
+      if (!canPublish()) return;
+      var pick = document.querySelector('#footerForm input[name="footer_style"]:checked'), fs = pick ? pick.value : 'C';
+      if (FOOTER_STYLES.indexOf(fs) < 0) fs = 'C';
+      state.busy = true; render();
+      S.saveSetting('footer_style', fs, state.email).then(function (saved) {
+        state.busy = false; state.footerStyle = FOOTER_STYLES.indexOf(saved) >= 0 ? saved : fs;
+        toast('Footer style ' + state.footerStyle + ' (' + FOOTER_INFO[state.footerStyle][0] + ') saved. Visitors see it the next time the site loads.'); render();
       }).catch(fail);
     } else if (id === 'inviteForm') {
       var em = document.getElementById('inviteEmail').value.trim().toLowerCase(), role = document.getElementById('inviteRole').value;

@@ -18,3 +18,20 @@ h1 { margin: 0; font-size: clamp(30px, 7vw, 42px); line-height: 1.05; font-weigh
 .nf-legal nav { display: flex; flex-wrap: wrap; justify-content: center; }
 .nf-legal a { color: inherit; opacity: .78; text-decoration: none; padding: 12px 8px; min-height: 44px; display: inline-flex; align-items: center; }
 .nf-legal a:hover { opacity: 1; text-decoration: underline; }
+
+/* Site footer (same markup as the app, js/seo.js footerHtml), in the open-columns look (C). */
+.p-sfoot { margin-top: auto; padding: 22px 18px calc(8px + env(safe-area-inset-bottom, 0px)); color: #EEF0FA; position: relative; }
+.p-sfoot::before { content: ""; position: absolute; left: 24px; right: 24px; top: 0; height: 2px; background: radial-gradient(circle, #F2C46B 1.2px, transparent 1.6px) 0 0 / 10px 2px repeat-x; }
+.p-sfoot ul { list-style: none; margin: 0; padding: 0; }
+.p-sfoot a { color: inherit; text-decoration: none; }
+.sf-grid { display: grid; gap: 8px; justify-items: center; text-align: center; }
+.sf-brand, .sf-quick { display: none; }
+.sf-h { margin: 0 0 6px; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #F2C46B; }
+.sf-sub { margin: -2px 0 10px; font-size: 13.5px; color: #C9CEEA; }
+.sf-follow ul { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.sf-soc { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 12px 4px 2px; font-weight: 700; font-size: 13px; }
+.sf-ic { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; }
+.sf-instagram .sf-ic { background: #ee8fb2; color: #3a1426; } .sf-tiktok .sf-ic { background: #a07fd6; color: #1d1240; } .sf-youtube .sf-ic { background: #e46a4c; color: #2b0d05; }
+.sf-legal { display: flex; flex-wrap: wrap; justify-content: center; font-size: 12px; }
+.sf-legal a { opacity: .85; padding: 12px 8px; min-height: 44px; display: inline-flex; align-items: center; color: #cfc8e6; }
+.sf-legal a:hover, .sf-soc:hover .sf-n { text-decoration: underline; }

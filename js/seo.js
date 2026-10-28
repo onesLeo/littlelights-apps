@@ -166,6 +166,45 @@
       }).join('') + '</ul></section>';
   }
 
+  // ---------- site footer (Follow + Explore + legal) ----------
+  // At the end of every page except Today, the end of a bedtime story and a reel's end screen (they end with
+  // the bigger followHtml card) and the Studio. Two looks, switched in the Studio (site setting 'footer_style'):
+  // 'B' golden horizon, 'C' open columns. The markup is the same; js/app.js sets .ff-B or .ff-C on #app
+  // (index.html ships .ff-C, so prerendered pages and no-JS visitors get C). Static copies live in index.html
+  // (one per view); tests/social.mjs checks they match footerHtml().
+  var FOOTER_STYLES = ['B', 'C'], FOOTER_DEFAULT = 'C';
+  function footerStyle(v) {
+    if (v && typeof v === 'object' && !Array.isArray(v)) v = v.style;
+    return FOOTER_STYLES.indexOf(v) >= 0 ? v : null;
+  }
+  var FOOT_WM = '<span class="wm sf-wmk" role="img" aria-label="Salt and Light" style="--wm-d:-1.1s"><span class="wm-s" aria-hidden="true">Salt and </span><span class="wm-l" aria-hidden="true">L<svg class="wm-i" viewBox="0 0 18 49" aria-hidden="true" focusable="false"><defs><linearGradient id="wmgF" x1="0" y1="0" x2="0" y2="1"><stop class="wm-a" offset="0"/><stop class="wm-b" offset="1"/></linearGradient><radialGradient id="wmgFf" cx=".5" cy=".65" r=".6"><stop class="wm-c" offset="0"/><stop class="wm-a" offset=".55"/><stop class="wm-b" offset="1"/></radialGradient><radialGradient id="wmgFh"><stop class="wm-a" offset="0" stop-opacity=".55"/><stop class="wm-a" offset=".45" stop-opacity=".18"/><stop class="wm-a" offset="1" stop-opacity="0"/></radialGradient></defs><g transform="translate(0 49) skewX(-10) translate(0 -49)"><rect x="6.2" y="13" width="5.6" height="36" rx="2.8" fill="url(#wmgF)"/><path class="wm-wick" d="M9.0 12.5v-2.2"/><g class="wm-hw"><circle class="wm-halo" cx="9" cy="8" r="13" fill="url(#wmgFh)"/><circle class="wm-halo2" cx="9" cy="8" r="13" fill="url(#wmgFh)"/></g><g class="wm-flare"><g class="wm-jit"><g class="wm-sway"><g class="wm-flame"><g class="wm-fo"><path d="M9 0C13.6 5.5 14 9.8 9 12.6C4 9.8 4.4 5.5 9 0Z" fill="url(#wmgFf)"/></g><g class="wm-fc"><path d="M9 4.4C11.2 7.4 11.5 10.2 9 12C6.5 10.2 6.8 7.4 9 4.4Z" fill="#FFF8E1"/></g></g></g></g></g><circle class="wm-ember" cx="9" cy="0" r="0.9"/><circle class="wm-ember wm-e2" cx="8" cy="1" r="0.8"/><circle class="wm-ember wm-e3" cx="10" cy="1" r="0.7"/></g></svg>ght</span></span>';
+  var FOOT_TABS = [['Read', '/read', 'read', '<path d="M4 5h6a2 2 0 012 2v12a2 2 0 00-2-2H4zM20 5h-6a2 2 0 00-2 2v12a2 2 0 012-2h6z"/>'],
+    ['Listen', '/listen', 'listen', '<path d="M4 15v-3a8 8 0 0116 0v3M4 15h3v5H4zM17 15h3v5h-3z"/>'],
+    ['Watch', '/watch', 'watch', '<rect x="5" y="3" width="14" height="18" rx="3"/><path d="M10 9l5 3-5 3z"/>'],
+    ['Play', '/play', 'play', '<rect x="3" y="7" width="18" height="11" rx="5"/><path d="M8 11v3M6.5 12.5h3M15.5 12h.01"/>']];
+  var FOOT_LEGAL = [['Website privacy', 'https://legal.littlesaltandlight.com/privacy/web/'], ['Game privacy', 'https://legal.littlesaltandlight.com/privacy/'],
+    ['For parents', 'https://legal.littlesaltandlight.com/parents/'], ['Terms', 'https://legal.littlesaltandlight.com/terms/'],
+    ['Support', 'https://legal.littlesaltandlight.com/support/'], ['Contact us', 'mailto:support@littlesaltandlight.com']];
+  function footerHtml(id) {
+    // id: a short suffix so each copy's wordmark gradients have their own ids (a gradient inside a hidden view
+    // would not paint for a visible copy that points at it).
+    var wm = FOOT_WM.split('wmgF').join('wmgF' + (id || ''));
+    return '<footer class="p-sfoot" aria-label="Little Salt &amp; Light">' +
+      '<div class="sf-grid">' +
+        '<div class="sf-brand"><a class="sf-wm" href="/" aria-label="Little Salt &amp; Light home">' + wm + '</a><p class="sf-line">Bible devotions, prayers and stories for families.</p></div>' +
+        '<nav class="sf-quick" aria-label="Explore"><h2 class="sf-h">Explore</h2><ul>' + FOOT_TABS.map(function (t) {
+          return '<li><a href="' + t[1] + '" style="--tc:var(--t-' + t[2] + ')"><span class="sf-dot"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + t[3] + '</svg></span>' + t[0] + '</a></li>';
+        }).join('') + '</ul></nav>' +
+        '<section class="sf-follow" aria-label="Follow Little Salt &amp; Light"><h2 class="sf-h">Follow Little Salt &amp; Light</h2>' +
+          (FOLLOW_SUBLINE ? '<p class="sf-sub">' + esc(FOLLOW_SUBLINE) + '</p>' : '') + '<ul>' + SOCIAL.map(function (x) {
+          return '<li><a class="sf-soc sf-' + x.name.toLowerCase() + '" href="' + x.href + '" target="_blank" rel="noopener noreferrer" aria-label="Little Salt &amp; Light on ' + x.name + '" title="' + x.handle + ' on ' + x.name + '">' +
+            '<span class="sf-ic"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">' + x.icon + '</svg></span><span class="sf-n">' + x.name + '</span></a></li>';
+        }).join('') + '</ul></section>' +
+      '</div>' +
+      '<nav class="sf-legal" aria-label="Legal and support">' + FOOT_LEGAL.map(function (l) { return '<a href="' + l[1] + '">' + l[0] + '</a>'; }).join('') + '</nav>' +
+    '</footer>';
+  }
+
   // ---------- read-along (bedtime stories) ----------
   // The text on the page is split into sentences and words, then lined up with the timings file
   // ([{text,start,end,words:[{text,start,end}]}]). Matching ignores case, punctuation and curly vs straight
@@ -242,5 +281,5 @@
     }).filter(Boolean).join('').trim();
   }
 
-  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml, SOCIAL: SOCIAL, followHtml: followHtml };
+  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml, SOCIAL: SOCIAL, followHtml: followHtml, footerHtml: footerHtml, footerStyle: footerStyle, FOOTER_STYLES: FOOTER_STYLES, FOOTER_DEFAULT: FOOTER_DEFAULT };
 })(typeof window !== 'undefined' ? window : globalThis);
