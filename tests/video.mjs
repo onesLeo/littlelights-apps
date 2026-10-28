@@ -32,13 +32,13 @@ const phone = { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile:
   });
   await page.click('.p-whero'); await page.waitForTimeout(1500);
   const s = await page.evaluate(() => { const el = document.querySelector('.p-reel.on'), b = el.querySelector('.p-rtap'), r = b.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-    return { shown: !b.hidden && r.width > 0, w: r.width, h: r.height, top: !!(hit && hit.closest('.p-rtap')), seg: el.querySelector('.p-rsegs i.cur b').style.transform, label: b.getAttribute('aria-label') }; });
-  check(s.shown && s.top, 'muted play() refused: a visible "Tap to play" button is on top');
+    return { shown: !b.hidden && r.width > 0, w: r.width, h: r.height, top: !!(hit && (hit.closest('.p-rtap') || hit.closest('.z-mid'))), seg: el.querySelector('.p-rsegs i.cur b').style.transform, label: b.getAttribute('aria-label') }; });
+  check(s.shown && s.top, 'muted play() refused: a visible "Tap to play" button, and a tap there lands on the play zone');
   check(s.w >= 44 && s.h >= 44 && /Tap to play/.test(s.label), `tap to play is labelled and at least 44px (${Math.round(s.w)}x${Math.round(s.h)})`);
   check(!s.seg || /scaleX\(0(\.0+)?\)/.test(s.seg), `progress does not advance while the video is not playing (${s.seg})`);
   if (shots) await page.screenshot({ path: shots + '/phone-tap-to-play.png' });
   await page.evaluate(() => { window.__allow = true; });
-  await page.tap('.p-reel.on .p-rtap'); await page.waitForTimeout(300);
+  await page.tap('.p-reel.on .z-mid'); await page.waitForTimeout(300);
   check(await page.$eval('.p-reel.on .p-rtap', (b) => b.hidden), 'tapping it starts the video and hides the button');
   check(!errors.length, `no page errors (${errors.join('; ')})`);
   await context.close();
