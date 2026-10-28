@@ -166,6 +166,17 @@
       }).join('') + '</ul></section>';
   }
 
+  // Compact footer row ("Follow Little Salt & Light" + icon-only links), at the bottom of every page except
+  // Today, the end of a bedtime story and a reel's end screen (they already show the bigger followHtml card)
+  // and the Studio. Static copies live in index.html (one per view) and 404.html; tests/social.mjs checks they match.
+  function followRowHtml() {
+    return '<footer class="p-ffoot" aria-label="Follow Little Salt &amp; Light"><span class="p-ffoot-h">Follow Little Salt &amp; Light</span>' +
+      '<ul class="p-ffoot-links">' + SOCIAL.map(function (x) {
+        return '<li><a class="p-ffoot-a" href="' + x.href + '" target="_blank" rel="noopener noreferrer" aria-label="Little Salt &amp; Light on ' + x.name + '" title="' + x.handle + ' on ' + x.name + '">' +
+          '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">' + x.icon + '</svg></a></li>';
+      }).join('') + '</ul></footer>';
+  }
+
   // ---------- read-along (bedtime stories) ----------
   // The text on the page is split into sentences and words, then lined up with the timings file
   // ([{text,start,end,words:[{text,start,end}]}]). Matching ignores case, punctuation and curly vs straight
@@ -242,5 +253,5 @@
     }).filter(Boolean).join('').trim();
   }
 
-  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml, SOCIAL: SOCIAL, followHtml: followHtml };
+  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml, SOCIAL: SOCIAL, followHtml: followHtml, followRowHtml: followRowHtml };
 })(typeof window !== 'undefined' ? window : globalThis);

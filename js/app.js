@@ -1546,7 +1546,7 @@
     if (pre && pre.innerHTML === same.innerHTML) {
       while (a.firstChild !== pre) a.removeChild(a.firstChild);
       pre.insertAdjacentHTML('beforebegin', top);
-    } else a.innerHTML = top + '<div class="body p-txt">' + d.html + '</div>';
+    } else a.innerHTML = top + '<div class="body p-txt">' + d.html + '</div>' + (SEO && SEO.followRowHtml ? SEO.followRowHtml() : '');
     closeOverlays();
     a.classList.add('on');
     a.scrollTop = 0;

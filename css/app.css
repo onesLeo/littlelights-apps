@@ -1586,3 +1586,17 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
 .p-follow.in-reel .p-follow-links { justify-content: center; margin: 0; }
 .p-follow.in-reel .p-follow-a { min-height: 40px; font-size: 13px; background: #151028; }
 .p-sbody .p-follow.in-story .p-follow-sub { margin: 0; font: 500 13.5px/1.4 var(--display); color: #ddd5f0; }
+
+/* Compact follow row at the bottom of each page (js/seo.js followRowHtml). Own dark pill, so contrast is the
+   same on light and dark pages, day and night. It sits inside the scrolling view, which already ends above the
+   tab bar (and the safe area), so it never covers the bottom nav. */
+.p-ffoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 12px; margin: 20px auto 16px;
+  padding: 8px 14px; border-radius: 999px; background: #151028; color: #e9e2f7; width: fit-content; box-sizing: border-box;
+  max-width: calc(100% - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)); }
+.p-ffoot-h { font: 700 13px/1.3 var(--display, system-ui, sans-serif); color: #e9e2f7; }
+.p-ffoot-links { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; }
+.p-ffoot-a { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: #F5C26B; border: 1.5px solid rgba(245,194,107,.55); text-decoration: none; }
+.p-ffoot-a:hover { background: #221b4a; border-color: #F5C26B; }
+.p-ffoot-a:focus-visible { outline: 3px solid #F5C26B; outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) { .p-app:not(.calm) .p-ffoot-a { transition: background-color .2s, border-color .2s; } }
+.p-article .p-ffoot { margin-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }

@@ -151,6 +151,10 @@ The "Follow Little Salt & Light" links show on Today (phone footer, computer sid
 bedtime story page and on a reel's end screen. They never show in the Studio, and they are plain links with
 inline icons (no embeds, scripts or trackers).
 
+- Footer row: a compact "Follow Little Salt & Light" row with the three icons (`followRowHtml` in `js/seo.js`) ends
+  Watch, Listen, Read, Verses, Play, every devotion page and 404.html. Today, bedtime story pages and reel end screens
+  show the bigger card instead, so the row isn't added there. The five copies in `index.html` and the one in
+  `404.html` must match `followRowHtml()`; `tests/social.mjs` checks this.
 - Accounts: `SOCIAL` in `js/seo.js` (Instagram first, then TikTok, then YouTube). The two static copies in `index.html`
   (`<section class="p-follow ...">`) must list the same links; `tests/social.mjs` checks this.
 - Subline "New Bible stories every week": `FOLLOW_SUBLINE` in `js/seo.js`. To remove it, set it to `''` and delete
