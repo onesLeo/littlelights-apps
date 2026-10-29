@@ -1692,3 +1692,13 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
 /* The top row (Reel chip + sound) keeps clear of the close button in the top-right corner. */
 .p-rtoprow { padding-right: 56px; }
 @media (max-width: 899px) { .p-rtop { top: 10px; } .p-rtoprow { padding-right: 52px; } }
+/* Per-video text on /watch/<slug> (lib/reel-text.mjs), static HTML. Solid panel so contrast holds:
+   #f6f1ff on #1d1538 ~15:1, #ffd98a headings ~12:1 (WCAG AA). */
+.p-reeltext { margin: 20px 16px 32px; padding: 18px 20px; border-radius: 18px; background: #1d1538; color: #f6f1ff; border: 1px solid rgba(255,255,255,.12); max-width: 720px; line-height: 1.6; font-size: 1rem; }
+@media (min-width: 900px) { .p-reeltext { margin-left: auto; margin-right: auto; } }
+.p-reeltext h2 { font-size: 1.1rem; margin: 0 0 6px; color: #ffd98a; }
+.p-reeltext > div + div { margin-top: 18px; }
+.p-reeltext p { margin: 0 0 8px; }
+.p-reeltext blockquote { margin: 0 0 8px; padding-left: 12px; border-left: 3px solid #ffd98a; font-style: italic; }
+.p-reeltext ul { margin: 0; padding-left: 1.2em; }
+.p-reeltext li + li { margin-top: 4px; }
