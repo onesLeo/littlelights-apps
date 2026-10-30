@@ -576,8 +576,9 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var list = Array.isArray(p.printables) ? p.printables : [];
     if (!list.length) return '<div class="pvprint empty"><div class="kick">Free printables</div><span class="placeholder">Add a colouring page or verse cards under Free printables</span></div>';
     return '<div class="pvprint"><div class="kick">Free printables · ' + list.length + '</div><ul>' + list.slice(0, 6).map(function (it) {
-      var m = /^media\/printables\/([a-z0-9][a-z0-9._-]{0,150})\.pdf$/.exec(String(it.file || '')), th = m ? '/media/printables/' + m[1] + '.jpg' : ''; // same rule as LL_SEO.printThumb
-      return '<li><span class="pg">' + (th ? '<img src="' + esc(th) + '" alt="" width="360" height="510">' : '<i aria-hidden="true"></i>') + '</span><b>' + esc(it.title) + '</b><small>PDF · Download</small></li>';
+      var m = /^media\/printables\/([a-z0-9][a-z0-9._-]{0,150})\.pdf$/.exec(String(it.file || '')), th = it.thumb || (m ? '/media/printables/' + m[1] + '.jpg' : ''); // same rule as LL_SEO.printThumb
+      var img = !th ? '<i aria-hidden="true"></i>' : /^local-media:/.test(th) ? '<img data-src="' + esc(th) + '" alt="" width="360" height="510">' : '<img src="' + esc(th) + '" alt="" width="360" height="510">';
+      return '<li><span class="pg">' + img + '</span><b>' + esc(it.title) + '</b><small>PDF · Download</small></li>';
     }).join('') + '</ul></div>';
   }
   function readMinutes(p) { return Math.max(1, Math.round([p.body, p.family, p.prayer].join(' ').split(/\s+/).filter(Boolean).length / 180)); }
@@ -959,7 +960,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       S.resolveMedia(el.getAttribute('data-src')).then(function (url) { if (url) el.src = url; });
     });
   }
-  function refreshPreview() { var pv = document.getElementById('preview'); if (pv && state.editing) pv.innerHTML = preview(state.editing); }
+  function refreshPreview() { var pv = document.getElementById('preview'); if (pv && state.editing) { pv.innerHTML = preview(state.editing); resolveMediaElements(); } }
   function go(view) { if (view === 'insights' && !state.insights) loadInsights(30); state.view = view; state.editing = null; state.errors = {}; state.confirmDelete = false; render(); window.scrollTo(0, 0); }
 
   // ---------- validation and saving ----------
@@ -1156,6 +1157,32 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var t = n.replace(/\.pdf$/, '').replace(/\.[0-9a-f]{8}$/, '').replace(/[-_]+/g, ' ').trim();
     return t ? t.charAt(0).toUpperCase() + t.slice(1, 60) : 'Printable';
   }
+  // A 360×510 JPEG of page 1, drawn in the browser with PDF.js (Mozilla, Apache 2.0; js/vendor/pdfjs-4.10.38,
+  // loaded only here, the first time a printable is added). Resolves null if the PDF can't be drawn.
+  var PDFJS = '/js/vendor/pdfjs-4.10.38/', pdfjsLib = null;
+  function loadPdfjs() {
+    if (!pdfjsLib) pdfjsLib = import(PDFJS + 'pdf.min.js').then(function (lib) { lib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; return lib; });
+    return pdfjsLib;
+  }
+  function pdfThumb(buf) {
+    var W = 360, H = 510;
+    return loadPdfjs().then(function (lib) {
+      return lib.getDocument({ data: new Uint8Array(buf.slice(0)), isEvalSupported: false, disableFontFace: true }).promise;
+    }).then(function (doc) {
+      return doc.getPage(1).then(function (page) {
+        var v1 = page.getViewport({ scale: 1 }), scale = Math.min(W / v1.width, H / v1.height), vp = page.getViewport({ scale: scale * 2 });
+        var cv = document.createElement('canvas'); cv.width = W * 2; cv.height = H * 2;
+        var g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+        var off = [(cv.width - vp.width) / 2, (cv.height - vp.height) / 2];
+        return page.render({ canvasContext: g, viewport: vp, transform: [1, 0, 0, 1, off[0], off[1]] }).promise.then(function () {
+          var out = document.createElement('canvas'); out.width = W; out.height = H;
+          var o = out.getContext('2d'); o.imageSmoothingQuality = 'high'; o.drawImage(cv, 0, 0, W, H);
+          doc.destroy();
+          return new Promise(function (res) { out.toBlob(function (b) { res(b); }, 'image/jpeg', 0.82); });
+        });
+      });
+    }).catch(function (err) { if (window.console) console.warn('Page picture not made:', err); return null; });
+  }
   function handleStoryPrintable(file) {
     if (!file) return;
     syncFields();
@@ -1165,16 +1192,24 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (file.type !== 'application/pdf' && !(file.type === '' && /\.pdf$/i.test(file.name))) return storyFail(k, 'Choose a PDF file.');
     if (file.size > 10 * 1024 * 1024) return storyFail(k, 'This file is ' + (file.size / 1048576).toFixed(1) + ' MB. The limit is 10 MB.');
     state.uploading = k; render();
+    var buf0;
     file.arrayBuffer().then(function (buf) {
       var b = new Uint8Array(buf.slice(0, 5));
       if (String.fromCharCode.apply(null, b) !== '%PDF-') throw new Error('This file doesn’t look like a PDF.');
-      return sha8(buf);
-    }).then(function (h) {
-      var title = printableTitle(file.name), kind = S.slugify(title).slice(0, 40) || 'printable';
-      return S.uploadMediaAt(file, 'stories/' + base + '-' + kind + '.' + h + '.pdf', { contentType: 'application/pdf', cacheControl: '31536000' }).then(function (url) {
-        var e = state.editing;
-        e.printables = (Array.isArray(e.printables) ? e.printables : []).filter(function (it) { return it.file !== url; }).concat([{ title: title, file: url }]);
-        state.uploading = ''; render(); toast('Added ' + title + '. Press Update to save it.');
+      buf0 = buf;
+      return Promise.all([sha8(buf), pdfThumb(buf)]);
+    }).then(function (r) {
+      var h = r[0], pic = r[1], title = printableTitle(file.name), kind = S.slugify(title).slice(0, 40) || 'printable', name = 'stories/' + base + '-' + kind + '.' + h;
+      return S.uploadMediaAt(file, name + '.pdf', { contentType: 'application/pdf', cacheControl: '31536000' }).then(function (url) {
+        // The picture of page 1 goes next to the PDF (same name, .jpg). If it can't be made or saved, the PDF still counts.
+        var thumb = pic ? S.uploadMediaAt(new File([pic], base + '-' + kind + '.jpg', { type: 'image/jpeg' }), name + '.jpg', { contentType: 'image/jpeg', cacheControl: '31536000' }).catch(function () { return ''; }) : Promise.resolve('');
+        return thumb.then(function (turl) {
+          var e = state.editing, item = { title: title, file: url };
+          if (turl) item.thumb = turl;
+          e.printables = (Array.isArray(e.printables) ? e.printables : []).filter(function (it) { return it.file !== url; }).concat([item]);
+          state.uploading = ''; render(); refreshPreview();
+          toast('Added ' + title + (turl ? '' : ' (no page picture: the page will show a paper icon)') + '. Press Update to save it.');
+        });
       });
     }).catch(function (err) { storyFail(k, 'Upload failed: ' + err.message); });
   }

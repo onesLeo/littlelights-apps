@@ -52,6 +52,10 @@ check(SEO.tonightHtml([]) === '' && SEO.tonightStory([{ slug: 'a', placeholder: 
   check(JSON.stringify(storyFromPost(p)) === JSON.stringify(c.LLStore.storyFromPost(p)), 'edge storyFromPost matches js/store.js with printables');
   const pl = printableList(p.fields.printables);
   check(pl.length === 2 && pl[1].title === 'Printable', 'printables: only our PDFs kept; a missing title becomes "Printable"');
+  const withPic = printableList([{ title: 'C', file: 'https://media.littlesaltandlight.com/stories/x-c.0a1b2c3d.pdf', thumb: 'https://media.littlesaltandlight.com/stories/x-c.0a1b2c3d.jpg' }, { title: 'D', file: 'media/printables/d.pdf', thumb: 'https://evil.example/x.jpg' }]);
+  check(withPic[0].thumb === 'https://media.littlesaltandlight.com/stories/x-c.0a1b2c3d.jpg' && !('thumb' in withPic[1]), 'printables: a Studio page picture on R2 is kept; one from elsewhere is dropped');
+  check(JSON.stringify(withPic) === JSON.stringify(c.LLStore.printableList([{ title: 'C', file: 'https://media.littlesaltandlight.com/stories/x-c.0a1b2c3d.pdf', thumb: 'https://media.littlesaltandlight.com/stories/x-c.0a1b2c3d.jpg' }, { title: 'D', file: 'media/printables/d.pdf', thumb: 'https://evil.example/x.jpg' }])), 'printables with pictures: js/store.js and lib/head.mjs agree');
+  check(SEO.printablesHtml({ printables: withPic }).includes('<img src="https://media.littlesaltandlight.com/stories/x-c.0a1b2c3d.jpg"'), 'story page uses a Studio upload\u2019s own page picture');
   check(!('printables' in storyFromPost({ slug: 'x', fields: {} })), 'a story without printables has no printables key');
 }
 
@@ -156,13 +160,26 @@ for (const night of [false, true]) {
   await page.waitForTimeout(300);
   check(/Choose a PDF file/.test(await page.textContent('[data-drop="story_printable"]').catch(() => '') + await page.textContent('form')), 'Studio: a non-PDF is refused');
   await page.setInputFiles('#f_story_printable', { name: 'test-story-colouring-page.pdf', mimeType: 'application/pdf', buffer: readFileSync(join(root, jonahFiles[0])) });
-  await page.waitForSelector('.plist li');
+  await page.waitForSelector('.plist li', { timeout: 30000 });
   check((await page.textContent('.plist li')).includes('Colouring page'), 'Studio: an uploaded PDF is listed as "Colouring page"');
+  // PDF.js drew page 1: the preview shows that picture (360×510), not the paper icon.
+  await page.waitForFunction(() => { const i = document.querySelector('#preview .pvprint .pg img'); return i && i.complete && i.naturalWidth === 360 && i.naturalHeight === 510; }, null, { timeout: 15000 }).catch(() => {});
+  const pic = await page.evaluate(() => { const i = document.querySelector('#preview .pvprint .pg img'); if (!i || !i.naturalWidth) return null;
+    const c = document.createElement('canvas'); c.width = 360; c.height = 510; const g = c.getContext('2d'); g.drawImage(i, 0, 0); const d = g.getImageData(0, 0, 360, 510).data;
+    let dark = 0; for (let k = 0; k < d.length; k += 16) if (d[k] < 120 && d[k + 1] < 120 && d[k + 2] < 120) dark++; return { w: i.naturalWidth, h: i.naturalHeight, dark }; });
+  check(!!pic && pic.w === 360 && pic.h === 510 && pic.dark > 200, 'Studio: PDF.js made a 360×510 picture of page 1 with the drawing on it' + (pic ? ` (${pic.dark} dark samples)` : ''));
   check(await page.locator('#preview .pvprint li').count() === 1 && (await page.textContent('#preview .pvprint')).includes('Colouring page'), 'Studio preview shows the printable as families will see it');
   await page.locator('#preview').screenshot({ path: join(SHOTS, 'studio-preview-printables.png') }).catch(() => {});
   await page.click('[data-print-remove="0"]');
   check(await page.locator('.plist li').count() === 0, 'Studio: Remove takes it off the list');
   check((await page.textContent('#preview .pvprint')).includes('Add a colouring page'), 'Studio preview: without printables it says how to add one');
+  {
+    // A broken PDF (right header, no pages): still added, with the paper icon.
+    await page.setInputFiles('#f_story_printable', { name: 'broken-cards.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\nnot really a pdf') });
+    await page.waitForFunction(() => [...document.querySelectorAll('.plist li')].some((l) => l.textContent.includes('Memory verse')), null, { timeout: 30000 }).catch(() => {});
+    const items = await page.$$eval('#preview .pvprint li', (ls) => ls.map((l) => ({ t: l.textContent, img: !!l.querySelector('img'), icon: !!l.querySelector('i') })));
+    check(items.some((x) => x.t.includes('Memory verse') && x.icon && !x.img), 'Studio: a PDF that can\u2019t be drawn is still added, with the paper icon');
+  }
   check(!errs.length, 'Studio: no script errors' + (errs.length ? ' (' + errs.join('; ') + ')' : ''));
   await c3.close(); studio.close();
 }

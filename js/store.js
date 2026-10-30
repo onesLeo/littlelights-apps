@@ -538,7 +538,11 @@
   function printableList(v) {
     return (Array.isArray(v) ? v : []).filter(function (it) {
       return it && typeof it.file === 'string' && /^(https:\/\/media\.littlesaltandlight\.com\/stories\/|media\/printables\/)[a-z0-9][a-z0-9._-]{0,150}\.pdf$/.test(it.file);
-    }).slice(0, 6).map(function (it) { return { title: String(it.title || 'Printable').slice(0, 80), file: it.file }; });
+    }).slice(0, 6).map(function (it) {
+      var o = { title: String(it.title || 'Printable').slice(0, 80), file: it.file };
+      if (typeof it.thumb === 'string' && /^(https:\/\/media\.littlesaltandlight\.com\/stories\/|media\/printables\/)[a-z0-9][a-z0-9._-]{0,150}\.jpg$/.test(it.thumb)) o.thumb = it.thumb; // picture of page 1 (Studio uploads)
+      return o;
+    });
   }
   // Built-in stories first, then Studio stories by publish date (then episode). A Studio story with the
   // same slug as a built-in one replaces it.

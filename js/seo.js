@@ -157,14 +157,15 @@
     return m ? m[1].slice(0, 100) : '';
   }
   // A small picture of the first page: site printables have one next to the PDF (same name, .jpg, 360x510, made
-  // with pdftoppm; tests/printables.mjs checks each one exists). Studio uploads on R2 show a paper icon instead.
+  // with pdftoppm; tests/printables.mjs checks each one exists). Studio uploads carry their own picture (`thumb`, drawn
+  // from page 1 with PDF.js when the PDF is uploaded); without one a paper icon is shown.
   function printThumb(file) {
     var m = /^media\/printables\/([a-z0-9][a-z0-9._-]{0,150})\.pdf$/.exec(String(file || ''));
     return m ? '/media/printables/' + m[1] + '.jpg' : '';
   }
   var PAPER = '<svg viewBox="0 0 48 64" width="48" height="64" aria-hidden="true" focusable="false"><path d="M6 2h26l10 10v48a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#fff" stroke="currentColor" stroke-width="2"/><path d="M32 2v10h10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 26h24M12 34h24M12 42h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
   function printablesHtml(x) {
-    var list = (x.printables || []).map(function (p) { return { title: p.title, href: dlHref(p.file), thumb: printThumb(p.file) }; }).filter(function (p) { return p.href; });
+    var list = (x.printables || []).map(function (p) { return { title: p.title, href: dlHref(p.file), thumb: p.thumb ? (/^https:/.test(p.thumb) ? p.thumb : '/' + p.thumb) : printThumb(p.file) }; }).filter(function (p) { return p.href; });
     if (!list.length) return '';
     return '<section class="p-print" aria-labelledby="pPrintH"><h2 id="pPrintH">Free printables</h2>' +
       '<p>Print at home on A4 for bedtime or Sunday school. Free to share.</p><ul class="p-print-list">' +
