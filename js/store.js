@@ -490,8 +490,16 @@
     };
     if (f.next_title) x.next = { title: f.next_title, when: f.next_when || '', href: f.next_href || '/listen' };
     if (f.word && f.word_meaning) x.word = { word: f.word, meaning: f.word_meaning };
+    var pr = printableList(f.printables);
+    if (pr.length) x.printables = pr;
     if (!x.image) { x.imageWidth = 0; x.imageHeight = 0; }
     return x;
+  }
+  // fields.printables: [{ title, file }] (PDFs on R2 under stories/, or in the site's media/printables/). Anything else is dropped.
+  function printableList(v) {
+    return (Array.isArray(v) ? v : []).filter(function (it) {
+      return it && typeof it.file === 'string' && /^(https:\/\/media\.littlesaltandlight\.com\/stories\/|media\/printables\/)[a-z0-9][a-z0-9._-]{0,150}\.pdf$/.test(it.file);
+    }).slice(0, 6).map(function (it) { return { title: String(it.title || 'Printable').slice(0, 80), file: it.file }; });
   }
   // Built-in stories first, then Studio stories by publish date (then episode). A Studio story with the
   // same slug as a built-in one replaces it.
@@ -530,5 +538,6 @@
   window.LLStore.sgtDay = sgtDay;
   window.LLStore.validateTimings = validateTimings;
   window.LLStore.storyFromPost = storyFromPost;
+  window.LLStore.printableList = printableList;
   window.LLStore.mergeStories = mergeStories;
 })();

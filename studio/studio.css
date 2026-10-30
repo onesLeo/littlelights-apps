@@ -478,3 +478,9 @@ th.c-views { text-align: right; }
   .pvbody { display: grid; gap: 10px; justify-items: center; }
   .preview-col:not(.open) .pvbody { display: none; }
 }
+
+/* Bedtime story: list of uploaded printables (PDFs) */
+.plist { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 6px; }
+.plist li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.plist small { color: var(--muted); word-break: break-all; flex: 1 1 160px; }
+.isub { margin: 14px 0 6px; font-size: 14px; }

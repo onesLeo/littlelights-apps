@@ -12,7 +12,7 @@ import { teamMember } from './insights.js';
 export const MEDIA_ORIGIN = 'https://media.littlesaltandlight.com';
 export const MAX_BYTES = 100 * 1024 * 1024;
 const CACHE = 'public, max-age=31536000, immutable';
-const TYPES = /^(video\/(mp4|webm|quicktime)|audio\/(mpeg|mp4|aac|wav|x-wav|ogg|webm)|image\/(jpeg|png|webp|gif)|application\/json)$/;
+const TYPES = /^(video\/(mp4|webm|quicktime)|audio\/(mpeg|mp4|aac|wav|x-wav|ogg|webm)|image\/(jpeg|png|webp|gif)|application\/(json|pdf))$/;
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store' }

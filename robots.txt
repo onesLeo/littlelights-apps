@@ -1,6 +1,7 @@
 User-agent: *
 Allow: /
 Disallow: /studio/
+Disallow: /dl/
 
 Sitemap: https://littlesaltandlight.com/sitemap.xml
 Sitemap: https://legal.littlesaltandlight.com/sitemap.xml
