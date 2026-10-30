@@ -192,6 +192,33 @@
       return client;
     });
   }
+  // Multipart upload driver (see functions/api/upload.js). Exposed for tests as window.LLUploadParts.
+  var LLUploadParts = window.LLUploadParts = {
+    SINGLE_MAX: 50 * 1024 * 1024,
+    send: function (file, query, type, call) {
+      var q = query + '&action=create&type=' + encodeURIComponent(type) + '&size=' + file.size;
+      return call(q, { method: 'POST' }).then(function (c) {
+        if (c.url) return c.url;
+        var size = c.partBytes || 20 * 1024 * 1024, n = Math.ceil(file.size / size), parts = [];
+        var base = 'key=' + encodeURIComponent(c.key) + '&uploadId=' + encodeURIComponent(c.uploadId);
+        var next = function (i) {
+          if (i > n) return Promise.resolve();
+          var chunk = file.slice((i - 1) * size, Math.min(i * size, file.size));
+          var attempt = function (left) {
+            return call(base + '&action=part&part=' + i, { method: 'PUT', body: chunk, headers: { 'Content-Type': 'application/octet-stream' } })
+              .catch(function (e) { if (left > 0) return attempt(left - 1); throw e; });
+          };
+          return attempt(2).then(function (p) { parts.push({ partNumber: p.partNumber, etag: p.etag }); return next(i + 1); });
+        };
+        return next(1).then(function () {
+          return call(base + '&action=complete', { method: 'POST', body: JSON.stringify({ parts: parts }), headers: { 'Content-Type': 'application/json' } });
+        }).then(function (b) { return b.url; }, function (e) {
+          call(base + '&action=abort', { method: 'POST' }).catch(function () {});
+          throw e;
+        });
+      });
+    }
+  };
   function friendly(msg) {
     msg = String(msg || '');
     if (/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) return 'Could not reach the database. Check your internet connection and try again.';
@@ -298,15 +325,27 @@
     // Uploads go to Cloudflare R2 through /api/upload (functions/api/upload.js), which checks the team
     // like Supabase Storage did and answers with the https://media.littlesaltandlight.com address.
     // The body is streamed, so files over 5 MB are fine. Served with a year-long immutable cache.
+    // Files up to SINGLE_MAX go in one PUT. Bigger ones (phone videos are often over 100 MB, which
+    // Cloudflare refuses at the edge, so the browser only sees "Failed to fetch") go in 20 MB parts.
+    // Network errors here are reported as upload errors, never as "could not reach the database".
     _r2Put: function (file, query, type) {
+      type = type || file.type || 'application/octet-stream';
+      var mb = (file.size / 1048576).toFixed(1) + ' MB';
+      var call = function (token, q, init) {
+        init.headers = Object.assign({ Authorization: 'Bearer ' + token }, init.headers || {});
+        return fetch('/api/upload?' + q, init).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (b) {
+            if (!r.ok) throw new Error(b.error || (r.status === 413 ? 'The file is too large.' : 'Upload failed (HTTP ' + r.status + ').'));
+            return b;
+          });
+        }, function () { throw new Error('The upload of ' + file.name + ' (' + mb + ') was interrupted. Check the connection and try again.'); });
+      };
       return this.accessToken().then(function (token) {
         if (!token) throw new Error('Sign in again to upload.');
-        return fetch('/api/upload?' + query, { method: 'PUT', body: file, headers: { Authorization: 'Bearer ' + token, 'Content-Type': type || file.type || 'application/octet-stream' } });
-      }).then(function (r) {
-        return r.json().catch(function () { return {}; }).then(function (b) {
-          if (!r.ok || !b.url) throw new Error(b.error || ('Upload failed (HTTP ' + r.status + ')'));
-          return b.url;
-        });
+        if (file.size <= LLUploadParts.SINGLE_MAX) {
+          return call(token, query, { method: 'PUT', body: file, headers: { 'Content-Type': type } }).then(function (b) { return b.url; });
+        }
+        return LLUploadParts.send(file, query, type, function (q, init) { return call(token, q, init); });
       });
     },
     uploadMedia: function (file) {
