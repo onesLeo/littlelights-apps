@@ -16,7 +16,7 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store' }
 });
 
-async function teamMember(token, fetchImpl) {
+export async function teamMember(token, fetchImpl) {
   const h = { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token };
   const u = await fetchImpl(SUPABASE_URL + '/auth/v1/user', { headers: h });
   if (!u.ok) return null;

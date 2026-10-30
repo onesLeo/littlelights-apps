@@ -144,7 +144,7 @@ for (const [label, opts, init] of [['reduced motion', { ...phone, reducedMotion:
   check(!ov, '320px: top row never overlaps the close button');
   await context.close();
 }
-check(/const VERSION = 'll-v93'/.test(readFileSync(new URL('../sw.js', import.meta.url), 'utf8')), 'service worker cache bumped to ll-v93');
+check(/const VERSION = 'll-v94'/.test(readFileSync(new URL('../sw.js', import.meta.url), 'utf8')), 'service worker cache bumped to ll-v94');
 await browser.close(); server.close();
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll video playback checks passed');
 process.exit(failures ? 1 : 0);
