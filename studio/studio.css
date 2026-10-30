@@ -496,3 +496,14 @@ th.c-views { text-align: right; }
 .plist li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
 .plist small { color: var(--muted); word-break: break-all; flex: 1 1 160px; }
 .isub { margin: 14px 0 6px; font-size: 14px; }
+
+/* Phone preview: the "Free printables" card of a bedtime story */
+.pv .pvprint { margin-top: 12px; padding: 10px; border-radius: 14px; background: rgba(255,255,255,.72); color: #2a1f33; display: grid; gap: 8px; }
+.pv .pvprint.empty { background: rgba(255,255,255,.4); }
+.pv .pvprint ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pv .pvprint li { display: grid; gap: 4px; padding: 6px; border-radius: 10px; background: #fff1c9; font-size: 10px; line-height: 1.25; }
+.pv .pvprint li b { font-size: 11px; }
+.pv .pvprint li small { font-weight: 700; color: #5e4a3a; }
+.pv .pvprint .pg { display: grid; place-items: center; aspect-ratio: 360 / 510; overflow: hidden; border-radius: 3px; background: #fff; box-shadow: 0 1px 2px rgba(42,31,51,.2); }
+.pv .pvprint .pg img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.pv .pvprint .pg i { width: 40%; height: 50%; border: 2px solid #b5a8c8; border-radius: 3px; }
