@@ -161,7 +161,8 @@ window.LL_CONTENT = {
   // Topics are phrased the way a parent searches when they need help.
   topics: ['All', 'When I’m afraid', 'Trust', 'Friendship', 'Mercy', 'God sees me', 'Light'],
   verses: [
-    { text: 'Be strong and courageous. Don’t be afraid. Don’t be dismayed, for Yahweh your God is with you wherever you go.', ref: 'Joshua 1:9', topics: ['When I’m afraid'] },
+    // WEBBE (World English Bible, British Edition: "the LORD"), per the growth playbook's Scripture decision (A10, 30 Oct 2026).
+    { text: 'Be strong and courageous. Don’t be afraid. Don’t be dismayed, for the LORD your God is with you wherever you go.', ref: 'Joshua 1:9', translation: 'WEBBE', topics: ['When I’m afraid'] },
     { text: 'When I am afraid, I will put my trust in you.', ref: 'Psalm 56:3', topics: ['When I’m afraid', 'Trust'] },
     { text: 'A friend loves at all times; and a brother is born for adversity.', ref: 'Proverbs 17:17', topics: ['Friendship'] },
     { text: 'Man looks at the outward appearance, but Yahweh looks at the heart.', ref: '1 Samuel 16:7', topics: ['God sees me'] },
