@@ -479,6 +479,18 @@ th.c-views { text-align: right; }
   .preview-col:not(.open) .pvbody { display: none; }
 }
 
+/* Frame picker for the reel poster: scrub the video and keep the frame shown. */
+.frame-pick { display: grid; gap: 10px; margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--ink); }
+.frame-pick video { width: 100%; max-width: 240px; max-height: 50vh; aspect-ratio: 9 / 16; object-fit: contain; justify-self: center; border-radius: 10px; background: #000; }
+.fp-ctl { display: flex; align-items: center; gap: 10px; }
+.fp-step { min-width: 44px; min-height: 44px; font-size: 20px; line-height: 1; padding: 0; }
+.fp-range { flex: 1; min-width: 0; height: 44px; margin: 0; accent-color: var(--ink); touch-action: pan-y; cursor: pointer; }
+.fp-range::-webkit-slider-thumb { width: 28px; height: 28px; }
+.fp-range::-moz-range-thumb { width: 28px; height: 28px; }
+.fp-time { font-variant-numeric: tabular-nums; font-size: 14px; color: var(--ink); text-align: center; }
+.fp-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.fp-range:focus-visible, .fp-step:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .frame-pick, .frame-pick * { transition: none !important; animation: none !important; } }
 /* Bedtime story: list of uploaded printables (PDFs) */
 .plist { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 6px; }
 .plist li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }

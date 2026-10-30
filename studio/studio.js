@@ -455,7 +455,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   }
 
   // Poster (thumbnail) for a video reel, stored in fields.poster (a URL like media_url, so any storage
-  // host works). Optional: without one, a frame about 1 s in is taken from the video and saved as WebP.
+  // host works). Optional: without one, a frame about 1 s in is taken from the video and saved as WebP;
+  // the author can pick another frame with the frame picker.
   var POSTER_TYPES = ['image/jpeg', 'image/png', 'image/webp'], POSTER_MAX = 5 * 1024 * 1024;
   function posterField() {
     var e = state.editing, busy = state.uploading === 'poster';
@@ -468,10 +469,66 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       '<div class="poster-acts"><label class="upload' + (busy ? ' busy' : '') + '" data-drop="poster"><b>' + (busy ? 'Saving poster…' : 'Choose a poster image') + '</b>' +
       '<small>JPG, PNG or WebP, up to 5 MB. Vertical 9:16 looks best. ' + (e.poster ? (e.poster_auto ? 'Now using a frame from the video.' : 'Now using your image.') : 'Without one, a frame from the video is used.') + '</small>' +
       '<input class="sr" type="file" accept="' + POSTER_TYPES.join(',') + '" data-file="poster" id="f_poster"></label>' +
-      (e.media_url ? '<button class="btn soft small" type="button" id="posterFrame"' + (busy ? ' disabled' : '') + '>Use a frame from the video</button>' : '') +
-      '</div></div>' +
+      (e.media_url ? '<button class="btn soft small" type="button" id="posterFrame" aria-expanded="' + !!state.framePick + '" aria-controls="framePick"' + (busy ? ' disabled' : '') + '>Pick a frame from the video</button>' : '') +
+      '</div></div>' + (e.media_url && state.framePick ? framePickPanel(busy) : '') +
       '<label class="field sub"><span>Or paste a poster link</span><input class="input' + (state.errors.poster ? ' err' : '') + '" id="f_poster_url" data-f="poster" type="url" value="' + esc(e.poster || '') + '" placeholder="https://media.littlesaltandlight.com/reels/…-poster.jpg"></label>' +
       (state.errors.poster ? '<span class="errmsg" role="alert">' + state.errors.poster + '</span>' : '') + '</div>';
+  }
+
+  // Frame picker: scrub the video with a slider (or −/+ buttons) and save the frame shown as the poster.
+  var FRAME_STEP = 0.5;
+  function framePickPanel(busy) {
+    return '<div class="frame-pick" id="framePick" role="group" aria-labelledby="framePickH">' +
+      '<b id="framePickH">Pick the frame for the poster</b>' +
+      '<video id="fpVideo" muted playsinline preload="auto" crossorigin="anonymous" aria-label="Video preview of the chosen frame" data-src="' + esc(state.editing.media_url) + '"></video>' +
+      '<div class="fp-ctl"><button class="btn soft small fp-step" type="button" id="fpBack" aria-label="Back ' + FRAME_STEP + ' seconds">−</button>' +
+      '<input type="range" id="fpRange" class="fp-range" min="0" max="0" step="0.1" value="0" aria-label="Frame time in seconds" aria-describedby="fpTime">' +
+      '<button class="btn soft small fp-step" type="button" id="fpFwd" aria-label="Forward ' + FRAME_STEP + ' seconds">+</button></div>' +
+      '<output id="fpTime" class="fp-time" for="fpRange" aria-live="polite">0.0 s</output>' +
+      '<div class="fp-acts"><button class="btn small" type="button" id="fpUse"' + (busy ? ' disabled' : '') + '>Use this frame</button>' +
+      '<button class="btn ghost small" type="button" id="fpCancel">Cancel</button></div></div>';
+  }
+  function fpFmt(t, d) { return t.toFixed(1) + ' s' + (d ? ' of ' + d.toFixed(1) + ' s' : ''); }
+  function fpSeek(t) {
+    var v = document.getElementById('fpVideo'), r = document.getElementById('fpRange'), o = document.getElementById('fpTime');
+    if (!v || !r) return;
+    var d = isFinite(v.duration) ? v.duration : 0;
+    t = Math.max(0, Math.min(d || 0, t));
+    r.value = t; r.setAttribute('aria-valuetext', fpFmt(t, d)); if (o) o.textContent = fpFmt(t, d);
+    try { v.currentTime = t; } catch (err) { /* not ready yet */ }
+  }
+  function wireFramePick() {
+    var v = document.getElementById('fpVideo');
+    if (!v || v.dataset.wired) return;
+    v.dataset.wired = '1';
+    v.addEventListener('loadedmetadata', function () {
+      var r = document.getElementById('fpRange'), d = isFinite(v.duration) ? v.duration : 0;
+      if (r) r.max = d.toFixed(1);
+      fpSeek(state.frameAt != null ? state.frameAt : Math.min(1, d / 2));
+    });
+    v.addEventListener('error', function () { state.errors.poster = 'This browser can’t read the video. Choose an image instead.'; state.framePick = false; render(); });
+  }
+  function frameBlob(v) {
+    return new Promise(function (resolve, reject) {
+      var w = v.videoWidth, h = v.videoHeight;
+      if (!w || !h) return reject(new Error('The video has no picture.'));
+      var k = Math.min(1, 1080 / Math.max(w, h)), c = document.createElement('canvas');
+      c.width = Math.round(w * k); c.height = Math.round(h * k);
+      try { c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); } catch (err) { return reject(err); }
+      var out = function (type, q, next) {
+        try { c.toBlob(function (b) { if (b && b.type === type) resolve(b); else if (next) next(); else reject(new Error('Couldn’t make an image.')); }, type, q); } catch (err) { reject(err); }
+      };
+      out('image/webp', 0.82, function () { out('image/jpeg', 0.85); });
+    });
+  }
+  function useFrame() {
+    var v = document.getElementById('fpVideo'), e = state.editing;
+    if (!v) return;
+    syncFields();
+    frameBlob(v).then(function (blob) {
+      state.framePick = false; state.frameAt = null;
+      return savePoster(blob, posterName(e), true).then(function () { if (!state.errors.poster) toast('Poster saved from ' + v.currentTime.toFixed(1) + ' s into the video.'); });
+    }).catch(function (err) { state.errors.poster = 'Couldn’t use this frame (' + err.message + '). Choose an image instead.'; render(); });
   }
 
   function editView() {
@@ -701,7 +758,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
         'Only people on the team can sign in. There is no sign-up: the owner adds you on the Team page.') +
       part('account', ['Press <b>Change password</b> at the top (beside Sign out).', 'Type a new password twice. Use at least 12 characters; a short phrase of random words works well.', 'Press <b>Sign out</b> when you finish on a shared device.']) +
       part('posts', ['Open <b>Posts</b> to see everything on Today, Watch, Listen, Read and Verses.', 'Type in the search box, or use the kind and status chips (Published, Scheduled, Drafts) to narrow the list.', 'On a computer, press a column title to sort by title, type, status, date or views.', 'The Date column says <b>Goes live</b> for a scheduled post, <b>Published</b> for a live one and <b>Edited</b> for a draft, with the time in Singapore time (SGT).', 'Tap a post to open it and change it.']) +
-      part('write', ['Press <b>New post</b> and pick a kind: Verse, Devotion, Reel, Audio, Bedtime story or Game update.', 'Fill in the fields. The phone preview on the right shows how it will look on Today.', 'For audio and reels, choose or drop the file to upload it. For a reel you can also add a poster image or use a frame from the video.', 'Tick <b>Show on the Today feed</b> if it should appear there.'],
+      part('write', ['Press <b>New post</b> and pick a kind: Verse, Devotion, Reel, Audio, Bedtime story or Game update.', 'Fill in the fields. The phone preview on the right shows how it will look on Today.', 'For audio and reels, choose or drop the file to upload it. For a reel you can also add a poster image, or press <b>Pick a frame from the video</b>, drag the slider (or use − and +) to the moment you want, and press <b>Use this frame</b>.', 'Tick <b>Show on the Today feed</b> if it should appear there.'],
         'Each saved change is kept in <b>History</b> under the form. Press <b>Restore this version</b> to go back to an older one.') +
       part('publish', ['Choose <b>Publish now</b> or <b>Schedule</b>. For Schedule, pick a date and a time. Times are Singapore time (SGT, UTC+8); 00:00 is midnight at the start of that day.', 'Press <b>Publish</b> (or <b>Schedule</b>, or <b>Update</b> for a live post).', 'Not ready? Press <b>Save draft</b>. A live post can go back with <b>Move to drafts</b>.', 'To remove a post for everyone, press <b>Delete</b>, then confirm.'],
         'Contributors save drafts only. An owner or editor publishes them.') +
@@ -945,6 +1002,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       '</ul><small>For 3 out of 4 visits (p75).</small></details></section>';
   }
   function resolveMediaElements() {
+    wireFramePick();
     Array.prototype.forEach.call(root.querySelectorAll('[data-src]'), function (el) {
       S.resolveMedia(el.getAttribute('data-src')).then(function (url) { if (url) el.src = url; });
     });
@@ -1052,17 +1110,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       if (typeof src === 'string' && /^https?:/i.test(src)) v.crossOrigin = 'anonymous';
       v.onerror = function () { finish(new Error('This browser can’t read the video.')); };
       v.onloadedmetadata = function () { var d = v.duration; v.currentTime = isFinite(d) && d > 0 ? Math.min(1, d / 2) : 1; };
-      v.onseeked = function () {
-        var w = v.videoWidth, h = v.videoHeight;
-        if (!w || !h) return finish(new Error('The video has no picture.'));
-        var k = Math.min(1, 1080 / Math.max(w, h)), c = document.createElement('canvas');
-        c.width = Math.round(w * k); c.height = Math.round(h * k);
-        try { c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); } catch (err) { return finish(err); }
-        var out = function (type, q, next) {
-          try { c.toBlob(function (b) { if (b && b.type === type) finish(null, b); else if (next) next(); else finish(new Error('Couldn’t make an image.')); }, type, q); } catch (err) { finish(err); }
-        };
-        out('image/webp', 0.82, function () { out('image/jpeg', 0.85); });
-      };
+      v.onseeked = function () { frameBlob(v).then(function (b) { finish(null, b); }, finish); };
       v.src = url;
     });
   }
@@ -1391,7 +1439,10 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     else if (b.id === 'changePw') { state.pwOpen = true; state.pwError = ''; render(); var np = document.getElementById('newPassword'); if (np) np.focus(); }
     else if (b.id === 'pwCancel') { state.pwOpen = false; state.pwError = ''; render(); }
     else if (b.id === 'signout') S.signOut().then(function () { state.session = null; state.pwOpen = false; state.screen = 'signin'; state.view = 'posts'; render(); });
-    else if (b.id === 'posterFrame' && state.editing && state.editing.media_url) S.resolveMedia(state.editing.media_url).then(function (u) { if (u) autoPoster(u); });
+    else if (b.id === 'posterFrame' && state.editing && state.editing.media_url) { syncFields(); state.framePick = !state.framePick; state.frameAt = null; render(); var fr = document.getElementById(state.framePick ? 'fpRange' : 'posterFrame'); if (fr) fr.focus(); }
+    else if (b.id === 'fpBack' || b.id === 'fpFwd') { var fv = document.getElementById('fpVideo'); if (fv) fpSeek(fv.currentTime + (b.id === 'fpFwd' ? FRAME_STEP : -FRAME_STEP)); }
+    else if (b.id === 'fpUse') useFrame();
+    else if (b.id === 'fpCancel') { state.framePick = false; state.frameAt = null; render(); var pf = document.getElementById('posterFrame'); if (pf) pf.focus(); }
     else if (d.days) loadInsights(+d.days);
     else if (d.view) { state.pwOpen = false; if (d.guide) state.guideAt = d.guide; go(d.view); if (state.guideAt) render(); }
     else if (d.bfilter) { state.builtinFilter = d.bfilter; render(); var bfb = root.querySelector('[data-bfilter="' + d.bfilter + '"]'); if (bfb) bfb.focus(); }
@@ -1454,6 +1505,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   });
 
   root.addEventListener('input', function (ev) {
+    if (ev.target.id === 'fpRange') { state.frameAt = +ev.target.value; fpSeek(+ev.target.value); return; }
     if (ev.target.id === 'newPassword') { var h = document.getElementById('pwHint'); if (h) h.textContent = pwStrength(ev.target.value); return; }
     if (ev.target.id === 'postSearch') { state.q = ev.target.value; state.limit = PAGE_SIZE; refreshPostRows(); return; }
     if (!state.editing) return;
