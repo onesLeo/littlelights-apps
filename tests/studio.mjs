@@ -688,6 +688,35 @@ await sctx.close();
   await pctx.close();
 }
 
+// ---------- phone: tapping a scheduled post shows its form first ----------
+{
+  const tctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
+  await tctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  await tctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  const tp = await tctx.newPage();
+  tp.on('pageerror', (e) => errors.push(e.message));
+  await tp.goto(base + 'studio/');
+  await tp.fill('#email', 'owner@example.org'); await tp.tap('#signinForm button[type=submit]'); await tp.waitForSelector('.shell');
+  await tp.tap('.side [data-view="new"]'); await tp.tap('[data-new="game"]');
+  await tp.fill('#f_title', 'Jonah is coming soon'); await tp.fill('#f_text', 'Journey 5 is being built.');
+  await tp.tap('[data-mode="schedule"]');
+  await tp.fill('#f_publish_date', tomorrowSgt); await tp.fill('#f_publish_time', '18:30');
+  await tp.tap('#postForm button[type=submit]'); await tp.waitForSelector('.ptable .row');
+  await tp.tap('[data-sfilter="scheduled"]');
+  await tp.tap('.ptable .row .c-date');
+  await tp.waitForSelector('#postForm');
+  await tp.waitForTimeout(700);
+  const vis = await tp.$eval('#f_title', (el) => { const r = el.getBoundingClientRect(), bar = document.querySelector('.side').getBoundingClientRect(); return { ok: r.top >= bar.bottom && r.bottom <= innerHeight, top: Math.round(r.top) }; });
+  check(vis.ok && (await tp.inputValue('#f_title')) === 'Jonah is coming soon', `phone: tapping a scheduled post shows its Title field in the first screen (top ${vis.top}px)`);
+  check(await tp.$eval('#pvToggle', (b) => b.getAttribute('aria-expanded') === 'false' && getComputedStyle(document.getElementById('pvBody')).display === 'none'), 'phone: the preview starts folded under “Show preview”');
+  await tp.focus('#pvToggle'); await tp.keyboard.press('Enter');
+  check(await tp.$eval('#pvToggle', (b) => b.getAttribute('aria-expanded') === 'true' && b.textContent === 'Hide preview' && document.querySelector('#pvBody .phone').getBoundingClientRect().height > 100), 'phone: “Show preview” opens the preview from the keyboard');
+  await tp.screenshot({ path: 'test-results/studio-phone-edit.png' });
+  await tp.setViewportSize({ width: 1280, height: 900 });
+  check(await tp.$eval('#pvToggle', (b) => getComputedStyle(b).display === 'none' && document.querySelector('.preview-col .phone').getBoundingClientRect().height > 100), 'desktop: the preview shows beside the form with no toggle');
+  await tctx.close();
+}
+
 check(errors.length === 0, `no script errors ${errors.join(' | ')}`);
 await browser.close();
 server.close();

@@ -551,8 +551,10 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
           : '<button class="btn soft" type="button" id="saveDraft"' + (state.busy || state.uploading ? ' disabled' : '') + '>Save draft</button>') +
         primary +
       '</div></div></form>' + historyView() + '</div>' +
-      '<div class="preview-col"><span class="label">Preview on Today</span><div class="phone"><div class="screen" id="preview">' + preview(p) + '</div></div>' +
-      '<p class="pv-note">This is how the post will look in the app’s feed.</p></div></div>';
+      // On a narrow screen the form comes first and the preview is folded away below it (opened with this button).
+      '<div class="preview-col' + (state.pvOpen ? ' open' : '') + '"><button type="button" class="btn soft pvtoggle" id="pvToggle" aria-expanded="' + !!state.pvOpen + '" aria-controls="pvBody">' + (state.pvOpen ? 'Hide preview' : 'Show preview') + '</button>' +
+      '<div class="pvbody" id="pvBody"><span class="label">Preview on Today</span><div class="phone"><div class="screen" id="preview">' + preview(p) + '</div></div>' +
+      '<p class="pv-note">This is how the post will look in the app’s feed.</p></div></div></div>';
   }
 
   function preview(p) {
@@ -1283,6 +1285,16 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     }
   });
 
+  // After opening a post: on a narrow screen bring the form (Title first) to the top, below the sticky bar.
+  // Focus is left alone; the motion is instant when the reader asks for reduced motion.
+  function scrollToForm() {
+    var form = document.getElementById('postForm');
+    if (!form || !window.matchMedia('(max-width: 1040px)').matches) { window.scrollTo(0, 0); return; }
+    var bar = root.querySelector('.side'), off = bar && getComputedStyle(bar).position === 'sticky' && window.matchMedia('(max-width: 860px)').matches ? bar.getBoundingClientRect().height : 0;
+    var top = form.getBoundingClientRect().top + window.scrollY - off - 8;
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: Math.max(0, top), behavior: reduce ? 'auto' : 'smooth' });
+  }
   root.addEventListener('click', function (ev) {
     var gj = ev.target.closest('a[data-gjump]');
     if (gj) { ev.preventDefault(); var gt = document.getElementById('g-' + gj.dataset.gjump); if (gt) { gt.scrollIntoView({ block: 'start' }); gt.focus({ preventScroll: true }); } return; }
@@ -1290,7 +1302,13 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (!b) return;
     var d = b.dataset;
     if (d.bar !== undefined && b.classList.contains('tbar')) { showBar(b); return; }
-    if (b.id === 'back') { state.screen = 'signin'; render(); }
+    if (b.id === 'pvToggle') {
+      state.pvOpen = !state.pvOpen;
+      var pc = b.closest('.preview-col'); pc.classList.toggle('open', state.pvOpen);
+      b.setAttribute('aria-expanded', state.pvOpen); b.textContent = state.pvOpen ? 'Hide preview' : 'Show preview';
+      return;
+    }
+        if (b.id === 'back') { state.screen = 'signin'; render(); }
     else if (b.id === 'magicLink') {
       var em = document.getElementById('email').value.trim().toLowerCase();
       state.email = em; state.authError = '';
@@ -1326,8 +1344,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     else if (d.edit) {
       var src = state.posts.filter(function (x) { return String(x.id) === d.edit; })[0];
       if (!src) return;
-      state.editing = toEditing(src); state.view = 'edit'; state.errors = {}; state.confirmDelete = false; state.history = null;
-      render(); window.scrollTo(0, 0); loadHistory(src.id);
+      state.editing = toEditing(src); state.view = 'edit'; state.errors = {}; state.confirmDelete = false; state.history = null; state.pvOpen = false;
+      render(); scrollToForm(); loadHistory(src.id);
     }
     else if (d.mode) { syncFields(); state.editing._mode = d.mode; delete state.errors.when; render(); }
     else if (d.topic) {
