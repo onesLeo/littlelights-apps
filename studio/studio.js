@@ -564,11 +564,21 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (p.type === 'verse') inner = '<div class="sun"></div><div class="kick">Verse of the week</div><div class="verse' + (isLongVerse(p.verse) ? ' preview' : '') + '">“' + ph((p.verse || '').trim(), 'Your verse appears here') + '”</div><div class="ref">' + ph((p.ref || '').toUpperCase(), 'REFERENCE') + ' · ' + esc((p.translation || '').trim() || 'WEB') + '</div><div class="btns"><span class="pbtn">' + (isLongVerse(p.verse) ? 'Read full passage' : 'More verses') + '</span><span class="pbtn g">Save image</span></div>';
     else if (p.type === 'devotion') inner = '<div class="kick">Devotion · ' + readMinutes(p) + ' min</div><div class="big">' + ph(p.title, 'Your title') + '</div><p>' + ph(p.teaser, 'Your one-line summary') + '</p><div class="btns"><span class="pbtn">Read ↑</span>' + (p.audioId ? '<span class="pbtn g">▶ Listen</span>' : '') + '</div>';
     else if (p.type === 'audio') inner = '<div class="wave">' + [30, 70, 45, 90, 55, 80, 35, 65, 50, 85, 40, 60].map(function (h) { return '<i style="height:' + h + '%"></i>'; }).join('') + '</div><div class="kick">Audio · ' + esc(p.minutes || '0:00') + '</div><div class="big">' + ph(p.title, 'Your title') + '</div><p>' + esc(p.kind || 'Devotion') + '</p><div class="btns"><span class="pbtn">▶ Play</span></div>';
-    else if (p.type === 'story') inner = '<div class="kick">' + esc(p.series || STORY_SERIES) + (p.episode ? ' · #' + esc(p.episode) : '') + '</div><div class="big">' + ph(p.title, 'Your story title') + '</div><p>Bedtime Bible story' + (p.narrator ? ', read by ' + esc(p.narrator) : '') + ' · ' + esc(p.minutes || '0:00') + '</p><p>' + ph(storyParas(p.story)[0] ? storyParas(p.story)[0].slice(0, 140) + '…' : '', 'The first paragraph appears here') + '</p><div class="btns"><span class="pbtn">▶ Listen</span></div>';
+    else if (p.type === 'story') inner = '<div class="kick">' + esc(p.series || STORY_SERIES) + (p.episode ? ' · #' + esc(p.episode) : '') + '</div><div class="big">' + ph(p.title, 'Your story title') + '</div><p>Bedtime Bible story' + (p.narrator ? ', read by ' + esc(p.narrator) : '') + ' · ' + esc(p.minutes || '0:00') + '</p><p>' + ph(storyParas(p.story)[0] ? storyParas(p.story)[0].slice(0, 140) + '…' : '', 'The first paragraph appears here') + '</p><div class="btns"><span class="pbtn">▶ Listen</span></div>' + previewPrintables(p);
     else if (p.type === 'reel') inner = '<div class="play"></div><div class="kick">Reel · ' + esc(p.minutes || '0:00') + '</div><div class="big">' + ph(p.title, 'Your title') + '</div><div class="btns"><span class="pbtn">▶ Watch</span></div>';
     else inner = '<div class="kick">Game</div><div class="big">' + ph(p.title, 'Your headline') + '</div><p>' + ph(p.text, 'What’s new') + '</p><div class="btns"><span class="pbtn">' + esc(p.button || 'See the game') + '</span></div>';
     return '<div class="pv" style="background:' + bg + ';color:' + t.ink + '">' + inner + '</div>' +
       '<div class="tabbar"><span class="on">Today</span><span>Watch</span><span>Listen</span><span>Read</span><span>Verses</span><span>Play</span></div>';
+  }
+  // The "Free printables" card as families will see it under the questions: a picture of each page (site files have
+  // one next to the PDF; a new Studio upload shows a paper until it is published) and its title.
+  function previewPrintables(p) {
+    var list = Array.isArray(p.printables) ? p.printables : [];
+    if (!list.length) return '<div class="pvprint empty"><div class="kick">Free printables</div><span class="placeholder">Add a colouring page or verse cards under Free printables</span></div>';
+    return '<div class="pvprint"><div class="kick">Free printables · ' + list.length + '</div><ul>' + list.slice(0, 6).map(function (it) {
+      var m = /^media\/printables\/([a-z0-9][a-z0-9._-]{0,150})\.pdf$/.exec(String(it.file || '')), th = m ? '/media/printables/' + m[1] + '.jpg' : ''; // same rule as LL_SEO.printThumb
+      return '<li><span class="pg">' + (th ? '<img src="' + esc(th) + '" alt="" width="360" height="510">' : '<i aria-hidden="true"></i>') + '</span><b>' + esc(it.title) + '</b><small>PDF · Download</small></li>';
+    }).join('') + '</ul></div>';
   }
   function readMinutes(p) { return Math.max(1, Math.round([p.body, p.family, p.prayer].join(' ').split(/\s+/).filter(Boolean).length / 180)); }
 

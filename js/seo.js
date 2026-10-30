@@ -156,15 +156,23 @@
     var m = /\/([a-z0-9][a-z0-9._-]*?)(?:\.[0-9a-f]{8})?\.pdf$/.exec('/' + String(path || ''));
     return m ? m[1].slice(0, 100) : '';
   }
+  // A small picture of the first page: site printables have one next to the PDF (same name, .jpg, 360x510, made
+  // with pdftoppm; tests/printables.mjs checks each one exists). Studio uploads on R2 show a paper icon instead.
+  function printThumb(file) {
+    var m = /^media\/printables\/([a-z0-9][a-z0-9._-]{0,150})\.pdf$/.exec(String(file || ''));
+    return m ? '/media/printables/' + m[1] + '.jpg' : '';
+  }
+  var PAPER = '<svg viewBox="0 0 48 64" width="48" height="64" aria-hidden="true" focusable="false"><path d="M6 2h26l10 10v48a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#fff" stroke="currentColor" stroke-width="2"/><path d="M32 2v10h10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 26h24M12 34h24M12 42h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
   function printablesHtml(x) {
-    var list = (x.printables || []).map(function (p) { return { title: p.title, href: dlHref(p.file) }; }).filter(function (p) { return p.href; });
+    var list = (x.printables || []).map(function (p) { return { title: p.title, href: dlHref(p.file), thumb: printThumb(p.file) }; }).filter(function (p) { return p.href; });
     if (!list.length) return '';
     return '<section class="p-print" aria-labelledby="pPrintH"><h2 id="pPrintH">Free printables</h2>' +
-      '<p>Print at home (A4) for bedtime or Sunday school. Free to share.</p><ul class="p-print-list">' +
+      '<p>Print at home on A4 for bedtime or Sunday school. Free to share.</p><ul class="p-print-list">' +
       list.map(function (p) {
         return '<li><a class="p-dl" href="' + esc(p.href) + '" target="_blank" rel="nofollow noopener" type="application/pdf">' +
-          '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-          '<span><b>' + esc(p.title) + '</b><small>PDF</small></span></a></li>';
+          '<span class="p-dl-pg">' + (p.thumb ? '<img src="' + esc(p.thumb) + '" width="360" height="510" alt="" loading="lazy" decoding="async">' : PAPER) + '</span>' +
+          '<span class="p-dl-t"><b>' + esc(p.title) + '</b><small>Free PDF \u00b7 A4</small></span>' +
+          '<span class="p-dl-go"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Download</span></a></li>';
       }).join('') + '</ul></section>';
   }
 
@@ -332,5 +340,5 @@
     }).filter(Boolean).join('').trim();
   }
 
-  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, printablesHtml: printablesHtml, dlHref: dlHref, dlKey: dlKey, tonightStory: tonightStory, tonightHtml: tonightHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml, SOCIAL: SOCIAL, followHtml: followHtml, footerHtml: footerHtml, footerStyle: footerStyle, FOOTER_STYLES: FOOTER_STYLES, FOOTER_DEFAULT: FOOTER_DEFAULT };
+  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, printablesHtml: printablesHtml, printThumb: printThumb, dlHref: dlHref, dlKey: dlKey, tonightStory: tonightStory, tonightHtml: tonightHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml, SOCIAL: SOCIAL, followHtml: followHtml, footerHtml: footerHtml, footerStyle: footerStyle, FOOTER_STYLES: FOOTER_STYLES, FOOTER_DEFAULT: FOOTER_DEFAULT };
 })(typeof window !== 'undefined' ? window : globalThis);
