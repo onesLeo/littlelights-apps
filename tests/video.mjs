@@ -197,7 +197,57 @@ for (const [label, opts, init] of [['reduced motion', { ...phone, reducedMotion:
     await context.close();
   }
 }
-check(/const VERSION = 'll-v98'/.test(readFileSync(new URL('../sw.js', import.meta.url), 'utf8')), 'service worker cache bumped to ll-v98');
+// In the live app (not just the static HTML): the series sheet shows the intro under its title, and
+// the reel caption sheet shows the "About this video" box for whichever reel is open.
+{
+  const SER = `;(function(){var eps={'The Broken Crayon':1,'First Day Jitters':2,'The Last Straw':3,'The Whisper':4};window.LL_CONTENT.reels.forEach(function(r){if(eps[r.title]){r.series='Slice of Life';r.episode=eps[r.title];r.series_description='Little everyday moments in a Singapore family.';}});})();`;
+  for (const night of [false, true]) {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true, colorScheme: night ? 'dark' : 'light', reducedMotion: 'reduce' });
+    await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+    await context.route(/\/js\/content\.js/, async (r) => { const res = await r.fetch(); r.fulfill({ response: res, body: (await res.text()) + SER }); });
+    await context.route(/\.mp4(\?|#|$)/, () => {});
+    const page = await context.newPage();
+    const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(base + '#watch'); await page.waitForSelector('#app[data-ready]');
+    const tag = night ? 'night' : 'day';
+    check(await page.evaluate(() => !!window.LL_TEXT && typeof window.LL_TEXT.reelTextHtml === 'function'), `${tag}: js/reel-text.js loaded in the app`);
+    await page.evaluate(() => window.LL_series.open('Slice of Life')); await page.waitForTimeout(200);
+    const sh = await page.evaluate(() => { const b = document.querySelector('#pSeries .p-series-body'), h = b.querySelector('h2'), box = b.querySelector('.p-sintro-box'), p = box && box.querySelector('.p-sintro'), m = box && box.querySelector('.p-sintro-more');
+      return { box: !!box, after: !!box && h.nextElementSibling === box, text: p ? p.textContent : '', lines: p ? Math.round(p.getBoundingClientRect().height / parseFloat(getComputedStyle(p).lineHeight)) : 0, more: m ? getComputedStyle(m).display !== 'none' : false, desc: !!b.querySelector('.p-series-desc'), ids: document.querySelectorAll('#' + (p ? p.id : 'x')).length, ctl: m && document.getElementById(m.getAttribute('aria-controls')) === p }; });
+    check(sh.box && sh.after && sh.text === SERIES_INTRO['slice-of-life'], `${tag}: in-app series sheet shows the intro word for word, right under the title`);
+    check(sh.lines === 2 && sh.more && sh.ctl && sh.ids === 1, `${tag}: series sheet intro clamped to 2 lines on a phone, More controls it, unique id`);
+    check(sh.desc, `${tag}: existing series description kept below the intro`);
+    await page.click('#pSeries .p-sintro-more');
+    check(await page.$eval('#pSeries .p-sintro-more', (m) => m.textContent === 'Less' && m.getAttribute('aria-expanded') === 'true'), `${tag}: series sheet More expands (Less)`);
+    if (shots && !night) await page.screenshot({ path: shots + '/inapp-series-sheet-375.png' });
+    // Play episode 1 (The Broken Crayon), then switch reels: the About box follows the open reel.
+    const idx = await page.evaluate(() => { const o = {}; window.LL_CONTENT.reels.forEach((r, i) => { o[r.title] = i; }); return o; });
+    for (const [title, slug] of [['The Broken Crayon', 'the-broken-crayon'], ['The Whisper', 'the-whisper'], ['First Day Jitters', 'first-day-jitters']]) {
+      await page.evaluate(() => { window.LL_closeWatch && window.LL_closeWatch(true); window.LL_series.close && window.LL_series.close(); });
+      await page.evaluate((i) => { document.querySelector('#pWatchGal').insertAdjacentHTML('beforeend', '<button type="button" id="tmpPlay" data-watch="' + i + '">x</button>'); }, idx[title]);
+      await page.click('#tmpPlay'); await page.evaluate(() => document.getElementById('tmpPlay') && document.getElementById('tmpPlay').remove()); await page.waitForTimeout(400);
+      await page.evaluate(() => document.querySelector('.p-reel.on .more').click()); await page.waitForTimeout(150);
+      const t = REEL_TEXT[slug];
+      const a = await page.evaluate(() => { const d = document.querySelector('#pReelSheet .bk-about details.p-about'), sh = document.querySelector('#pReelSheet .p-rsheet-in'), h = sh.querySelector('h3');
+        if (!d) return null; const r = d.getBoundingClientRect(), hr = h.getBoundingClientRect(), side = document.querySelector('.p-reel.on .side'), cap = document.querySelector('.p-reel.on .cap');
+        const vis = (e) => e && getComputedStyle(e).visibility !== 'hidden' && getComputedStyle(e).opacity !== '0' && e.getBoundingClientRect().height > 0;
+        const over = (e) => { if (!vis(e)) return false; const b = e.getBoundingClientRect(); return b.left < r.right && b.right > r.left && b.top < r.bottom && b.bottom > r.top && document.elementFromPoint(r.left + 10, r.top + 10) && !d.contains(document.elementFromPoint(r.left + 10, r.top + 10)); };
+        return { open: d.open, sum: d.querySelector('summary').textContent, body: d.textContent, below: r.top >= hr.bottom, overlap: over(side) || over(cap), color: getComputedStyle(d).color, bg: getComputedStyle(d).backgroundColor, h3: getComputedStyle(d.querySelector('h3')).fontSize, first: getComputedStyle(d.querySelector('.p-about-body p'), '::first-letter').float }; });
+      check(!!a && !a.open && a.sum.includes(t.summary) && a.sum.includes(t.verse) && a.body.includes(t.lesson) && a.body.includes(t.prayer), `${tag}: ${title}: collapsed About box in the in-app caption sheet, word for word`);
+      check(!!a && a.below && !a.overlap, `${tag}: ${title}: About box sits below the episode info, not over the player controls or caption`);
+      check(!!a && a.color === 'rgb(246, 241, 255)' && a.bg === 'rgb(29, 21, 56)' && a.first === 'none', `${tag}: ${title}: About box keeps its AA colours, no drop cap`);
+      const pageBoxes = await page.evaluate(() => [...document.querySelectorAll('details.p-about')].filter((d) => !document.getElementById('pWatchPlayer').contains(d)).map((d) => d.textContent));
+      check(pageBoxes.length <= 1 && pageBoxes.every((x) => x.includes(t.summary)), `${tag}: ${title}: no other reel's About text left on the page`);
+      if (shots && !night && slug === 'the-whisper') { await page.click('#pReelSheet .p-about > summary'); await page.evaluate(() => document.querySelector('#pReelSheet .p-about').scrollIntoView({ block: 'end' })); await page.waitForTimeout(150); await page.screenshot({ path: shots + '/inapp-reel-about-open-375.png' }); }
+    }
+    // A reel with no text: no About box in its sheet.
+    const plain = await page.evaluate(() => { const T = window.LL_TEXT; return window.LL_CONTENT.reels.findIndex((r) => !T.reelText(window.LL_SEO.reelSlug(r)) && r.caption); });
+    if (plain >= 0) check(await page.evaluate((i) => window.LL_about.html(i) === '', plain), `${tag}: a reel with no text gets no About box`);
+    check(!errors.length, `${tag}: no page errors (${errors.join('; ')})`);
+    await context.close();
+  }
+}
+check(/const VERSION = 'll-v99'/.test(readFileSync(new URL('../sw.js', import.meta.url), 'utf8')), 'service worker cache bumped to ll-v99');
 await browser.close(); server.close();
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll video playback checks passed');
 process.exit(failures ? 1 : 0);

@@ -1769,3 +1769,15 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
   .p-sintro-more { display: inline-block; margin-top: 4px; min-height: 44px; padding: 0 4px; background: none; border: 0; color: #ffd98a; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
   .p-sintro-more:focus-visible { outline: 3px solid #ffd98a; outline-offset: 2px; border-radius: 6px; }
 }
+/* In-app copies (js/app.js): series intro under the series sheet title; "About this video" inside the
+   reel caption sheet, below the episode info (never on the playing video). */
+.p-series-body .p-sintro-box { margin: 0; }
+.p-series-body .p-series-desc { font-size: .95rem; opacity: .9; }
+.p-rsheet-in .bk-about:empty { display: none; }
+.p-rsheet-in .bk-about .p-about { margin: 14px 0 4px; max-width: none; text-align: left; }
+.p-rsheet-in .bk-about .p-about p, .p-wplayer.book .p-rsheet-in .bk-about .p-about p { font: 400 1rem/1.6 var(--body, inherit); color: #f6f1ff; margin: 0; }
+.p-rsheet-in .bk-about .p-about p::first-letter, .p-wplayer.book .p-rsheet-in .bk-about .p-about p::first-letter { float: none; font: inherit; margin: 0; color: inherit; }
+.p-rsheet-in .bk-about .p-about h3 { font: 800 1.05rem/1.3 var(--body, inherit); margin: 0 0 4px; color: #ffd98a; }
+.p-about:not([open]) > .p-about-body { display: none; }
+.p-rsheet-in .bk-about :is(h3, p)::before { content: none; display: none; }
+.p-rsheet-in .bk-about :is(h3, p) { text-shadow: none !important; }
