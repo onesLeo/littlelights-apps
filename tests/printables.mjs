@@ -132,6 +132,28 @@ for (const night of [false, true]) {
   check(/^\/dl\/media\/printables\/jonah-colouring-page\.6e78574d\.pdf\?nc=1$/.test(href), 'don’t-count device opens /dl/…?nc=1 (' + href + ')');
   await ctx2.close();
 }
+{
+  // Studio (local mode): add a printable to a bedtime story, refuse a non-PDF, remove it again.
+  const studio = await serve(0);
+  const sb = `http://localhost:${studio.address().port}/`;
+  const c3 = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' });
+  await c3.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  const page = await c3.newPage(); const errs = []; page.on('pageerror', (e) => errs.push(e.message));
+  await page.goto(sb + 'studio/'); await page.waitForSelector('#signinForm');
+  await page.fill('#email', 'owner@example.org'); await page.click('#signinForm button[type=submit]'); await page.waitForSelector('.shell');
+  await page.click('.side [data-view="new"]'); await page.click('[data-new="story"]');
+  await page.fill('#f_title', 'Test Story');
+  await page.setInputFiles('#f_story_printable', { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
+  await page.waitForTimeout(300);
+  check(/Choose a PDF file/.test(await page.textContent('[data-drop="story_printable"]').catch(() => '') + await page.textContent('form')), 'Studio: a non-PDF is refused');
+  await page.setInputFiles('#f_story_printable', { name: 'test-story-colouring-page.pdf', mimeType: 'application/pdf', buffer: readFileSync(join(root, jonahFiles[0])) });
+  await page.waitForSelector('.plist li');
+  check((await page.textContent('.plist li')).includes('Colouring page'), 'Studio: an uploaded PDF is listed as "Colouring page"');
+  await page.click('[data-print-remove="0"]');
+  check(await page.locator('.plist li').count() === 0, 'Studio: Remove takes it off the list');
+  check(!errs.length, 'Studio: no script errors' + (errs.length ? ' (' + errs.join('; ') + ')' : ''));
+  await c3.close(); studio.close();
+}
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll printables checks passed');
