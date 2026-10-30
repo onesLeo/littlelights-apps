@@ -124,6 +124,21 @@ A story that goes live between rebuilds is listed on /listen straight away, and 
 2. Optional: run `supabase/seed/20261027_elijah_story.sql` to add Elijah as a Studio story scheduled for Wed 4 Nov 2026 (00:00 SGT; it was moved there in the Studio). It does nothing if a post with that slug already exists. Its audio is `audio/elijah-still-small-voice.0d7d251e.mp3` on R2.
 3. Optional: run `supabase/seed/20261027_smallest_star_story.sql` to add The Smallest Star (Goodnight Little Light #1) as a draft. Then open it in the Studio, pick a publish date and time and Schedule.
 
+### Tonight's story on Today
+
+The welcome card on Today shows the newest live bedtime story ("Tonight's bedtime story", with a ▶ Listen button to its page). Studio stories count by their publish time, built-in ones without a date as the oldest, so each new episode takes over at the moment it goes live. The daily build writes it into the Today page; the app redraws it when a newer story is live. On short phones it is a single row in place of the welcome buttons, so the Today filters and the owl keep their room.
+
+### Free printables and their download counts
+
+A bedtime story can list up to 6 PDFs (a colouring page, verse cards) under **Free printables** in the Studio. They appear on the story page after the 3 questions. Uploads are named `stories/<title>-<kind>.<hash>.pdf` on R2, up to 10 MB, and must really be PDFs. Jonah's printables are built in (`js/content.js`, files in `media/printables/`). The story page shows a small picture of each page: for files in `media/printables/` it is the `.jpg` with the same name next to the PDF (360×510, `pdftoppm -jpeg -scale-to-x 360 -scale-to-y -1 -singlefile <name>.pdf <name>`; tests/printables.mjs checks every PDF has one). A PDF uploaded in the Studio gets its picture automatically: the Studio draws page 1 in the browser with PDF.js (Mozilla, Apache 2.0, kept in `js/vendor/pdfjs-4.10.38/` and loaded only when a printable is added) and uploads it next to the PDF as `stories/<name>.<hash>.jpg`. If a PDF can't be drawn, it is still added and shows a paper icon. The Studio's phone preview shows the same printables card.
+
+Every download link goes through `/dl/<file>` (`functions/dl/[[path]].js`, `lib/downloads.mjs`). It adds 1 to a daily total for that file and the visitor's country (the two-letter code Cloudflare works out from the connection; nothing else about the visitor is read or stored), then sends the PDF. Search engines and link-preview bots, HEAD requests and devices set to "don't count me" are not counted, and a database problem never stops the download. Studio → Insights → **Printable downloads** shows the totals per file with their top countries. Someone who shares the PDF's direct address instead of the story page isn't counted.
+
+One-time steps:
+1. Apply `supabase/migrations/20261030120000_download_stats.sql` (SQL Editor). Until then downloads work but aren't counted, and Insights says so.
+2. Run `supabase/seed/20261030_story_printables.sql` to give Elijah, The Smallest Star and Pip their printables (files in `media/printables/`).
+3. Update `EFFECTIVE_WEB` in `legal/build.py` and redeploy the legal site: the website privacy notice now mentions play and download counts.
+
 ## Daily rebuild
 
 `.github/workflows/daily-rebuild.yml` runs every day at 05:00 SGT (21:00 UTC). It calls a Cloudflare Pages deploy hook, so the prerendered pages and sitemap pick up stories whose day has come. Before the rebuild, a newly due story still shows in the app, just without its prerendered page.

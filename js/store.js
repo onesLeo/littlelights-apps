@@ -192,6 +192,33 @@
       return client;
     });
   }
+  // Multipart upload driver (see functions/api/upload.js). Exposed for tests as window.LLUploadParts.
+  var LLUploadParts = window.LLUploadParts = {
+    SINGLE_MAX: 50 * 1024 * 1024,
+    send: function (file, query, type, call) {
+      var q = query + '&action=create&type=' + encodeURIComponent(type) + '&size=' + file.size;
+      return call(q, { method: 'POST' }).then(function (c) {
+        if (c.url) return c.url;
+        var size = c.partBytes || 20 * 1024 * 1024, n = Math.ceil(file.size / size), parts = [];
+        var base = 'key=' + encodeURIComponent(c.key) + '&uploadId=' + encodeURIComponent(c.uploadId);
+        var next = function (i) {
+          if (i > n) return Promise.resolve();
+          var chunk = file.slice((i - 1) * size, Math.min(i * size, file.size));
+          var attempt = function (left) {
+            return call(base + '&action=part&part=' + i, { method: 'PUT', body: chunk, headers: { 'Content-Type': 'application/octet-stream' } })
+              .catch(function (e) { if (left > 0) return attempt(left - 1); throw e; });
+          };
+          return attempt(2).then(function (p) { parts.push({ partNumber: p.partNumber, etag: p.etag }); return next(i + 1); });
+        };
+        return next(1).then(function () {
+          return call(base + '&action=complete', { method: 'POST', body: JSON.stringify({ parts: parts }), headers: { 'Content-Type': 'application/json' } });
+        }).then(function (b) { return b.url; }, function (e) {
+          call(base + '&action=abort', { method: 'POST' }).catch(function () {});
+          throw e;
+        });
+      });
+    }
+  };
   function friendly(msg) {
     msg = String(msg || '');
     if (/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) return 'Could not reach the database. Check your internet connection and try again.';
@@ -295,22 +322,41 @@
         return c.from('post_revisions').select('*').eq('post_id', postId).order('changed_at', { ascending: false }).order('id', { ascending: false });
       }).then(must);
     },
+    // Uploads go to Cloudflare R2 through /api/upload (functions/api/upload.js), which checks the team
+    // like Supabase Storage did and answers with the https://media.littlesaltandlight.com address.
+    // The body is streamed, so files over 5 MB are fine. Served with a year-long immutable cache.
+    // Files up to SINGLE_MAX go in one PUT. Bigger ones (phone videos are often over 100 MB, which
+    // Cloudflare refuses at the edge, so the browser only sees "Failed to fetch") go in 20 MB parts.
+    // Network errors here are reported as upload errors, never as "could not reach the database".
+    _r2Put: function (file, query, type) {
+      type = type || file.type || 'application/octet-stream';
+      var mb = (file.size / 1048576).toFixed(1) + ' MB';
+      var call = function (token, q, init) {
+        init.headers = Object.assign({ Authorization: 'Bearer ' + token }, init.headers || {});
+        return fetch('/api/upload?' + q, init).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (b) {
+            if (!r.ok) throw new Error(b.error || (r.status === 413 ? 'The file is too large.' : 'Upload failed (HTTP ' + r.status + ').'));
+            return b;
+          });
+        }, function () { throw new Error('The upload of ' + file.name + ' (' + mb + ') was interrupted. Check the connection and try again.'); });
+      };
+      return this.accessToken().then(function (token) {
+        if (!token) throw new Error('Sign in again to upload.');
+        if (file.size <= LLUploadParts.SINGLE_MAX) {
+          return call(token, query, { method: 'PUT', body: file, headers: { 'Content-Type': type } }).then(function (b) { return b.url; });
+        }
+        return LLUploadParts.send(file, query, type, function (q, init) { return call(token, q, init); });
+      });
+    },
     uploadMedia: function (file) {
-      var path = new Date().toISOString().slice(0, 10) + '/' + Date.now() + '-' + slugify(file.name.replace(/\.[^.]+$/, '')) + (file.name.match(/\.[^.]+$/) || [''])[0].toLowerCase();
-      return loadClient().then(function (c) { return c.storage.from('media').upload(path, file, { contentType: file.type, upsert: false }); })
-        .then(must).then(function () { return client.storage.from('media').getPublicUrl(path).data.publicUrl; });
+      return this._r2Put(file, 'name=' + encodeURIComponent(file.name));
     },
     // Upload to a fixed, content-hashed path (bedtime stories: stories/<slug>.<sha8>.mp3). The name changes
-    // whenever the bytes change, so the file may be cached for a year. Uploading the same bytes again
+    // whenever the bytes change, so the file is cached for a year. Uploading the same bytes again
     // (same name) is not an error: the file is already there.
     uploadMediaAt: function (file, path, opts) {
       opts = opts || {};
-      return loadClient().then(function (c) {
-        return c.storage.from('media').upload(path, file, { contentType: opts.contentType || file.type, cacheControl: opts.cacheControl || '3600', upsert: false });
-      }).then(function (res) {
-        if (res && res.error && !/exists|duplicate/i.test(res.error.message || '')) throw res.error;
-        return client.storage.from('media').getPublicUrl(path).data.publicUrl;
-      });
+      return this._r2Put(file, 'path=' + encodeURIComponent(path), opts.contentType || file.type);
     },
     getSetting: function (key) {
       return publicSettings().then(function (all) { return Object.prototype.hasOwnProperty.call(all, key) ? all[key] : null; });
@@ -483,8 +529,20 @@
     };
     if (f.next_title) x.next = { title: f.next_title, when: f.next_when || '', href: f.next_href || '/listen' };
     if (f.word && f.word_meaning) x.word = { word: f.word, meaning: f.word_meaning };
+    var pr = printableList(f.printables);
+    if (pr.length) x.printables = pr;
     if (!x.image) { x.imageWidth = 0; x.imageHeight = 0; }
     return x;
+  }
+  // fields.printables: [{ title, file }] (PDFs on R2 under stories/, or in the site's media/printables/). Anything else is dropped.
+  function printableList(v) {
+    return (Array.isArray(v) ? v : []).filter(function (it) {
+      return it && typeof it.file === 'string' && /^(https:\/\/media\.littlesaltandlight\.com\/stories\/|media\/printables\/)[a-z0-9][a-z0-9._-]{0,150}\.pdf$/.test(it.file);
+    }).slice(0, 6).map(function (it) {
+      var o = { title: String(it.title || 'Printable').slice(0, 80), file: it.file };
+      if (typeof it.thumb === 'string' && /^(https:\/\/media\.littlesaltandlight\.com\/stories\/|media\/printables\/)[a-z0-9][a-z0-9._-]{0,150}\.jpg$/.test(it.thumb)) o.thumb = it.thumb; // picture of page 1 (Studio uploads)
+      return o;
+    });
   }
   // Built-in stories first, then Studio stories by publish date (then episode). A Studio story with the
   // same slug as a built-in one replaces it.
@@ -523,5 +581,6 @@
   window.LLStore.sgtDay = sgtDay;
   window.LLStore.validateTimings = validateTimings;
   window.LLStore.storyFromPost = storyFromPost;
+  window.LLStore.printableList = printableList;
   window.LLStore.mergeStories = mergeStories;
 })();

@@ -991,6 +991,28 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .no-verses .p-hello { display: grid; gap: 10px; }
 .no-verses .p-hello .big { font: 800 34px/1.1 var(--display); letter-spacing: -.02em; }
 .no-verses .p-hello p { font-size: 16px; line-height: 1.45; max-width: 30ch; }
+/* Today: tonight's bedtime story on the welcome card (js/seo.js tonightHtml). One compact row, so it fits above
+   the owl on small phones; the series line only shows where there is room. */
+.p-tonight { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; margin-top: 14px; padding: 12px 12px 12px 16px; max-width: 380px; border-radius: 20px; background: rgba(255,255,255,.8); color: #1d1233; }
+.p-tonight[hidden] { display: none; }
+.p-ton-x { display: grid; gap: 3px; min-width: 0; }
+.p-tonight .p-kicker { margin: 0; }
+.p-tonight .p-ton-t { font: 800 19px/1.15 var(--display); letter-spacing: -.01em; }
+.p-tonight .p-ton-m { margin: 0; font-size: 13px; line-height: 1.35; }
+.p-tonight .p-ton-go { text-decoration: none; white-space: nowrap; padding: 12px 16px; }
+@media (max-height: 760px) { .p-tonight .p-ton-m { display: none; } }
+/* Short phones: tonight's story takes the place of the welcome buttons (the tabs below lead to Read and Listen
+   too), so the Today filters and the owl keep their room. */
+@media (max-width: 899px) and (max-height: 700px) {
+  .p-hello:has(~ .p-tonight:not([hidden])) .p-btns { display: none; }
+  .p-tonight { margin-top: 2px; padding: 6px 6px 6px 14px; border-radius: 999px; }
+  .p-tonight .p-kicker { display: none; }
+  .p-tonight .p-ton-t { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .p-tonight .p-ton-t::before { content: "Tonight: "; font-weight: 700; }
+  .p-tonight .p-ton-go { padding: 10px 14px; }
+}
+.p-app.night .p-tonight { background: rgba(10,14,40,.82); color: #f3e9c6; }
+.p-app.night .p-tonight .p-ton-go { background: rgba(255,255,255,.92); color: #151028; }
 /* Phone (SWA audit): the tab bar already lists every section, so Today's top row keeps only the
    wordmark and the night/calm buttons, and the welcome sits higher, with less empty sky above it. */
 @media (max-width: 899px) {
@@ -1536,6 +1558,28 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
 .p-ep-card b { font-size: 16px; line-height: 1.25; }
 .p-ep-card > span:last-child { font-weight: 700; font-size: 13px; }
 .p-ep-card:focus-visible, .p-epage .back:focus-visible { outline: 3px solid #f5c26b; outline-offset: 2px; }
+/* Bedtime story page: free printables (js/seo.js printablesHtml): a picture of each page on a warm card,
+   two across on a phone, the whole card is the download link. */
+.p-print { display: grid; gap: 10px; margin-top: 8px; min-width: 0; }
+.p-print h2 { margin: 0; }
+.p-print > p { margin: 0; }
+.p-print-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; max-width: 560px; min-width: 0; }
+.p-print-list li { min-width: 0; }
+.p-dl { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; gap: 10px; height: 100%; min-width: 0; padding: 12px 12px 14px; border-radius: 18px; background: #fff1c9; color: #2a1f33; text-decoration: none; font-family: var(--display); }
+.p-dl-pg { display: grid; place-items: center; aspect-ratio: 360 / 510; overflow: hidden; border-radius: 6px; background: #fff; color: #8a7a9e; box-shadow: 0 1px 2px rgba(42,31,51,.18), 0 8px 18px -10px rgba(42,31,51,.45); transform: rotate(-1.5deg); transition: transform .2s ease; }
+.p-print-list li:nth-child(even) .p-dl-pg { transform: rotate(1.5deg); }
+.p-dl-pg img { display: block; width: 100%; max-width: 100%; height: 100%; min-width: 0; object-fit: contain; }
+.p-dl:hover .p-dl-pg, .p-dl:focus-visible .p-dl-pg { transform: rotate(0deg) translateY(-2px); }
+.p-dl-t { display: grid; gap: 2px; }
+.p-dl-t b { font-size: 15px; line-height: 1.25; }
+.p-dl-t small { font-size: 12px; font-weight: 700; color: #5e4a3a; }
+.p-dl-go { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 8px 12px; border-radius: 999px; background: #2a1f33; color: #fff6da; font-size: 13px; font-weight: 700; }
+.p-dl:focus-visible { outline: 3px solid #f5c26b; outline-offset: 2px; }
+.p-app.calm .p-dl-pg, .p-app.calm .p-print-list li:nth-child(even) .p-dl-pg { transform: none; transition: none; }
+@media (prefers-reduced-motion: reduce) { .p-dl-pg { transition: none; } }
+.p-app.night .p-dl { background: #3a3163; color: #fbe6a6; }
+.p-app.night .p-dl-t small { color: #e6d6a8; }
+.p-app.night .p-dl-go { background: #fbe6a6; color: #1a1422; }
 .p-app.night .p-ep-player { background: rgba(255,255,255,.07); }
 .p-app.night .p-ep-note { color: #ffc9b8; }
 .p-app.night .p-ep-word { background: #3a3163; color: #fbe6a6; }
@@ -1692,13 +1736,36 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
 /* The top row (Reel chip + sound) keeps clear of the close button in the top-right corner. */
 .p-rtoprow { padding-right: 56px; }
 @media (max-width: 899px) { .p-rtop { top: 10px; } .p-rtoprow { padding-right: 52px; } }
-/* Per-video text on /watch/<slug> (lib/reel-text.mjs), static HTML. Solid panel so contrast holds:
-   #f6f1ff on #1d1538 ~15:1, #ffd98a headings ~12:1 (WCAG AA). */
-.p-reeltext { margin: 20px 16px 32px; padding: 18px 20px; border-radius: 18px; background: #1d1538; color: #f6f1ff; border: 1px solid rgba(255,255,255,.12); max-width: 720px; line-height: 1.6; font-size: 1rem; }
-@media (min-width: 900px) { .p-reeltext { margin-left: auto; margin-right: auto; } }
-.p-reeltext h2 { font-size: 1.1rem; margin: 0 0 6px; color: #ffd98a; }
-.p-reeltext > div + div { margin-top: 18px; }
-.p-reeltext p { margin: 0 0 8px; }
-.p-reeltext blockquote { margin: 0 0 8px; padding-left: 12px; border-left: 3px solid #ffd98a; font-style: italic; }
-.p-reeltext ul { margin: 0; padding-left: 1.2em; }
-.p-reeltext li + li { margin-top: 4px; }
+/* Desktop-only static text (lib/reel-text.mjs): "About this video" under the video on /watch/<slug>
+   and a series' intro. Solid panels so contrast holds in day and night: #f6f1ff on #1d1538 ~15:1,
+   #ffd98a ~12:1 (WCAG AA). On phones the intro is clamped to two lines with a More/Less button. */
+.p-about { margin: 20px 16px 32px; padding: 0; border-radius: 18px; background: #1d1538; color: #f6f1ff; border: 1px solid rgba(255,255,255,.12); box-sizing: border-box; max-width: min(720px, calc(100% - 32px)); line-height: 1.6; font-size: 1rem; }
+.p-about > summary { display: block; cursor: pointer; padding: 16px 48px 16px 20px; position: relative; list-style: none; border-radius: 18px; }
+.p-about > summary::-webkit-details-marker { display: none; }
+.p-about > summary::after { content: ''; position: absolute; right: 22px; top: 22px; width: 9px; height: 9px; border-right: 2px solid #ffd98a; border-bottom: 2px solid #ffd98a; transform: rotate(45deg); transition: transform .2s; }
+.p-about[open] > summary::after { transform: rotate(-135deg); top: 26px; }
+.p-about > summary:focus-visible { outline: 3px solid #ffd98a; outline-offset: 2px; }
+.p-about-k { display: block; font-weight: 800; color: #ffd98a; margin-bottom: 4px; }
+.p-about-sum, .p-about-verse { display: block; }
+.p-about-verse { margin-top: 6px; font-style: italic; }
+.p-about-body { padding: 0 20px 18px; }
+.p-about h3 { font-size: 1.05rem; margin: 0 0 4px; color: #ffd98a; }
+.p-about p { margin: 0; }
+.p-about-body > div + div { margin-top: 14px; }
+.p-sintro-wrap { margin: 12px 16px 4px; box-sizing: border-box; max-width: min(720px, calc(100% - 32px)); }
+.p-sintro-box { margin: 0 0 12px; padding: 14px 18px; border-radius: 16px; background: #1d1538; border: 1px solid rgba(255,255,255,.12); }
+.p-sintro-more { display: none; }
+.p-sintro { margin: 0; color: #f6f1ff; line-height: 1.6; font-size: 1rem; }
+@media (min-width: 900px) { .p-about, .p-sintro-wrap { margin-left: auto; margin-right: auto; } }
+@media (prefers-reduced-motion: reduce) { .p-about > summary::after { transition: none; } }
+@media (max-width: 767px) {
+  .p-about { margin: 12px 12px 24px; max-width: calc(100% - 24px); font-size: .95rem; }
+  .p-about > summary { padding: 12px 44px 12px 16px; }
+  .p-about-body { padding: 0 16px 14px; }
+  .p-sintro-wrap { margin: 8px 12px 4px; max-width: calc(100% - 24px); }
+  .p-sintro-box { padding: 10px 14px; }
+  .p-sintro { font-size: .95rem; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+  .p-sintro-box.open .p-sintro { display: block; -webkit-line-clamp: unset; line-clamp: none; overflow: visible; }
+  .p-sintro-more { display: inline-block; margin-top: 4px; min-height: 44px; padding: 0 4px; background: none; border: 0; color: #ffd98a; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
+  .p-sintro-more:focus-visible { outline: 3px solid #ffd98a; outline-offset: 2px; border-radius: 6px; }
+}

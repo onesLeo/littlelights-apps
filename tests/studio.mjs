@@ -138,6 +138,22 @@ await page.click('.side [data-view="posts"]').catch(() => {});
   });
   check(auto && auto.type === 'image/webp' && auto.w === 180 && auto.h === 320, `poster: without a chosen image, a WebP frame is taken from the video (${JSON.stringify(auto)})`);
   check(await page.$eval('#posterFrame', (b) => b.textContent.includes('frame')), 'poster: the author can take a frame again');
+  // Frame picker: open it, scrub with the slider and the + button, keep that frame.
+  await page.click('#posterFrame');
+  await page.waitForFunction(() => { const r = document.querySelector('#fpRange'); return r && +r.max > 0; }, null, { timeout: 10000 }).catch(() => {});
+  const fp = await page.evaluate(() => ({ max: +document.querySelector('#fpRange').max, label: document.querySelector('#fpRange').getAttribute('aria-label'), exp: document.querySelector('#posterFrame').getAttribute('aria-expanded') }));
+  check(fp.max > 0 && fp.label && fp.exp === 'true', `poster: the frame picker opens with a labelled slider up to the video length (${JSON.stringify(fp)})`);
+  await page.$eval('#fpRange', (r) => { r.value = 0.2; r.dispatchEvent(new Event('input', { bubbles: true })); });
+  await page.click('#fpFwd');
+  const at = await page.$eval('#fpRange', (r) => +r.value);
+  check(at > 0.2, `poster: the slider and + button move the frame (${at})`);
+  const before = await page.$eval('img#posterPv', (i) => i.src);
+  await page.waitForTimeout(300);
+  await page.click('#fpUse');
+  await page.waitForFunction((b) => { const i = document.querySelector('img#posterPv'); return !document.querySelector('#framePick') && i && i.src && i.src !== b && i.naturalWidth > 0; }, before, { timeout: 10000 }).catch(() => {});
+  check(!(await page.$('#framePick')) && (await page.$eval('img#posterPv', (i) => i.src)) !== before, 'poster: "Use this frame" saves the picked frame as the poster');
+  await page.click('#posterFrame'); await page.click('#fpCancel');
+  check(!(await page.$('#framePick')), 'poster: Cancel closes the frame picker');
   await page.setInputFiles('#f_poster', { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hi') });
   check((await text('.errmsg')).includes('JPG, PNG or WebP'), 'poster: a non-image file is refused');
   await page.setInputFiles('#f_poster', { name: 'big.png', mimeType: 'image/png', buffer: Buffer.alloc(5 * 1024 * 1024 + 10) });
@@ -686,6 +702,35 @@ await sctx.close();
   check(await pp.evaluate(() => document.activeElement.id === 'g-team' && !location.hash), 'guide: contents links jump within the guide');
   check(await pp.$eval('.me .guidebtn', (e) => { const r = e.getBoundingClientRect(); return r.top >= 0 && r.right <= innerWidth; }), 'guide: the guide button is on screen at the top on a phone');
   await pctx.close();
+}
+
+// ---------- phone: tapping a scheduled post shows its form first ----------
+{
+  const tctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
+  await tctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  await tctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+  const tp = await tctx.newPage();
+  tp.on('pageerror', (e) => errors.push(e.message));
+  await tp.goto(base + 'studio/');
+  await tp.fill('#email', 'owner@example.org'); await tp.tap('#signinForm button[type=submit]'); await tp.waitForSelector('.shell');
+  await tp.tap('.side [data-view="new"]'); await tp.tap('[data-new="game"]');
+  await tp.fill('#f_title', 'Jonah is coming soon'); await tp.fill('#f_text', 'Journey 5 is being built.');
+  await tp.tap('[data-mode="schedule"]');
+  await tp.fill('#f_publish_date', tomorrowSgt); await tp.fill('#f_publish_time', '18:30');
+  await tp.tap('#postForm button[type=submit]'); await tp.waitForSelector('.ptable .row');
+  await tp.tap('[data-sfilter="scheduled"]');
+  await tp.tap('.ptable .row .c-date');
+  await tp.waitForSelector('#postForm');
+  await tp.waitForTimeout(700);
+  const vis = await tp.$eval('#f_title', (el) => { const r = el.getBoundingClientRect(), bar = document.querySelector('.side').getBoundingClientRect(); return { ok: r.top >= bar.bottom && r.bottom <= innerHeight, top: Math.round(r.top) }; });
+  check(vis.ok && (await tp.inputValue('#f_title')) === 'Jonah is coming soon', `phone: tapping a scheduled post shows its Title field in the first screen (top ${vis.top}px)`);
+  check(await tp.$eval('#pvToggle', (b) => b.getAttribute('aria-expanded') === 'false' && getComputedStyle(document.getElementById('pvBody')).display === 'none'), 'phone: the preview starts folded under “Show preview”');
+  await tp.focus('#pvToggle'); await tp.keyboard.press('Enter');
+  check(await tp.$eval('#pvToggle', (b) => b.getAttribute('aria-expanded') === 'true' && b.textContent === 'Hide preview' && document.querySelector('#pvBody .phone').getBoundingClientRect().height > 100), 'phone: “Show preview” opens the preview from the keyboard');
+  await tp.screenshot({ path: 'test-results/studio-phone-edit.png' });
+  await tp.setViewportSize({ width: 1280, height: 900 });
+  check(await tp.$eval('#pvToggle', (b) => getComputedStyle(b).display === 'none' && document.querySelector('.preview-col .phone').getBoundingClientRect().height > 100), 'desktop: the preview shows beside the form with no toggle');
+  await tctx.close();
 }
 
 check(errors.length === 0, `no script errors ${errors.join(' | ')}`);

@@ -76,3 +76,7 @@ The live site is hosted on **Cloudflare Pages** (project `littlelights-apps`, ht
 ## Privacy
 
 The app has no accounts, no ads and no tracking. Day/night, calm mode, the swipe hint and saved reels are remembered only in the visitor's own browser. The newsletter form is for adults and is not connected to an email service yet.
+
+### Studio uploads go to Cloudflare R2
+
+Studio media uploads (reels, audio, story timings and covers) go to the R2 bucket `littlesaltandlight-media` through the Pages Function `functions/api/upload.js` and are served from https://media.littlesaltandlight.com with `Cache-Control: public, max-age=31536000, immutable`, so they cost no Supabase egress. The function checks the Supabase session and team membership the same way Supabase Storage did. **One-time setup:** in the Cloudflare dashboard, Pages project `littlesaltandlight` → Settings → Bindings → Add → R2 bucket: variable name `MEDIA`, bucket `littlesaltandlight-media`, for both Production and Preview, then redeploy. Without it, uploads answer "R2 binding MEDIA is not configured". The repo has no `wrangler.toml` on purpose (adding one would make it the source of truth for the Pages project's settings).

@@ -37,7 +37,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     // Bedtime story (/listen/<slug>, "Goodnight Little Light"): the same fields as js/content.js bedtimeStories.
     story: ['series', 'episode', 'narrator', 'desc', 'seo_title', 'seconds', 'minutes', 'file', 'story', 'prayer', 'goodnight', 'verse', 'ref', 'translation',
       'questions', 'word', 'word_meaning', 'timings', 'timings_file', 'timings_info', 'image', 'image_width', 'image_height', 'image_file', 'color', 'ink',
-      'next_title', 'next_when', 'next_href', 'publish_date']
+      'next_title', 'next_when', 'next_href', 'publish_date', 'printables']
   };
   var STORY_SERIES = 'Bedtime Bible Stories for Kids', STORY_GOODNIGHT = 'Goodnight, little light. Sleep tight. \u{1F319}';
   // Desktop caption page (book spread) for reels: fields.page_style and fields.page_color; empty colour = from the reel.
@@ -455,7 +455,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   }
 
   // Poster (thumbnail) for a video reel, stored in fields.poster (a URL like media_url, so any storage
-  // host works). Optional: without one, a frame about 1 s in is taken from the video and saved as WebP.
+  // host works). Optional: without one, a frame about 1 s in is taken from the video and saved as WebP;
+  // the author can pick another frame with the frame picker.
   var POSTER_TYPES = ['image/jpeg', 'image/png', 'image/webp'], POSTER_MAX = 5 * 1024 * 1024;
   function posterField() {
     var e = state.editing, busy = state.uploading === 'poster';
@@ -468,10 +469,66 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       '<div class="poster-acts"><label class="upload' + (busy ? ' busy' : '') + '" data-drop="poster"><b>' + (busy ? 'Saving poster…' : 'Choose a poster image') + '</b>' +
       '<small>JPG, PNG or WebP, up to 5 MB. Vertical 9:16 looks best. ' + (e.poster ? (e.poster_auto ? 'Now using a frame from the video.' : 'Now using your image.') : 'Without one, a frame from the video is used.') + '</small>' +
       '<input class="sr" type="file" accept="' + POSTER_TYPES.join(',') + '" data-file="poster" id="f_poster"></label>' +
-      (e.media_url ? '<button class="btn soft small" type="button" id="posterFrame"' + (busy ? ' disabled' : '') + '>Use a frame from the video</button>' : '') +
-      '</div></div>' +
+      (e.media_url ? '<button class="btn soft small" type="button" id="posterFrame" aria-expanded="' + !!state.framePick + '" aria-controls="framePick"' + (busy ? ' disabled' : '') + '>Pick a frame from the video</button>' : '') +
+      '</div></div>' + (e.media_url && state.framePick ? framePickPanel(busy) : '') +
       '<label class="field sub"><span>Or paste a poster link</span><input class="input' + (state.errors.poster ? ' err' : '') + '" id="f_poster_url" data-f="poster" type="url" value="' + esc(e.poster || '') + '" placeholder="https://media.littlesaltandlight.com/reels/…-poster.jpg"></label>' +
       (state.errors.poster ? '<span class="errmsg" role="alert">' + state.errors.poster + '</span>' : '') + '</div>';
+  }
+
+  // Frame picker: scrub the video with a slider (or −/+ buttons) and save the frame shown as the poster.
+  var FRAME_STEP = 0.5;
+  function framePickPanel(busy) {
+    return '<div class="frame-pick" id="framePick" role="group" aria-labelledby="framePickH">' +
+      '<b id="framePickH">Pick the frame for the poster</b>' +
+      '<video id="fpVideo" muted playsinline preload="auto" crossorigin="anonymous" aria-label="Video preview of the chosen frame" data-src="' + esc(state.editing.media_url) + '"></video>' +
+      '<div class="fp-ctl"><button class="btn soft small fp-step" type="button" id="fpBack" aria-label="Back ' + FRAME_STEP + ' seconds">−</button>' +
+      '<input type="range" id="fpRange" class="fp-range" min="0" max="0" step="0.1" value="0" aria-label="Frame time in seconds" aria-describedby="fpTime">' +
+      '<button class="btn soft small fp-step" type="button" id="fpFwd" aria-label="Forward ' + FRAME_STEP + ' seconds">+</button></div>' +
+      '<output id="fpTime" class="fp-time" for="fpRange" aria-live="polite">0.0 s</output>' +
+      '<div class="fp-acts"><button class="btn small" type="button" id="fpUse"' + (busy ? ' disabled' : '') + '>Use this frame</button>' +
+      '<button class="btn ghost small" type="button" id="fpCancel">Cancel</button></div></div>';
+  }
+  function fpFmt(t, d) { return t.toFixed(1) + ' s' + (d ? ' of ' + d.toFixed(1) + ' s' : ''); }
+  function fpSeek(t) {
+    var v = document.getElementById('fpVideo'), r = document.getElementById('fpRange'), o = document.getElementById('fpTime');
+    if (!v || !r) return;
+    var d = isFinite(v.duration) ? v.duration : 0;
+    t = Math.max(0, Math.min(d || 0, t));
+    r.value = t; r.setAttribute('aria-valuetext', fpFmt(t, d)); if (o) o.textContent = fpFmt(t, d);
+    try { v.currentTime = t; } catch (err) { /* not ready yet */ }
+  }
+  function wireFramePick() {
+    var v = document.getElementById('fpVideo');
+    if (!v || v.dataset.wired) return;
+    v.dataset.wired = '1';
+    v.addEventListener('loadedmetadata', function () {
+      var r = document.getElementById('fpRange'), d = isFinite(v.duration) ? v.duration : 0;
+      if (r) r.max = d.toFixed(1);
+      fpSeek(state.frameAt != null ? state.frameAt : Math.min(1, d / 2));
+    });
+    v.addEventListener('error', function () { state.errors.poster = 'This browser can’t read the video. Choose an image instead.'; state.framePick = false; render(); });
+  }
+  function frameBlob(v) {
+    return new Promise(function (resolve, reject) {
+      var w = v.videoWidth, h = v.videoHeight;
+      if (!w || !h) return reject(new Error('The video has no picture.'));
+      var k = Math.min(1, 1080 / Math.max(w, h)), c = document.createElement('canvas');
+      c.width = Math.round(w * k); c.height = Math.round(h * k);
+      try { c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); } catch (err) { return reject(err); }
+      var out = function (type, q, next) {
+        try { c.toBlob(function (b) { if (b && b.type === type) resolve(b); else if (next) next(); else reject(new Error('Couldn’t make an image.')); }, type, q); } catch (err) { reject(err); }
+      };
+      out('image/webp', 0.82, function () { out('image/jpeg', 0.85); });
+    });
+  }
+  function useFrame() {
+    var v = document.getElementById('fpVideo'), e = state.editing;
+    if (!v) return;
+    syncFields();
+    frameBlob(v).then(function (blob) {
+      state.framePick = false; state.frameAt = null;
+      return savePoster(blob, posterName(e), true).then(function () { if (!state.errors.poster) toast('Poster saved from ' + v.currentTime.toFixed(1) + ' s into the video.'); });
+    }).catch(function (err) { state.errors.poster = 'Couldn’t use this frame (' + err.message + '). Choose an image instead.'; render(); });
   }
 
   function editView() {
@@ -551,8 +608,10 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
           : '<button class="btn soft" type="button" id="saveDraft"' + (state.busy || state.uploading ? ' disabled' : '') + '>Save draft</button>') +
         primary +
       '</div></div></form>' + historyView() + '</div>' +
-      '<div class="preview-col"><span class="label">Preview on Today</span><div class="phone"><div class="screen" id="preview">' + preview(p) + '</div></div>' +
-      '<p class="pv-note">This is how the post will look in the app’s feed.</p></div></div>';
+      // On a narrow screen the form comes first and the preview is folded away below it (opened with this button).
+      '<div class="preview-col' + (state.pvOpen ? ' open' : '') + '"><button type="button" class="btn soft pvtoggle" id="pvToggle" aria-expanded="' + !!state.pvOpen + '" aria-controls="pvBody">' + (state.pvOpen ? 'Hide preview' : 'Show preview') + '</button>' +
+      '<div class="pvbody" id="pvBody"><span class="label">Preview on Today</span><div class="phone"><div class="screen" id="preview">' + preview(p) + '</div></div>' +
+      '<p class="pv-note">This is how the post will look in the app’s feed.</p></div></div></div>';
   }
 
   function preview(p) {
@@ -562,11 +621,22 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (p.type === 'verse') inner = '<div class="sun"></div><div class="kick">Verse of the week</div><div class="verse' + (isLongVerse(p.verse) ? ' preview' : '') + '">“' + ph((p.verse || '').trim(), 'Your verse appears here') + '”</div><div class="ref">' + ph((p.ref || '').toUpperCase(), 'REFERENCE') + ' · ' + esc((p.translation || '').trim() || 'WEB') + '</div><div class="btns"><span class="pbtn">' + (isLongVerse(p.verse) ? 'Read full passage' : 'More verses') + '</span><span class="pbtn g">Save image</span></div>';
     else if (p.type === 'devotion') inner = '<div class="kick">Devotion · ' + readMinutes(p) + ' min</div><div class="big">' + ph(p.title, 'Your title') + '</div><p>' + ph(p.teaser, 'Your one-line summary') + '</p><div class="btns"><span class="pbtn">Read ↑</span>' + (p.audioId ? '<span class="pbtn g">▶ Listen</span>' : '') + '</div>';
     else if (p.type === 'audio') inner = '<div class="wave">' + [30, 70, 45, 90, 55, 80, 35, 65, 50, 85, 40, 60].map(function (h) { return '<i style="height:' + h + '%"></i>'; }).join('') + '</div><div class="kick">Audio · ' + esc(p.minutes || '0:00') + '</div><div class="big">' + ph(p.title, 'Your title') + '</div><p>' + esc(p.kind || 'Devotion') + '</p><div class="btns"><span class="pbtn">▶ Play</span></div>';
-    else if (p.type === 'story') inner = '<div class="kick">' + esc(p.series || STORY_SERIES) + (p.episode ? ' · #' + esc(p.episode) : '') + '</div><div class="big">' + ph(p.title, 'Your story title') + '</div><p>Bedtime Bible story' + (p.narrator ? ', read by ' + esc(p.narrator) : '') + ' · ' + esc(p.minutes || '0:00') + '</p><p>' + ph(storyParas(p.story)[0] ? storyParas(p.story)[0].slice(0, 140) + '…' : '', 'The first paragraph appears here') + '</p><div class="btns"><span class="pbtn">▶ Listen</span></div>';
+    else if (p.type === 'story') inner = '<div class="kick">' + esc(p.series || STORY_SERIES) + (p.episode ? ' · #' + esc(p.episode) : '') + '</div><div class="big">' + ph(p.title, 'Your story title') + '</div><p>Bedtime Bible story' + (p.narrator ? ', read by ' + esc(p.narrator) : '') + ' · ' + esc(p.minutes || '0:00') + '</p><p>' + ph(storyParas(p.story)[0] ? storyParas(p.story)[0].slice(0, 140) + '…' : '', 'The first paragraph appears here') + '</p><div class="btns"><span class="pbtn">▶ Listen</span></div>' + previewPrintables(p);
     else if (p.type === 'reel') inner = '<div class="play"></div><div class="kick">Reel · ' + esc(p.minutes || '0:00') + '</div><div class="big">' + ph(p.title, 'Your title') + '</div><div class="btns"><span class="pbtn">▶ Watch</span></div>';
     else inner = '<div class="kick">Game</div><div class="big">' + ph(p.title, 'Your headline') + '</div><p>' + ph(p.text, 'What’s new') + '</p><div class="btns"><span class="pbtn">' + esc(p.button || 'See the game') + '</span></div>';
     return '<div class="pv" style="background:' + bg + ';color:' + t.ink + '">' + inner + '</div>' +
       '<div class="tabbar"><span class="on">Today</span><span>Watch</span><span>Listen</span><span>Read</span><span>Verses</span><span>Play</span></div>';
+  }
+  // The "Free printables" card as families will see it under the questions: a picture of each page (site files have
+  // one next to the PDF; a new Studio upload shows a paper until it is published) and its title.
+  function previewPrintables(p) {
+    var list = Array.isArray(p.printables) ? p.printables : [];
+    if (!list.length) return '<div class="pvprint empty"><div class="kick">Free printables</div><span class="placeholder">Add a colouring page or verse cards under Free printables</span></div>';
+    return '<div class="pvprint"><div class="kick">Free printables · ' + list.length + '</div><ul>' + list.slice(0, 6).map(function (it) {
+      var m = /^media\/printables\/([a-z0-9][a-z0-9._-]{0,150})\.pdf$/.exec(String(it.file || '')), th = it.thumb || (m ? '/media/printables/' + m[1] + '.jpg' : ''); // same rule as LL_SEO.printThumb
+      var img = !th ? '<i aria-hidden="true"></i>' : /^local-media:/.test(th) ? '<img data-src="' + esc(th) + '" alt="" width="360" height="510">' : '<img src="' + esc(th) + '" alt="" width="360" height="510">';
+      return '<li><span class="pg">' + img + '</span><b>' + esc(it.title) + '</b><small>PDF · Download</small></li>';
+    }).join('') + '</ul></div>';
   }
   function readMinutes(p) { return Math.max(1, Math.round([p.body, p.family, p.prayer].join(' ').split(/\s+/).filter(Boolean).length / 180)); }
 
@@ -699,7 +769,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
         'Only people on the team can sign in. There is no sign-up: the owner adds you on the Team page.') +
       part('account', ['Press <b>Change password</b> at the top (beside Sign out).', 'Type a new password twice. Use at least 12 characters; a short phrase of random words works well.', 'Press <b>Sign out</b> when you finish on a shared device.']) +
       part('posts', ['Open <b>Posts</b> to see everything on Today, Watch, Listen, Read and Verses.', 'Type in the search box, or use the kind and status chips (Published, Scheduled, Drafts) to narrow the list.', 'On a computer, press a column title to sort by title, type, status, date or views.', 'The Date column says <b>Goes live</b> for a scheduled post, <b>Published</b> for a live one and <b>Edited</b> for a draft, with the time in Singapore time (SGT).', 'Tap a post to open it and change it.']) +
-      part('write', ['Press <b>New post</b> and pick a kind: Verse, Devotion, Reel, Audio, Bedtime story or Game update.', 'Fill in the fields. The phone preview on the right shows how it will look on Today.', 'For audio and reels, choose or drop the file to upload it. For a reel you can also add a poster image or use a frame from the video.', 'Tick <b>Show on the Today feed</b> if it should appear there.'],
+      part('write', ['Press <b>New post</b> and pick a kind: Verse, Devotion, Reel, Audio, Bedtime story or Game update.', 'Fill in the fields. The phone preview on the right shows how it will look on Today.', 'For audio and reels, choose or drop the file to upload it. For a reel you can also add a poster image, or press <b>Pick a frame from the video</b>, drag the slider (or use − and +) to the moment you want, and press <b>Use this frame</b>.', 'Tick <b>Show on the Today feed</b> if it should appear there.'],
         'Each saved change is kept in <b>History</b> under the form. Press <b>Restore this version</b> to go back to an older one.') +
       part('publish', ['Choose <b>Publish now</b> or <b>Schedule</b>. For Schedule, pick a date and a time. Times are Singapore time (SGT, UTC+8); 00:00 is midnight at the start of that day.', 'Press <b>Publish</b> (or <b>Schedule</b>, or <b>Update</b> for a live post).', 'Not ready? Press <b>Save draft</b>. A live post can go back with <b>Move to drafts</b>.', 'To remove a post for everyone, press <b>Delete</b>, then confirm.'],
         'Contributors save drafts only. An owner or editor publishes them.') +
@@ -709,6 +779,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
         'Fill in the <b>Bible verse</b> and its reference, the <b>prayer</b>, the goodnight line and the <b>3 questions</b> (one per line). Add a <b>Word to know</b> only if the story explains one.',
         'Under <b>Read-along timings</b>, choose the timings JSON for this mix (a list of sentences, each with text, start, end and words). The Studio checks it and says how many sentences it found.',
         'Optional: a <b>cover image</b> (1200×630 JPG works best for link previews). Without one, the site’s default share image is used.',
+        'Optional: under <b>Free printables</b>, add up to 6 PDFs (a colouring page, verse cards). They appear as “Free printables” under the 3 questions, and Insights counts their downloads by country.',
         'Choose <b>Schedule</b>, pick the <b>date and time</b> (Singapore time; leave 00:00 for midnight) and press <b>Schedule</b>. Or press <b>Save draft</b> to finish later.'],
         'The story appears on Listen (Goodnight Little Light) and at its own page from the chosen time (Singapore time) on its date. Before that, visitors can’t see it. Each morning at 5:00 (SGT) the site rebuilds and adds the Google-readable page and sitemap entry; a story set for, say, 18:30 already works at 18:30 and is added to the build the next morning. A new mix of the audio or timings gets a new file name automatically; just upload it again and press <b>Update</b>.') +
       part('reelpage', ['Open a reel post.', 'Under <b>Page style</b>, choose Auto from reel, Dark, Light or Glass clear. This is the caption page on computers.', 'Under <b>Page colour</b>, pick a colour, or leave it empty to use the reel’s own colour. Text and buttons are adjusted so they stay easy to read.', 'To set the default for every reel left on Auto, go to <b>Menus</b> → <b>Reel caption page</b> and press <b>Save page style</b> (owner only).']) +
@@ -720,7 +791,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
         'A published Studio copy of an item replaces it anyway.') +
       part('nocount', ['Open <a href="' + NOCOUNT_URL + '" target="_blank" rel="noopener"><b>' + NOCOUNT_URL.replace('https://', '') + '</b></a> once on each of your devices (and each browser you use). A small note confirms it.'],
         'Your visits then stop being counted in Insights. To be counted again, open the same link with <b>?nocount=0</b>, or use the button below. The Studio itself is never counted.' + nocountBox()) +
-      part('insights', ['Open <b>Insights</b>.', 'Pick 7, 30 or 90 days.', 'See visits, the most-read pages, countries, where visitors came from, and plays and “read to the end”.'],
+      part('insights', ['Open <b>Insights</b>.', 'Pick 7, 30 or 90 days.', 'See visits, the most-read pages, countries, where visitors came from, plays and “read to the end”, and printable downloads by country.'],
         'Counts only: no names and no personal data.') +
       part('team', ['Open <b>Team</b> (owner only to add or remove people).', 'Type the person’s email, choose a role and press <b>Add to team</b>.', 'They sign in with the same page. Press <b>Remove</b> to take someone off the team.'],
         '<b>Owner</b>: everything, including adding and removing people. <b>Editor</b>: writes, publishes and deletes posts. <b>Contributor</b>: writes drafts for an owner or editor to publish.') +
@@ -786,7 +857,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   try { regionNames = new Intl.DisplayNames(['en'], { type: 'region' }); } catch (err) {}
   function countryLabel(code) {
     var c = String(code || '').toUpperCase();
-    if (!/^[A-Z]{2}$/.test(c)) return c && c !== 'UNKNOWN' ? code : 'Somewhere unknown';
+    if (!/^[A-Z]{2}$/.test(c) || c === 'XX') return c && c !== 'UNKNOWN' && c !== 'XX' ? code : 'Somewhere unknown';
     var name = c; try { name = regionNames ? regionNames.of(c) : c; } catch (err) {}
     return String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65, 0x1F1E6 + c.charCodeAt(1) - 65) + ' ' + name;
   }
@@ -903,7 +974,33 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
         '<p class="ihint small"><b>Direct</b> means a typed address, a bookmark, or a link from an app like WhatsApp that doesn’t say where it came from.</p></section>' +
       (pagesList.length ? '<section class="ipanel"><h3>Most visited pages</h3><p class="ihint">Main pages of the site, not single posts.</p>' + bars(pagesList, pageLabel, null, '') + '</section>' : '') +
       speedPanel(I.vitals) + '</div>';
-    return head + notice + cards + chart + top + where;
+    return head + notice + cards + chart + top + where + downloadsPanel(I.downloads, days);
+  }
+  // Free printables (bedtime story PDFs) downloaded through /dl/: per file with its top countries, and all countries.
+  function printLabel(key) {
+    var k = String(key || ''), m = /-(colouring-page|verse-and-question-cards|memory-verse-and-question-cards)$/.exec(k);
+    var story = m ? k.slice(0, -m[0].length) : k, what = m ? (m[1] === 'colouring-page' ? 'colouring page' : 'verse and question cards') : '';
+    var t = story.replace(/-bedtime-story$/, '').replace(/-/g, ' ');
+    t = t.charAt(0).toUpperCase() + t.slice(1);
+    return what ? t + ': ' + what : t;
+  }
+  function downloadsPanel(D, days) {
+    var h = '<section class="ipanel" id="insDownloads"><h3>Printable downloads</h3>';
+    if (D == null) return h + '<p class="iempty">Download counts start once the database update for them is applied.</p></section>';
+    var files = D.files || [];
+    h += '<p class="ihint">Colouring pages and verse cards opened from the bedtime story pages, with the countries they were downloaded from. ' +
+      '<b>' + (D.total || 0).toLocaleString() + '</b> in these ' + days + ' days' + (D.previous != null ? ' (' + (D.previous || 0).toLocaleString() + ' in the ' + days + ' days before)' : '') + '.</p>';
+    if (!files.length) return h + '<p class="iempty">No printable has been downloaded in these ' + days + ' days yet.</p></section>';
+    var max = files[0].total || 1;
+    h += '<ol class="toplist" id="dlFiles">' + files.slice(0, 12).map(function (f, i) {
+      var cs = Object.keys(f.countries || {}).map(function (c) { return [c, f.countries[c]]; }).sort(function (a, b) { return b[1] - a[1]; });
+      var top = cs.slice(0, 3).map(function (c) { return countryLabel(c[0]) + ' ' + c[1].toLocaleString(); }).join(' · ') + (cs.length > 3 ? ' · +' + (cs.length - 3) + ' more' : '');
+      return '<li><span class="rank">' + (i + 1) + '</span><span class="tp"><b>' + esc(printLabel(f.file)) + '</b><small>' + f.total.toLocaleString() + (f.total === 1 ? ' download' : ' downloads') + (top ? ' · ' + esc(top) : '') + '</small>' +
+        '<span class="bt"><i style="width:' + Math.max(2, Math.round(f.total / max * 100)) + '%"></i></span></span></li>';
+    }).join('') + '</ol>';
+    var all = Object.keys(D.countries || {}).map(function (c) { return { name: c, views: D.countries[c] }; }).sort(function (a, b) { return b.views - a.views; }).slice(0, 8);
+    if (all.length > 1) h += '<h4 class="isub">All printables by country</h4>' + bars(all, countryLabel, null, '');
+    return h + '</section>';
   }
   function speedPanel(v) {
     var s = speedVerdict(v);
@@ -916,11 +1013,12 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       '</ul><small>For 3 out of 4 visits (p75).</small></details></section>';
   }
   function resolveMediaElements() {
+    wireFramePick();
     Array.prototype.forEach.call(root.querySelectorAll('[data-src]'), function (el) {
       S.resolveMedia(el.getAttribute('data-src')).then(function (url) { if (url) el.src = url; });
     });
   }
-  function refreshPreview() { var pv = document.getElementById('preview'); if (pv && state.editing) pv.innerHTML = preview(state.editing); }
+  function refreshPreview() { var pv = document.getElementById('preview'); if (pv && state.editing) { pv.innerHTML = preview(state.editing); resolveMediaElements(); } }
   function go(view) { if (view === 'insights' && !state.insights) loadInsights(30); state.view = view; state.editing = null; state.errors = {}; state.confirmDelete = false; render(); window.scrollTo(0, 0); }
 
   // ---------- validation and saving ----------
@@ -1023,17 +1121,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       if (typeof src === 'string' && /^https?:/i.test(src)) v.crossOrigin = 'anonymous';
       v.onerror = function () { finish(new Error('This browser can’t read the video.')); };
       v.onloadedmetadata = function () { var d = v.duration; v.currentTime = isFinite(d) && d > 0 ? Math.min(1, d / 2) : 1; };
-      v.onseeked = function () {
-        var w = v.videoWidth, h = v.videoHeight;
-        if (!w || !h) return finish(new Error('The video has no picture.'));
-        var k = Math.min(1, 1080 / Math.max(w, h)), c = document.createElement('canvas');
-        c.width = Math.round(w * k); c.height = Math.round(h * k);
-        try { c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); } catch (err) { return finish(err); }
-        var out = function (type, q, next) {
-          try { c.toBlob(function (b) { if (b && b.type === type) finish(null, b); else if (next) next(); else finish(new Error('Couldn’t make an image.')); }, type, q); } catch (err) { finish(err); }
-        };
-        out('image/webp', 0.82, function () { out('image/jpeg', 0.85); });
-      };
+      v.onseeked = function () { frameBlob(v).then(function (b) { finish(null, b); }, finish); };
       v.src = url;
     });
   }
@@ -1097,7 +1185,81 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
       field('questions', '3 questions to ask afterwards', p.questions, { textarea: true, ph: 'One question per line', help: qs === 3 ? '3 questions.' : 'One per line: ' + qs + ' of 3 so far.' }) +
       storyUpload('story_timings', 'Read-along timings (JSON)', 'application/json,.json', p.timings_file ? p.timings_file + (p.timings_info ? ' · ' + p.timings_info : '') : '', 'A list of sentences: [{"text","start","end","words":[{"text","start","end"}]}], times in seconds. Upload the narration first, so the lengths can be checked.') +
       storyUpload('story_cover', 'Cover image (optional)', 'image/jpeg,image/png,image/webp', p.image_file ? p.image_file + (p.image_width ? ' · ' + p.image_width + '×' + p.image_height : '') : '', 'Share image for link previews and Google. 1200×630 JPG, up to 5 MB. Without one, the site’s default image is used.') +
-      '<div class="two">' + field('next_title', 'Next story title (optional)', p.next_title, { ph: 'Jesus Calms the Storm' }) + field('next_when', 'Next story day (optional)', p.next_when, { ph: 'Mon 16 Nov' }) + '</div>';
+      '<div class="two">' + field('next_title', 'Next story title (optional)', p.next_title, { ph: 'Jesus Calms the Storm' }) + field('next_when', 'Next story day (optional)', p.next_when, { ph: 'Mon 16 Nov' }) + '</div>' +
+      printablesField(p);
+  }
+  // Free printables (optional): PDFs shown as "Free printables" under the 3 questions, downloaded through /dl/
+  // (counted per file, day and country in Insights). Each upload is named stories/<title>-<kind>.<sha8>.pdf.
+  function printablesField(p) {
+    var list = Array.isArray(p.printables) ? p.printables : [];
+    return '<div class="field"><span>Free printables (optional)</span>' +
+      (list.length ? '<ul class="plist">' + list.map(function (it, i) {
+        return '<li><b>' + esc(it.title) + '</b> <small>' + esc(String(it.file).split('/').pop()) + '</small> <button class="btn small" type="button" data-print-remove="' + i + '" aria-label="Remove ' + esc(it.title) + '">Remove</button></li>';
+      }).join('') + '</ul>' : '') +
+      (list.length < 6 ? storyUpload('story_printable', 'Add a printable (PDF)', 'application/pdf,.pdf', '', 'An A4 PDF up to 10 MB, such as a colouring page or verse cards. The name says what it is: a file with “colouring” in its name is listed as “Colouring page”, one with “card” as “Memory verse and question cards”.') : '') + '</div>';
+  }
+  function printableTitle(name) {
+    var n = String(name || '').toLowerCase();
+    if (/colou?r/.test(n)) return 'Colouring page';
+    if (/card/.test(n)) return 'Memory verse and question cards';
+    var t = n.replace(/\.pdf$/, '').replace(/\.[0-9a-f]{8}$/, '').replace(/[-_]+/g, ' ').trim();
+    return t ? t.charAt(0).toUpperCase() + t.slice(1, 60) : 'Printable';
+  }
+  // A 360×510 JPEG of page 1, drawn in the browser with PDF.js (Mozilla, Apache 2.0; js/vendor/pdfjs-4.10.38,
+  // loaded only here, the first time a printable is added). Resolves null if the PDF can't be drawn.
+  var PDFJS = '/js/vendor/pdfjs-4.10.38/', pdfjsLib = null;
+  function loadPdfjs() {
+    if (!pdfjsLib) pdfjsLib = import(PDFJS + 'pdf.min.js').then(function (lib) { lib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; return lib; });
+    return pdfjsLib;
+  }
+  function pdfThumb(buf) {
+    var W = 360, H = 510;
+    return loadPdfjs().then(function (lib) {
+      return lib.getDocument({ data: new Uint8Array(buf.slice(0)), isEvalSupported: false, disableFontFace: true }).promise;
+    }).then(function (doc) {
+      return doc.getPage(1).then(function (page) {
+        var v1 = page.getViewport({ scale: 1 }), scale = Math.min(W / v1.width, H / v1.height), vp = page.getViewport({ scale: scale * 2 });
+        var cv = document.createElement('canvas'); cv.width = W * 2; cv.height = H * 2;
+        var g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+        var off = [(cv.width - vp.width) / 2, (cv.height - vp.height) / 2];
+        return page.render({ canvasContext: g, viewport: vp, transform: [1, 0, 0, 1, off[0], off[1]] }).promise.then(function () {
+          var out = document.createElement('canvas'); out.width = W; out.height = H;
+          var o = out.getContext('2d'); o.imageSmoothingQuality = 'high'; o.drawImage(cv, 0, 0, W, H);
+          doc.destroy();
+          return new Promise(function (res) { out.toBlob(function (b) { res(b); }, 'image/jpeg', 0.82); });
+        });
+      });
+    }).catch(function (err) { if (window.console) console.warn('Page picture not made:', err); return null; });
+  }
+  function handleStoryPrintable(file) {
+    if (!file) return;
+    syncFields();
+    var k = 'story_printable', base = storyBase();
+    delete state.errors[k];
+    if (!base) return storyFail(k, 'Type the title first: it names the file.');
+    if (file.type !== 'application/pdf' && !(file.type === '' && /\.pdf$/i.test(file.name))) return storyFail(k, 'Choose a PDF file.');
+    if (file.size > 10 * 1024 * 1024) return storyFail(k, 'This file is ' + (file.size / 1048576).toFixed(1) + ' MB. The limit is 10 MB.');
+    state.uploading = k; render();
+    var buf0;
+    file.arrayBuffer().then(function (buf) {
+      var b = new Uint8Array(buf.slice(0, 5));
+      if (String.fromCharCode.apply(null, b) !== '%PDF-') throw new Error('This file doesn’t look like a PDF.');
+      buf0 = buf;
+      return Promise.all([sha8(buf), pdfThumb(buf)]);
+    }).then(function (r) {
+      var h = r[0], pic = r[1], title = printableTitle(file.name), kind = S.slugify(title).slice(0, 40) || 'printable', name = 'stories/' + base + '-' + kind + '.' + h;
+      return S.uploadMediaAt(file, name + '.pdf', { contentType: 'application/pdf', cacheControl: '31536000' }).then(function (url) {
+        // The picture of page 1 goes next to the PDF (same name, .jpg). If it can't be made or saved, the PDF still counts.
+        var thumb = pic ? S.uploadMediaAt(new File([pic], base + '-' + kind + '.jpg', { type: 'image/jpeg' }), name + '.jpg', { contentType: 'image/jpeg', cacheControl: '31536000' }).catch(function () { return ''; }) : Promise.resolve('');
+        return thumb.then(function (turl) {
+          var e = state.editing, item = { title: title, file: url };
+          if (turl) item.thumb = turl;
+          e.printables = (Array.isArray(e.printables) ? e.printables : []).filter(function (it) { return it.file !== url; }).concat([item]);
+          state.uploading = ''; render(); refreshPreview();
+          toast('Added ' + title + (turl ? '' : ' (no page picture: the page will show a paper icon)') + '. Press Update to save it.');
+        });
+      });
+    }).catch(function (err) { storyFail(k, 'Upload failed: ' + err.message); });
   }
   function validateStory(p) {
     var e = {};
@@ -1283,6 +1445,16 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     }
   });
 
+  // After opening a post: on a narrow screen bring the form (Title first) to the top, below the sticky bar.
+  // Focus is left alone; the motion is instant when the reader asks for reduced motion.
+  function scrollToForm() {
+    var form = document.getElementById('postForm');
+    if (!form || !window.matchMedia('(max-width: 1040px)').matches) { window.scrollTo(0, 0); return; }
+    var bar = root.querySelector('.side'), off = bar && getComputedStyle(bar).position === 'sticky' && window.matchMedia('(max-width: 860px)').matches ? bar.getBoundingClientRect().height : 0;
+    var top = form.getBoundingClientRect().top + window.scrollY - off - 8;
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: Math.max(0, top), behavior: reduce ? 'auto' : 'smooth' });
+  }
   root.addEventListener('click', function (ev) {
     var gj = ev.target.closest('a[data-gjump]');
     if (gj) { ev.preventDefault(); var gt = document.getElementById('g-' + gj.dataset.gjump); if (gt) { gt.scrollIntoView({ block: 'start' }); gt.focus({ preventScroll: true }); } return; }
@@ -1290,7 +1462,14 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     if (!b) return;
     var d = b.dataset;
     if (d.bar !== undefined && b.classList.contains('tbar')) { showBar(b); return; }
-    if (b.id === 'back') { state.screen = 'signin'; render(); }
+    if (b.id === 'pvToggle') {
+      state.pvOpen = !state.pvOpen;
+      var pc = b.closest('.preview-col'); pc.classList.toggle('open', state.pvOpen);
+      b.setAttribute('aria-expanded', state.pvOpen); b.textContent = state.pvOpen ? 'Hide preview' : 'Show preview';
+      return;
+    }
+    if (d.printRemove != null && state.editing) { syncFields(); state.editing.printables = (state.editing.printables || []).filter(function (_, i) { return i !== +d.printRemove; }); render(); return; }
+        if (b.id === 'back') { state.screen = 'signin'; render(); }
     else if (b.id === 'magicLink') {
       var em = document.getElementById('email').value.trim().toLowerCase();
       state.email = em; state.authError = '';
@@ -1305,7 +1484,10 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     else if (b.id === 'changePw') { state.pwOpen = true; state.pwError = ''; render(); var np = document.getElementById('newPassword'); if (np) np.focus(); }
     else if (b.id === 'pwCancel') { state.pwOpen = false; state.pwError = ''; render(); }
     else if (b.id === 'signout') S.signOut().then(function () { state.session = null; state.pwOpen = false; state.screen = 'signin'; state.view = 'posts'; render(); });
-    else if (b.id === 'posterFrame' && state.editing && state.editing.media_url) S.resolveMedia(state.editing.media_url).then(function (u) { if (u) autoPoster(u); });
+    else if (b.id === 'posterFrame' && state.editing && state.editing.media_url) { syncFields(); state.framePick = !state.framePick; state.frameAt = null; render(); var fr = document.getElementById(state.framePick ? 'fpRange' : 'posterFrame'); if (fr) fr.focus(); }
+    else if (b.id === 'fpBack' || b.id === 'fpFwd') { var fv = document.getElementById('fpVideo'); if (fv) fpSeek(fv.currentTime + (b.id === 'fpFwd' ? FRAME_STEP : -FRAME_STEP)); }
+    else if (b.id === 'fpUse') useFrame();
+    else if (b.id === 'fpCancel') { state.framePick = false; state.frameAt = null; render(); var pf = document.getElementById('posterFrame'); if (pf) pf.focus(); }
     else if (d.days) loadInsights(+d.days);
     else if (d.view) { state.pwOpen = false; if (d.guide) state.guideAt = d.guide; go(d.view); if (state.guideAt) render(); }
     else if (d.bfilter) { state.builtinFilter = d.bfilter; render(); var bfb = root.querySelector('[data-bfilter="' + d.bfilter + '"]'); if (bfb) bfb.focus(); }
@@ -1326,8 +1508,8 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     else if (d.edit) {
       var src = state.posts.filter(function (x) { return String(x.id) === d.edit; })[0];
       if (!src) return;
-      state.editing = toEditing(src); state.view = 'edit'; state.errors = {}; state.confirmDelete = false; state.history = null;
-      render(); window.scrollTo(0, 0); loadHistory(src.id);
+      state.editing = toEditing(src); state.view = 'edit'; state.errors = {}; state.confirmDelete = false; state.history = null; state.pvOpen = false;
+      render(); scrollToForm(); loadHistory(src.id);
     }
     else if (d.mode) { syncFields(); state.editing._mode = d.mode; delete state.errors.when; render(); }
     else if (d.topic) {
@@ -1368,6 +1550,7 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   });
 
   root.addEventListener('input', function (ev) {
+    if (ev.target.id === 'fpRange') { state.frameAt = +ev.target.value; fpSeek(+ev.target.value); return; }
     if (ev.target.id === 'newPassword') { var h = document.getElementById('pwHint'); if (h) h.textContent = pwStrength(ev.target.value); return; }
     if (ev.target.id === 'postSearch') { state.q = ev.target.value; state.limit = PAGE_SIZE; refreshPostRows(); return; }
     if (!state.editing) return;
@@ -1423,11 +1606,12 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     else if (ev.target.dataset.file === 'story_audio') handleStoryAudio(ev.target.files[0]);
     else if (ev.target.dataset.file === 'story_timings') handleStoryTimings(ev.target.files[0]);
     else if (ev.target.dataset.file === 'story_cover') handleStoryCover(ev.target.files[0]);
+    else if (ev.target.dataset.file === 'story_printable') handleStoryPrintable(ev.target.files[0]);
     else if (ev.target.dataset.file) handleFile(ev.target.files[0]);
   });
   root.addEventListener('dragover', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); z.classList.add('drag'); } });
   root.addEventListener('dragleave', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) z.classList.remove('drag'); });
-  root.addEventListener('drop', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); ({ poster: handlePoster, story_audio: handleStoryAudio, story_timings: handleStoryTimings, story_cover: handleStoryCover }[z.dataset.drop] || handleFile)(ev.dataTransfer.files[0]); } });
+  root.addEventListener('drop', function (ev) { var z = ev.target.closest('[data-drop]'); if (z) { ev.preventDefault(); ({ poster: handlePoster, story_audio: handleStoryAudio, story_timings: handleStoryTimings, story_cover: handleStoryCover, story_printable: handleStoryPrintable }[z.dataset.drop] || handleFile)(ev.dataTransfer.files[0]); } });
 
   boot();
 })();

@@ -143,7 +143,7 @@ p { margin: 0; }
 .history dd { margin: 0; line-height: 1.45; overflow-wrap: anywhere; }
 .history del { color: var(--muted); }
 .history ins { text-decoration: none; background: var(--ok-bg); border-radius: 4px; padding: 0 3px; }
-@media (max-width: 1040px) { .editor { grid-template-columns: 1fr; } .preview-col { order: -1; } }
+@media (max-width: 1040px) { .editor { grid-template-columns: 1fr; } }
 .form { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 22px; display: grid; gap: 18px; }
 .form h3 { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
@@ -468,3 +468,42 @@ th.c-views { text-align: right; }
 .ff-legend { font-weight: 700; font-size: 13px; margin-bottom: 4px; padding: 0; }
 .poster-need { margin: 4px 0 8px; padding: 8px 10px; border-radius: 8px; font-size: 13px; line-height: 1.4; background: var(--warn-bg); color: var(--warn); border: 1px solid currentColor; }
 .field.sub { margin-top: 10px; }
+
+/* Preview fold: on a computer the preview is always shown and the button is hidden; on a narrow
+   screen the form comes first and the preview opens below it with "Show preview". */
+.pvtoggle { display: none; color: var(--ink); }
+.pvbody { display: contents; }
+@media (max-width: 1040px) {
+  .pvtoggle { display: inline-flex; justify-self: stretch; }
+  .pvbody { display: grid; gap: 10px; justify-items: center; }
+  .preview-col:not(.open) .pvbody { display: none; }
+}
+
+/* Frame picker for the reel poster: scrub the video and keep the frame shown. */
+.frame-pick { display: grid; gap: 10px; margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--ink); }
+.frame-pick video { width: 100%; max-width: 240px; max-height: 50vh; aspect-ratio: 9 / 16; object-fit: contain; justify-self: center; border-radius: 10px; background: #000; }
+.fp-ctl { display: flex; align-items: center; gap: 10px; }
+.fp-step { min-width: 44px; min-height: 44px; font-size: 20px; line-height: 1; padding: 0; }
+.fp-range { flex: 1; min-width: 0; height: 44px; margin: 0; accent-color: var(--ink); touch-action: pan-y; cursor: pointer; }
+.fp-range::-webkit-slider-thumb { width: 28px; height: 28px; }
+.fp-range::-moz-range-thumb { width: 28px; height: 28px; }
+.fp-time { font-variant-numeric: tabular-nums; font-size: 14px; color: var(--ink); text-align: center; }
+.fp-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.fp-range:focus-visible, .fp-step:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .frame-pick, .frame-pick * { transition: none !important; animation: none !important; } }
+/* Bedtime story: list of uploaded printables (PDFs) */
+.plist { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 6px; }
+.plist li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.plist small { color: var(--muted); word-break: break-all; flex: 1 1 160px; }
+.isub { margin: 14px 0 6px; font-size: 14px; }
+
+/* Phone preview: the "Free printables" card of a bedtime story */
+.pv .pvprint { margin-top: 12px; padding: 10px; border-radius: 14px; background: rgba(255,255,255,.72); color: #2a1f33; display: grid; gap: 8px; }
+.pv .pvprint.empty { background: rgba(255,255,255,.4); }
+.pv .pvprint ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pv .pvprint li { display: grid; gap: 4px; padding: 6px; border-radius: 10px; background: #fff1c9; font-size: 10px; line-height: 1.25; }
+.pv .pvprint li b { font-size: 11px; }
+.pv .pvprint li small { font-weight: 700; color: #5e4a3a; }
+.pv .pvprint .pg { display: grid; place-items: center; aspect-ratio: 360 / 510; overflow: hidden; border-radius: 3px; background: #fff; box-shadow: 0 1px 2px rgba(42,31,51,.2); }
+.pv .pvprint .pg img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.pv .pvprint .pg i { width: 40%; height: 50%; border: 2px solid #b5a8c8; border-radius: 3px; }

@@ -5,6 +5,8 @@
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 import { serve } from '../scripts/serve.mjs';
+import { renderPage, reelTextHtml, seriesIntroHtml } from '../lib/head.mjs';
+import { REEL_TEXT, SERIES_INTRO } from '../lib/reel-text.mjs';
 
 const server = await serve(0);
 const base = `http://localhost:${server.address().port}/`;
@@ -144,7 +146,58 @@ for (const [label, opts, init] of [['reduced motion', { ...phone, reducedMotion:
   check(!ov, '320px: top row never overlaps the close button');
   await context.close();
 }
-check(/const VERSION = 'll-v94'/.test(readFileSync(new URL('../sw.js', import.meta.url), 'utf8')), 'service worker cache bumped to ll-v94');
+// "About this video" box and series intros (lib/reel-text.mjs): static HTML, desktop only.
+{
+  const tpl = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const reel = { title: 'First Day Jitters', caption: 'Old caption.', slug: 'first-day-jitters' };
+  const reelHtml = renderPage(tpl, { tab: 'watch', kind: 'reel', item: reel, meta: { path: '/watch/first-day-jitters', title: 'x', desc: 'x' } });
+  const t = REEL_TEXT['first-day-jitters'];
+  check(/<details class="p-about"><summary>/.test(reelHtml) && reelHtml.indexOf('class="p-about"') < reelHtml.indexOf('id="pWatchPlayer"'), 'watch page: native <details> About box in the static HTML');
+  const sum = reelHtml.slice(reelHtml.indexOf('<summary>'), reelHtml.indexOf('</summary>'));
+  const esc = (x) => x.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const has = (h, x) => h.includes(x) || h.includes(esc(x)) || h.includes(x.replace(/"/g, '&quot;'));
+  check(has(sum, t.summary) && has(sum, t.verse) && !has(sum, t.lesson) && !has(sum, t.prayer), 'About box: closed summary has the summary and verse only');
+  check(has(reelHtml, t.lesson) && has(reelHtml, t.prayer), 'About box: open part has the lesson and prayer');
+  check(!/<div class="p-seo"><h1>[^<]*<\/h1><p>/.test(reelHtml), 'About box replaces the hidden .p-seo caption it would repeat');
+  check(reelTextHtml(undefined) === '' && reelTextHtml({ summary: ' ' }) === '', 'no text, no About box');
+  const partial = reelTextHtml({ summary: 'Only a summary.' });
+  check(partial.includes('Only a summary.') && !partial.includes('p-about-verse') && !partial.includes('p-about-body'), 'missing fields are left out');
+  check(seriesIntroHtml('no-such-series') === '' && seriesIntroHtml('') === '', 'empty series intro slot renders nothing');
+  const empty = renderPage(tpl, { tab: 'watch', kind: 'series', item: { series: 'Other', desc: 'Desc.', reels: [] }, meta: { path: '/watch/series/other' } });
+  check(!empty.includes('p-sintro') && empty.includes('<p>Desc.</p>'), 'series page with no intro: no intro markup, hidden description kept');
+  const ser = renderPage(tpl, { tab: 'watch', kind: 'series', item: { series: 'Slice of Life', desc: 'D', reels: [] }, meta: { path: '/watch/series/slice-of-life' } });
+  check(ser.includes('class="p-sintro"') && has(ser, SERIES_INTRO['slice-of-life']) && ser.indexOf('p-sintro') < ser.indexOf('id="pWatchGal"'), 'series page: intro at the top, in the static HTML');
+  for (const [w, mobile] of [[1280, false], [375, true]]) {
+    const shown = true;
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: w, height: 900 } });
+    await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' }));
+    await context.route('**/watch/first-day-jitters', (r) => r.fulfill({ contentType: 'text/html', body: reelHtml.replace('<head>', '<head><base href="' + base + '">') }));
+    await context.route('**/watch/series/slice-of-life', (r) => r.fulfill({ contentType: 'text/html', body: ser.replace('<head>', '<head><base href="' + base + '">') }));
+    const page = await context.newPage();
+    await page.goto(base + 'watch/first-day-jitters'); await page.waitForSelector('#app[data-ready]');
+    const vis = await page.$eval('.p-about', (d) => getComputedStyle(d).display !== 'none' && d.getBoundingClientRect().height > 0);
+    check(vis, `${w}px: About box shown`);
+    {
+      check(await page.$eval('.p-about', (d) => !d.open), `${w}px: About box starts closed`);
+      await page.focus('.p-about > summary'); await page.keyboard.press('Enter');
+      check(await page.$eval('.p-about', (d) => d.open && getComputedStyle(d.querySelector('.p-about-prayer')).display !== 'none'), `${w}px: keyboard Enter opens it and shows the prayer`);
+      check(await page.$eval('.p-about', (d) => { const c = getComputedStyle(d); return c.color === 'rgb(246, 241, 255)' && c.backgroundColor === 'rgb(29, 21, 56)'; }), `${w}px: About box keeps its AA colours`);
+    }
+    await page.goto(base + 'watch/series/slice-of-life'); await page.waitForSelector('#app[data-ready]');
+    check(await page.$eval('.p-sintro', (d) => getComputedStyle(d).display !== 'none' && d.getBoundingClientRect().height > 0) , `${w}px: series intro shown`);
+    const st = () => page.$eval('.p-sintro-box', (b) => { const p = b.querySelector('.p-sintro'), m = b.querySelector('.p-sintro-more'), lh = parseFloat(getComputedStyle(p).lineHeight);
+      return { lines: Math.round(p.getBoundingClientRect().height / lh), btn: getComputedStyle(m).display !== 'none', exp: m.getAttribute('aria-expanded'), text: p.textContent.length }; });
+    const a = await st();
+    if (mobile) {
+      check(a.lines === 2 && a.btn && a.exp === 'false' && a.text > 150, `${w}px: intro clamped to 2 lines with a More button (full text in HTML)`);
+      await page.focus('.p-sintro-more'); await page.keyboard.press('Enter');
+      const b = await st();
+      check(b.lines > 2 && b.exp === 'true' && await page.$eval('.p-sintro-more', (m) => m.textContent === 'Less'), `${w}px: More (keyboard) expands the intro, aria-expanded true, says Less`);
+    } else check(!a.btn && a.lines > 2, `${w}px: full intro, no More button`);
+    await context.close();
+  }
+}
+check(/const VERSION = 'll-v98'/.test(readFileSync(new URL('../sw.js', import.meta.url), 'utf8')), 'service worker cache bumped to ll-v98');
 await browser.close(); server.close();
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll video playback checks passed');
 process.exit(failures ? 1 : 0);

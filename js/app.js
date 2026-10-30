@@ -284,6 +284,13 @@
         return '<button type="button" class="p-fchip" data-ftype="' + esc(t) + '" aria-pressed="' + (s.type === t) + '">' + esc(t) + '</button>'; }).join('') + '</div>' : '') +
       '</div>';
   }
+  // Series intro (lib/head.mjs seriesIntroHtml): More/Less on phones, where the text is clamped to two lines.
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.p-sintro-more'); if (!b) return;
+    var open = b.getAttribute('aria-expanded') !== 'true';
+    b.setAttribute('aria-expanded', open ? 'true' : 'false'); b.textContent = open ? 'Less' : 'More';
+    b.parentNode.classList.toggle('open', open);
+  });
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-fsort], [data-ftype]'); if (!b) return;
     var bar = b.closest('[data-fpage]'); if (!bar) return;
@@ -1496,6 +1503,24 @@
     $('#pGn').innerHTML = SEO.storyRowsHtml(list);
     wrap.hidden = !list.length;
   })();
+  // Today: tonight's bedtime story on the welcome card (the newest live one, built-in or from the Studio).
+  // The build already wrote it (lib/head.mjs); redraw only when the newest story is a different one.
+  (function tonightCard() {
+    var box = $('#pTonight');
+    if (!box || !SEO || !SEO.tonightStory) return;
+    var x = SEO.tonightStory(C.bedtimeStories || []);
+    if (!x) { box.hidden = true; return; }
+    if (box.getAttribute('data-slug') !== x.slug || !box.firstElementChild) { box.innerHTML = SEO.tonightHtml(C.bedtimeStories); box.setAttribute('data-slug', x.slug); }
+    box.hidden = false;
+  })();
+  // Free printables: a device set to "don't count me" (Studio → Insights, or ?nocount=1) adds nc=1, so /dl/
+  // sends the PDF without counting it.
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a.p-dl');
+    if (!a) return;
+    var off = false; try { off = localStorage.getItem('ll.nocount') === '1'; } catch (x) {}
+    if (off && !/[?&]nc=1/.test(a.getAttribute('href'))) a.setAttribute('href', a.getAttribute('href') + (a.getAttribute('href').indexOf('?') < 0 ? '?' : '&') + 'nc=1');
+  }, true);
   (function listenFilters() {
     var box = $('#pEps'), rows = $$('.p-row', box), types = [];
     rows.forEach(function (r) { var m = C.episodes[+r.dataset.ep].meta; if (m && types.indexOf(m) < 0) types.push(m); });

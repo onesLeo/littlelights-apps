@@ -132,12 +132,72 @@
         '<h2>3 questions to ask afterwards</h2>' +
         (qs ? '<ol class="p-ep-qs">' + qs.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join('') + '</ol>'
           : '<ol class="p-ep-qs" data-placeholder-questions><li>[PLACEHOLDER: question 1 not in the content plan yet]</li><li>[PLACEHOLDER: question 2 not in the content plan yet]</li><li>[PLACEHOLDER: question 3 not in the content plan yet]</li></ol>') +
+        printablesHtml(x) +
         '<div class="p-ep-cards">' +
           (x.next ? '<a class="p-ep-card" href="' + esc(x.next.href || '/listen') + '"><span class="p-kicker">Next story' + (x.next.when ? ' · ' + esc(x.next.when) : '') + '</span><b>' + esc(x.next.title) + '</b><span>' + (x.next.href && x.next.href !== '/listen' ? 'Play it now \u2192' : 'More bedtime stories on Listen \u2192') + '</span></a>' : '') +
           '<a class="p-ep-card join" href="/join"><span class="p-kicker">Join the testers</span><b>Little Light is a free Bible adventure game for kids 5\u20138, coming to Android.</b><span>Join the test families \u2192</span></a>' +
         '</div>' +
         followHtml({ tag: 'h2', cls: 'in-story' }) +
       '</div>';
+  }
+
+  // ---------- free printables (bedtime story pages) ----------
+  // Each PDF opens through /dl/<path> (functions/dl), which adds 1 to that file's count for the day and the visitor's
+  // country (from the connection, nothing stored about the visitor) and then sends the PDF. rel="nofollow" and
+  // robots.txt keep search engines from counting. js/app.js adds ?nc=1 on devices that are not counted.
+  var MEDIA = 'https://media.littlesaltandlight.com/';
+  function dlHref(file) {
+    var f = String(file || '');
+    if (f.indexOf(MEDIA + 'stories/') === 0) f = f.slice(MEDIA.length);
+    return /^(stories|media\/printables)\/[a-z0-9][a-z0-9._-]{0,150}\.pdf$/.test(f) ? '/dl/' + f : '';
+  }
+  // The count key for a file: its name without the folder, the 8-character fingerprint and .pdf.
+  function dlKey(path) {
+    var m = /\/([a-z0-9][a-z0-9._-]*?)(?:\.[0-9a-f]{8})?\.pdf$/.exec('/' + String(path || ''));
+    return m ? m[1].slice(0, 100) : '';
+  }
+  // A small picture of the first page: site printables have one next to the PDF (same name, .jpg, 360x510, made
+  // with pdftoppm; tests/printables.mjs checks each one exists). Studio uploads carry their own picture (`thumb`, drawn
+  // from page 1 with PDF.js when the PDF is uploaded); without one a paper icon is shown.
+  function printThumb(file) {
+    var m = /^media\/printables\/([a-z0-9][a-z0-9._-]{0,150})\.pdf$/.exec(String(file || ''));
+    return m ? '/media/printables/' + m[1] + '.jpg' : '';
+  }
+  var PAPER = '<svg viewBox="0 0 48 64" width="48" height="64" aria-hidden="true" focusable="false"><path d="M6 2h26l10 10v48a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#fff" stroke="currentColor" stroke-width="2"/><path d="M32 2v10h10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 26h24M12 34h24M12 42h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  function printablesHtml(x) {
+    var list = (x.printables || []).map(function (p) { return { title: p.title, href: dlHref(p.file), thumb: p.thumb ? (/^https:/.test(p.thumb) ? p.thumb : '/' + p.thumb) : printThumb(p.file) }; }).filter(function (p) { return p.href; });
+    if (!list.length) return '';
+    return '<section class="p-print" aria-labelledby="pPrintH"><h2 id="pPrintH">Free printables</h2>' +
+      '<p>Print at home on A4 for bedtime or Sunday school. Free to share.</p><ul class="p-print-list">' +
+      list.map(function (p) {
+        return '<li><a class="p-dl" href="' + esc(p.href) + '" target="_blank" rel="nofollow noopener" type="application/pdf">' +
+          '<span class="p-dl-pg">' + (p.thumb ? '<img src="' + esc(p.thumb) + '" width="360" height="510" alt="" loading="lazy" decoding="async">' : PAPER) + '</span>' +
+          '<span class="p-dl-t"><b>' + esc(p.title) + '</b><small>Free PDF \u00b7 A4</small></span>' +
+          '<span class="p-dl-go"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Download</span></a></li>';
+      }).join('') + '</ul></section>';
+  }
+
+  // ---------- Today: tonight's bedtime story ----------
+  // The newest live story (Studio stories carry their publish date; built-in ones without a date count as oldest,
+  // so the newest Studio story wins once it is live). Written into the Today page at build time (lib/head.mjs) and
+  // redrawn by js/app.js when the Studio stories arrive.
+  function tonightStory(list) {
+    var best = null, bt = -1;
+    (list || []).forEach(function (x, i) {
+      if (!x || !x.slug || x.placeholder) return;
+      var t = Date.parse(x.date || '') || 0;
+      if (t > bt || (t === bt && best && (x.episode || 0) > (best.episode || 0))) { best = x; bt = t; }
+    });
+    return best;
+  }
+  function tonightHtml(list) {
+    var x = tonightStory(list);
+    if (!x) return '';
+    var m = Math.round((x.dur || 0) / 60);
+    return '<div class="p-ton-x"><div class="p-kicker">Tonight\u2019s bedtime story</div>' +
+      '<div class="p-ton-t">' + esc(x.title) + '</div>' +
+      '<p class="p-ton-m">' + esc(x.series) + (x.episode ? ' #' + x.episode : '') + (m ? ' \u00b7 ' + m + ' min' : '') + (x.narrator ? ' \u00b7 read by ' + esc(x.narrator) : '') + '</p></div>' +
+      '<a class="p-btn p-ton-go" href="' + esc(path('listen', x.slug)) + '" data-tonight="' + esc(x.slug) + '" aria-label="Listen tonight: ' + esc(x.title) + '">\u25b6 Listen</a>';
   }
 
   // ---------- follow us (social links) ----------
@@ -281,5 +341,5 @@
     }).filter(Boolean).join('').trim();
   }
 
-  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml, SOCIAL: SOCIAL, followHtml: followHtml, footerHtml: footerHtml, footerStyle: footerStyle, FOOTER_STYLES: FOOTER_STYLES, FOOTER_DEFAULT: FOOTER_DEFAULT };
+  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, printablesHtml: printablesHtml, printThumb: printThumb, dlHref: dlHref, dlKey: dlKey, tonightStory: tonightStory, tonightHtml: tonightHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml, SOCIAL: SOCIAL, followHtml: followHtml, footerHtml: footerHtml, footerStyle: footerStyle, FOOTER_STYLES: FOOTER_STYLES, FOOTER_DEFAULT: FOOTER_DEFAULT };
 })(typeof window !== 'undefined' ? window : globalThis);

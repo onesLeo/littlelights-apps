@@ -7,6 +7,7 @@
 //    not stored yet, are read live from Cloudflare Web Analytics (GraphQL Analytics API, using
 //    env.CF_ANALYTICS_TOKEN). With neither stored days nor the token it answers { connected: false }.
 // 4. Adds the anonymous play/read counts from public.post_stats (team-only read via RLS).
+// 5. Adds printable download counts per file and country from public.download_stats (team-only read via RLS).
 // This endpoint itself stores nothing; responses are private and never cached.
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../../lib/edge.mjs';
 import { CF_ACCOUNT_ID, CF_SITE_TAG, fetchDays, toRows, rowsToAcct, storedDays, dayOf, addDays } from '../../lib/site-analytics.mjs';
@@ -16,7 +17,7 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store' }
 });
 
-async function teamMember(token, fetchImpl) {
+export async function teamMember(token, fetchImpl) {
   const h = { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token };
   const u = await fetchImpl(SUPABASE_URL + '/auth/v1/user', { headers: h });
   if (!u.ok) return null;
@@ -49,6 +50,30 @@ async function postStats(token, since, prevSince, fetchImpl) {
       { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token } });
     if (!r.ok) return null; // table not created yet
     return shapeStats(await r.json(), since);
+  } catch { return null; }
+}
+
+// Printable downloads for this period: per file (with countries) and the total, plus the previous period's total.
+export function shapeDownloads(rows, since) {
+  const day0 = since.slice(0, 10), files = {}, countries = {};
+  let total = 0, previous = 0;
+  for (const row of rows || []) {
+    const n = Number(row.count || 0);
+    if (String(row.day || day0) < day0) { previous += n; continue; }
+    const f = (files[row.file] ||= { file: row.file, total: 0, countries: {} });
+    f.total += n; f.countries[row.country] = (f.countries[row.country] || 0) + n;
+    countries[row.country] = (countries[row.country] || 0) + n;
+    total += n;
+  }
+  return { total, previous, files: Object.values(files).sort((a, b) => b.total - a.total), countries };
+}
+
+async function downloadStats(token, since, prevSince, fetchImpl) {
+  try {
+    const r = await fetchImpl(SUPABASE_URL + '/rest/v1/download_stats?select=file,day,country,count&day=gte.' + prevSince.slice(0, 10) + '&limit=20000',
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token } });
+    if (!r.ok) return null; // table not created yet
+    return shapeDownloads(await r.json(), since);
   } catch { return null; }
 }
 
@@ -137,6 +162,7 @@ export async function insights(context, fetchImpl = fetch) {
   const since = start + 'T00:00:00Z', prevSince = prevStart + 'T00:00:00Z';
   const stats = await postStats(token, since, prevSince, fetchImpl);
   const plays = stats ? stats.plays : null, extra = stats ? { playsTotal: stats.playsTotal, playsPrevious: stats.playsPrevious, playsSeries: stats.playsSeries } : {};
+  extra.downloads = await downloadStats(token, since, prevSince, fetchImpl);
 
   const stored = await storedRows(token, prevStart, today, fetchImpl);
   const have = storedDays(stored);
