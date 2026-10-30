@@ -49,4 +49,53 @@ check(res.status === 500, 'missing MEDIA binding reported');
 res = await handleUpload(req('name=a.mp4', { method: 'GET' }), { MEDIA: fakeR2() }, fakeFetch('owner'));
 check(res.status === 405, 'GET refused');
 check(keyFor(new URL('https://x/?path=stories/a-timings.5868925c.json')).key === 'stories/a-timings.5868925c.json', 'fixed story path kept');
+
+// Multipart (files over 100 MB are refused at Cloudflare's edge, so phones send 20 MB parts).
+function fakeMpR2() {
+  const done = {}, parts = {};
+  return { done, parts, head: async () => null,
+    createMultipartUpload: async (key, opts) => ({ uploadId: 'up1', key, opts }),
+    resumeMultipartUpload: (key, id) => ({
+      uploadPart: async (n, body) => { parts[n] = new Uint8Array(await new Response(body).arrayBuffer()).length; return { partNumber: n, etag: 'e' + n }; },
+      complete: async (list) => { done[key] = list; return {}; }, abort: async () => {} }) };
+}
+const mpReq = (q, init = {}) => new Request('https://x.pages.dev/api/upload?' + q, { method: init.method || 'POST', body: init.body,
+  headers: { Authorization: 'Bearer good', ...(init.body ? { 'Content-Length': String(init.body.length) } : {}), ...(init.headers || {}) } });
+const mp = fakeMpR2();
+res = await handleUpload(mpReq('name=Big.mp4&action=create&type=video/mp4&size=150000000'), { MEDIA: mp }, fakeFetch('owner'));
+b = await res.json();
+check(res.status === 200 && b.uploadId === 'up1' && /^uploads\//.test(b.key) && b.partBytes === 20 * 1024 * 1024, 'multipart create returns key, uploadId, part size');
+const big = new Uint8Array(20 * 1024 * 1024);
+res = await handleUpload(mpReq('key=' + encodeURIComponent(b.key) + '&uploadId=up1&action=part&part=1', { method: 'PUT', body: big }), { MEDIA: mp }, fakeFetch('owner'));
+check(res.status === 200 && (await res.json()).etag === 'e1' && mp.parts[1] === big.length, 'part streamed into R2');
+res = await handleUpload(mpReq('key=' + encodeURIComponent(b.key) + '&uploadId=up1&action=part&part=2', { method: 'PUT', body: new Uint8Array(21 * 1024 * 1024) }), { MEDIA: mp }, fakeFetch('owner'));
+check(res.status === 413, 'oversized part refused');
+res = await handleUpload(mpReq('key=' + encodeURIComponent(b.key) + '&uploadId=up1&action=complete', { body: new TextEncoder().encode(JSON.stringify({ parts: [{ partNumber: 1, etag: 'e1' }] })) }), { MEDIA: mp }, fakeFetch('owner'));
+const cb = await res.json();
+check(res.status === 201 && cb.url === MEDIA_ORIGIN + '/' + b.key && mp.done[b.key].length === 1, 'complete returns media URL');
+res = await handleUpload(mpReq('key=../x&uploadId=up1&action=part&part=1', { method: 'PUT', body: big }), { MEDIA: mp }, fakeFetch('owner'));
+check(res.status === 400, 'bad multipart key refused');
+res = await handleUpload(mpReq('name=a.exe&action=create&type=application/x-msdownload&size=1'), { MEDIA: mp }, fakeFetch('owner'));
+check(res.status === 415, 'multipart type checked');
+res = await handleUpload(mpReq('key=uploads/x.mp4&uploadId=up1&action=part&part=1', { method: 'PUT', body: big, headers: { Authorization: 'Bearer outsider' } }), { MEDIA: mp }, fakeFetch(null));
+check(res.status === 403, 'parts need a team member too');
+
+// Client driver (js/store.js LLUploadParts): 150 MB file -> create, 8 parts with one retry, complete.
+import { readFileSync } from 'node:fs';
+const src = readFileSync(new URL('../js/store.js', import.meta.url), 'utf8');
+const block = src.slice(src.indexOf('  var LLUploadParts'), src.indexOf('  function friendly(msg)'));
+const window = {}; new Function('window', block)(window);
+const P = window.LLUploadParts;
+const fileSize = 150 * 1024 * 1024;
+const fakeFile = { size: fileSize, name: 'Big.mp4', slice: (a, z) => ({ size: z - a }) };
+const seen = []; let failedOnce = false;
+const url = await P.send(fakeFile, 'name=Big.mp4', 'video/mp4', async (q, init) => {
+  seen.push(q.replace(/key=[^&]*&uploadId=[^&]*&/, ''));
+  if (q.includes('action=create')) return { key: 'uploads/big.mp4', uploadId: 'u', partBytes: 20 * 1024 * 1024 };
+  if (q.includes('action=part')) { if (q.endsWith('part=3') && !failedOnce) { failedOnce = true; throw new Error('net'); } return { partNumber: Number(q.split('part=')[1]), etag: 'x' }; }
+  if (q.includes('action=complete')) { const n = JSON.parse(init.body).parts.length; return { url: 'https://media.littlesaltandlight.com/uploads/big.mp4', n }; }
+});
+check(url === 'https://media.littlesaltandlight.com/uploads/big.mp4' && seen.filter((q) => q.startsWith('action=part')).length === 9, '150 MB file sent as 8 parts (one retried) and completed');
+check(P.SINGLE_MAX <= 100 * 1024 * 1024, 'single-request uploads stay under Cloudflare 100 MB limit');
+check(!/could not reach the database/i.test(src.slice(src.indexOf('_r2Put'), src.indexOf('uploadMedia: function (file) {\n      return this._r2Put'))), 'upload errors are not reported as database errors');
 process.exit(failures ? 1 : 0);
