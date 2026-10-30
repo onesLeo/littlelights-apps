@@ -286,7 +286,7 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .p-article .back { position: absolute; top: 16px; left: 14px; z-index: 2; border: 0px; border-radius: 999px; background: rgba(0, 0, 0, 0.7); color: rgb(255, 255, 255); font-size: 12px; font-weight: 700; padding: 8px 12px; cursor: pointer; }
 .p-article .body { padding: 18px 20px 30px; }
 .p-txt { font-family: var(--serif); font-size: 16px; line-height: 1.62; display: grid; gap: 12px; }
-.p-txt blockquote { margin: 0px; padding-left: 12px; border-left: 3px solid currentcolor; font-style: italic; }
+.p-txt blockquote { margin: 0px; padding-left: 12px; border-left: 3px solid; font-style: italic; }
 .p-txt .pray { font-style: italic; padding: 12px; border-radius: 12px; background: rgba(0, 0, 0, 0.06); }
 .p-txt .meta { font: 700 11px var(--display); letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.8; }
 .p-full .down svg { width: 22px; height: 22px; fill: none; stroke: currentcolor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
@@ -454,7 +454,7 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 }
 .p-slide.s1 { padding-bottom: 58px; }
 .p-hint { position: absolute; left: 50%; bottom: 12px; translate: -50%; z-index: 3; display: grid; justify-items: center; gap: 2px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; opacity: 0.85; transition: opacity 0.5s, visibility 0.5s; animation: 1.8s ease-in-out 0s 3 normal none running hint; pointer-events: none; }
-.p-hint i { width: 10px; height: 10px; border-left: 2px solid currentcolor; border-top: 2px solid currentcolor; rotate: 45deg; }
+.p-hint i { width: 10px; height: 10px; border-left: 2px solid; border-top: 2px solid; rotate: 45deg; }
 .p-app.swiped .p-hint { opacity: 0; visibility: hidden; }
 .p-welcome { display: none; }
 .sc-family { background: rgb(36, 67, 52); color: rgb(255, 248, 233); }
@@ -663,7 +663,7 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .p-sheet .p-txt .meta { opacity: 1; color: rgb(107, 53, 80); }
 .p-app.night .p-sheet .p-txt .meta { color: rgb(232, 201, 214); }
 .p-sheet .p-txt .pray { padding: 16px 18px; border-radius: 16px; background: rgb(253, 231, 239); border: 1px solid rgba(176, 51, 106, 0.18); }
-.p-sheet .p-txt .pray::before { content: "Prayer"; display: block; margin-bottom: 4px; font-variant-ligatures: ; font-variant-caps: ; font-variant-numeric: ; font-variant-east-asian: ; font-variant-alternates: ; font-variant-position: ; font-variant-emoji: ; font-weight: ; font-stretch: ; font-size: ; line-height: ; font-family: ; font-optical-sizing: ; font-size-adjust: ; font-kerning: ; font-feature-settings: ; font-variation-settings: ; font-style: normal; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.7; }
+.p-sheet .p-txt .pray::before { content: "Prayer"; display: block; margin-bottom: 4px; font-variant-ligatures: ; font-variant-caps: ; font-variant-numeric: ; font-variant-east-asian: ; font-variant-alternates: ; font-variant-position: ; font-variant-emoji: ; font-weight: ; font-stretch: ; font-size: ; line-height: ; font-family: ; font-optical-sizing: ; font-size-adjust: ; font-kerning: ; font-feature-settings: ; font-variation-settings: ; font-language-override: ; font-style: normal; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.7; }
 .p-sheet-foot .p-btn { background: rgb(58, 20, 38); color: rgb(255, 255, 255); min-height: 44px; }
 .p-app.sheet-open .p-view.on { overflow: hidden !important; }
 .p-app.night .p-sheet .p-txt .pray { background: rgba(255, 255, 255, 0.07); border-color: rgba(248, 219, 230, 0.16); }

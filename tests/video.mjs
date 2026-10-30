@@ -247,7 +247,7 @@ for (const [label, opts, init] of [['reduced motion', { ...phone, reducedMotion:
     await context.close();
   }
 }
-check(/const VERSION = 'll-v99'/.test(readFileSync(new URL('../sw.js', import.meta.url), 'utf8')), 'service worker cache bumped to ll-v99');
+check(/const VERSION = 'll-v100'/.test(readFileSync(new URL('../sw.js', import.meta.url), 'utf8')), 'service worker cache bumped to ll-v100');
 await browser.close(); server.close();
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll video playback checks passed');
 process.exit(failures ? 1 : 0);
