@@ -991,6 +991,28 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .no-verses .p-hello { display: grid; gap: 10px; }
 .no-verses .p-hello .big { font: 800 34px/1.1 var(--display); letter-spacing: -.02em; }
 .no-verses .p-hello p { font-size: 16px; line-height: 1.45; max-width: 30ch; }
+/* Today: tonight's bedtime story on the welcome card (js/seo.js tonightHtml). One compact row, so it fits above
+   the owl on small phones; the series line only shows where there is room. */
+.p-tonight { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; margin-top: 14px; padding: 12px 12px 12px 16px; max-width: 380px; border-radius: 20px; background: rgba(255,255,255,.8); color: #1d1233; }
+.p-tonight[hidden] { display: none; }
+.p-ton-x { display: grid; gap: 3px; min-width: 0; }
+.p-tonight .p-kicker { margin: 0; }
+.p-tonight .p-ton-t { font: 800 19px/1.15 var(--display); letter-spacing: -.01em; }
+.p-tonight .p-ton-m { margin: 0; font-size: 13px; line-height: 1.35; }
+.p-tonight .p-ton-go { text-decoration: none; white-space: nowrap; padding: 12px 16px; }
+@media (max-height: 760px) { .p-tonight .p-ton-m { display: none; } }
+/* Short phones: tonight's story takes the place of the welcome buttons (the tabs below lead to Read and Listen
+   too), so the Today filters and the owl keep their room. */
+@media (max-width: 899px) and (max-height: 700px) {
+  .p-hello:has(~ .p-tonight:not([hidden])) .p-btns { display: none; }
+  .p-tonight { margin-top: 2px; padding: 6px 6px 6px 14px; border-radius: 999px; }
+  .p-tonight .p-kicker { display: none; }
+  .p-tonight .p-ton-t { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .p-tonight .p-ton-t::before { content: "Tonight: "; font-weight: 700; }
+  .p-tonight .p-ton-go { padding: 10px 14px; }
+}
+.p-app.night .p-tonight { background: rgba(10,14,40,.82); color: #f3e9c6; }
+.p-app.night .p-tonight .p-ton-go { background: rgba(255,255,255,.92); color: #151028; }
 /* Phone (SWA audit): the tab bar already lists every section, so Today's top row keeps only the
    wordmark and the night/calm buttons, and the welcome sits higher, with less empty sky above it. */
 @media (max-width: 899px) {
@@ -1536,6 +1558,18 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
 .p-ep-card b { font-size: 16px; line-height: 1.25; }
 .p-ep-card > span:last-child { font-weight: 700; font-size: 13px; }
 .p-ep-card:focus-visible, .p-epage .back:focus-visible { outline: 3px solid #f5c26b; outline-offset: 2px; }
+/* Bedtime story page: free printables (js/seo.js printablesHtml) */
+.p-print { display: grid; gap: 8px; margin-top: 8px; }
+.p-print h2 { margin: 0; }
+.p-print > p { margin: 0; }
+.p-print-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.p-dl { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 12px 14px; border-radius: 16px; background: #fff1c9; color: #2a1f33; text-decoration: none; font-family: var(--display); }
+.p-dl svg { flex: none; }
+.p-dl span { display: grid; gap: 2px; }
+.p-dl b { font-size: 15px; line-height: 1.25; }
+.p-dl small { font-size: 12px; font-weight: 700; opacity: .75; }
+.p-dl:focus-visible { outline: 3px solid #f5c26b; outline-offset: 2px; }
+.p-app.night .p-dl { background: #3a3163; color: #fbe6a6; }
 .p-app.night .p-ep-player { background: rgba(255,255,255,.07); }
 .p-app.night .p-ep-note { color: #ffc9b8; }
 .p-app.night .p-ep-word { background: #3a3163; color: #fbe6a6; }

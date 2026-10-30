@@ -491,3 +491,8 @@ th.c-views { text-align: right; }
 .fp-acts { display: flex; gap: 8px; flex-wrap: wrap; }
 .fp-range:focus-visible, .fp-step:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .frame-pick, .frame-pick * { transition: none !important; animation: none !important; } }
+/* Bedtime story: list of uploaded printables (PDFs) */
+.plist { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 6px; }
+.plist li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.plist small { color: var(--muted); word-break: break-all; flex: 1 1 160px; }
+.isub { margin: 14px 0 6px; font-size: 14px; }
