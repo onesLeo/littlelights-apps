@@ -108,10 +108,10 @@ export function pageList(site) {
     // Screens that are switched off or "coming soon" still answer (old links), but stay out of search.
     const page = { tab, meta, file: fileFor(meta.path), noindex: !on(tab), episodes: site.episodes, reels: site.reels.filter((r) => !r.series), devotions: site.devotions };
     if (tab === 'watch') Object.assign(page, watchHero(site));
-    if (tab === 'listen') page.stories = site.stories;
+    if (tab === 'listen' || tab === 'today') page.stories = site.stories;
     pages.push(page);
   }
-  pages.push({ tab: 'today', meta: { ...SEO.meta('page', 'today') }, file: 'today.html', alias: true });
+  pages.push({ tab: 'today', meta: { ...SEO.meta('page', 'today') }, file: 'today.html', alias: true, stories: site.stories });
   if (on('listen')) for (const x of site.stories || []) { const meta = SEO.meta('story', x); pages.push({ tab: 'listen', kind: 'story', item: x, meta, file: fileFor(meta.path), stories: site.stories }); }
   if (on('read')) for (const d of site.devotions) { const meta = SEO.meta('devotion', d); pages.push({ tab: 'read', kind: 'devotion', item: d, meta, file: fileFor(meta.path) }); }
   if (on('watch')) {

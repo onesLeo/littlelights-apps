@@ -109,7 +109,14 @@ window.LL_CONTENT = {
       // mergeStories turns `at` into the day ('Wed 4 Nov', SGT) while it's ahead, links to the story once it's live,
       // and says 'Coming soon' if the time passed but the post isn't live (moved or unpublished). Visitors can't read
       // future Studio posts, so if Elijah is rescheduled in the Studio, update `at` here too.
-      next: { title: 'Elijah and the Still Small Voice', slug: 'elijah-still-small-voice-bedtime-story', at: '2026-11-04T00:00:00+08:00', when: 'Wed 4 Nov' }
+      next: { title: 'Elijah and the Still Small Voice', slug: 'elijah-still-small-voice-bedtime-story', at: '2026-11-04T00:00:00+08:00', when: 'Wed 4 Nov' },
+      // Free printables (A4 PDFs) shown under the 3 questions. Downloads go through /dl/ (functions/dl), which counts
+      // them per file, day and country. Sources: littlelights-growth content/printables/01-jonah (tools/make_printables.py).
+      // A changed PDF gets a new name (the 8 characters are the start of its SHA-256).
+      printables: [
+        { title: 'Colouring page', file: 'media/printables/jonah-colouring-page.6e78574d.pdf' },
+        { title: 'Memory verse and question cards', file: 'media/printables/jonah-verse-and-question-cards.e965a567.pdf' }
+      ]
     }
     // Elijah (Bedtime #2) is a Studio post now (scheduled in the Studio), not a built-in: it appears on its
     // publish date. Its original entry is kept in supabase/seed/elijah-story.json.

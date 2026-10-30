@@ -152,7 +152,7 @@ try {
   check(rows.includes('/listen/test-live-story'), 'Goodnight Little Light lists the live Studio story');
   check(!rows.includes('/listen/test-future-story'), 'Goodnight Little Light hides the future Studio story');
   check(rows.includes('/listen/jonah-and-the-whale-bedtime-story'), 'Jonah still listed');
-  await page.click('a[href="/listen/test-live-story"]');
+  await page.click('#pGn a[href="/listen/test-live-story"]');
   await page.waitForSelector('#pEpisode.on .p-ep-qs');
   const txt = await page.textContent('#pEpisode');
   check(txt.includes('Para two.') && txt.includes('Dear God. Amen.') && txt.includes('Q3?'), 'story page opens in the app with text, prayer and questions');
@@ -180,7 +180,7 @@ try {
     check(hrefs.includes('/listen/' + ELIJAH_SLUG) === due, `/listen at ${iso}: Elijah ${due ? 'listed' : 'not listed'}`);
     if (due) {
       // (A direct visit before the next rebuild is answered by functions/listen/[slug].js: tests/edge.mjs.)
-      await p2.click(`a[href="/listen/${ELIJAH_SLUG}"]`);
+      await p2.click(`#pGn a[href="/listen/${ELIJAH_SLUG}"]`);
       await p2.waitForSelector('#pEpisode.on .p-ep-qs');
       check((await p2.textContent('#pEpisode')).includes('Who took care of Elijah when he was tired?'), `Elijah at ${iso}: the Studio story opens from /listen`);
       await p2.waitForSelector('.p-ra-toggle', { timeout: 8000 }).catch(() => {});
