@@ -24,7 +24,7 @@ MACROS = {
     "ML_TRACKING": "We turn open and click tracking off, so we don't see who opens our emails or clicks links.",
     "DEVICES": "It needs Android 10 or newer on a 64-bit device.",
     "EFFECTIVE": "9 October 2026",
-    "EFFECTIVE_WEB": "20 October 2026",  # web app notice: Cloudflare Web Analytics added
+    "EFFECTIVE_WEB": "30 October 2026",  # web app notice: play and download counts added (20 Oct: Cloudflare Web Analytics)
     "UPDATED": LAST_UPDATED,
 }
 
