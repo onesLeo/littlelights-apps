@@ -1,0 +1,47 @@
+name: Deploy legal site
+
+# legal.littlesaltandlight.com (Cloudflare Pages project little-light-legal), built from legal/ (see legal/README.md).
+# Runs when something in legal/ changes on main, or by hand (Actions → Deploy legal site → Run workflow).
+# Needs one repository secret: CLOUDFLARE_API_TOKEN, a Cloudflare API token with "Cloudflare Pages: Edit" only.
+on:
+  push:
+    branches: [main]
+    paths: ['legal/**', '.github/workflows/legal-deploy.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: legal-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_ACCOUNT_ID: 1835673e1406fbb875ff4210741d90cc
+      HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build the legal pages
+        working-directory: legal
+        run: python3 build.py
+      - name: Check the build
+        working-directory: legal
+        run: |
+          test -f public/privacy/web/index.html
+          test -f public/_headers
+          grep -q "Effective date" public/privacy/web/index.html
+      - name: Deploy to Cloudflare Pages
+        if: env.HAS_TOKEN == 'true'
+        working-directory: legal
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx --yes wrangler@3 pages deploy public --project-name little-light-legal --branch main --commit-dirty=true
+      - name: No token yet
+        if: env.HAS_TOKEN != 'true'
+        run: echo "::warning::CLOUDFLARE_API_TOKEN is not set, so the legal site was built but not deployed. See legal/README.md."
