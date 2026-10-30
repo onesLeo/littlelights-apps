@@ -374,7 +374,7 @@
   var reelsEl = $('#pReels');
   reelsEl.innerHTML = C.reels.map(function (r, i) {
     var scene = r.src
-      ? '<video src="' + esc(r.src) + '" playsinline muted loop preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>'
+      ? '<video data-src="' + esc(r.src) + '"' + (r.poster ? ' poster="' + esc(r.poster) + '"' : '') + ' playsinline muted loop preload="none" style="width:100%;height:100%;object-fit:cover"></video>'
       : reelScene(r.kind);
     return '<article class="p-reel" data-i="' + i + '" style="background:' + r.bg + '">' +
       '<div class="scene">' + scene + '</div>' +
@@ -386,6 +386,17 @@
       (r.youtube ? '<a class="p-yt" href="' + esc(r.youtube) + '" target="_blank" rel="noopener">Watch on YouTube</a>' : '') + '<button type="button" class="more">…more</button></div>' +
       '</article>';
   }).join('');
+  // Lazy previews: a reel's video address is only attached when it comes near the screen, so the
+  // Watch grid never downloads videos nobody scrolls to (preload="none" + poster until then).
+  (function lazyReelVideos() {
+    var vids = $$('#pReels video[data-src]');
+    var attach = function (v) { if (v.dataset.src) { v.src = v.dataset.src; v.removeAttribute('data-src'); } };
+    if (!('IntersectionObserver' in window)) { vids.forEach(attach); return; }
+    var lio = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) { attach(en.target); lio.unobserve(en.target); } });
+    }, { rootMargin: '200px' });
+    vids.forEach(function (v) { lio.observe(v); });
+  })();
   var visibleReel = 0;
   var savedReels = {};
   try { savedReels = JSON.parse(store('savedReels') || '{}') || {}; } catch (err) { savedReels = {}; }

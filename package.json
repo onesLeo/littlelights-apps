@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node scripts/serve.mjs",
-    "test": "node tests/smoke.mjs && node tests/studio.mjs && node tests/offline.mjs && node tests/builtin.mjs && node tests/reelsound.mjs && node tests/video.mjs && node tests/glass.mjs && node tests/wmcontrast.mjs && node tests/supabase.mjs && node tests/headers.mjs && node tests/build.mjs && node tests/edge.mjs && node tests/seo.mjs && node tests/analytics.mjs && node tests/listen-story.mjs && node tests/readalong.mjs && node tests/stories.mjs && node tests/studio-story.mjs && node tests/nocount.mjs && node tests/social.mjs",
+    "test": "node tests/smoke.mjs && node tests/studio.mjs && node tests/offline.mjs && node tests/builtin.mjs && node tests/reelsound.mjs && node tests/video.mjs && node tests/glass.mjs && node tests/wmcontrast.mjs && node tests/supabase.mjs && node tests/headers.mjs && node tests/build.mjs && node tests/edge.mjs && node tests/seo.mjs && node tests/analytics.mjs && node tests/listen-story.mjs && node tests/readalong.mjs && node tests/stories.mjs && node tests/studio-story.mjs && node tests/nocount.mjs && node tests/social.mjs && node tests/upload.mjs",
     "build": "node scripts/build-pages.mjs",
     "icons": "node scripts/render-icons.mjs",
     "og": "node scripts/render-og.mjs",

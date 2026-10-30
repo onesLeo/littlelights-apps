@@ -295,22 +295,29 @@
         return c.from('post_revisions').select('*').eq('post_id', postId).order('changed_at', { ascending: false }).order('id', { ascending: false });
       }).then(must);
     },
+    // Uploads go to Cloudflare R2 through /api/upload (functions/api/upload.js), which checks the team
+    // like Supabase Storage did and answers with the https://media.littlesaltandlight.com address.
+    // The body is streamed, so files over 5 MB are fine. Served with a year-long immutable cache.
+    _r2Put: function (file, query, type) {
+      return this.accessToken().then(function (token) {
+        if (!token) throw new Error('Sign in again to upload.');
+        return fetch('/api/upload?' + query, { method: 'PUT', body: file, headers: { Authorization: 'Bearer ' + token, 'Content-Type': type || file.type || 'application/octet-stream' } });
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (b) {
+          if (!r.ok || !b.url) throw new Error(b.error || ('Upload failed (HTTP ' + r.status + ')'));
+          return b.url;
+        });
+      });
+    },
     uploadMedia: function (file) {
-      var path = new Date().toISOString().slice(0, 10) + '/' + Date.now() + '-' + slugify(file.name.replace(/\.[^.]+$/, '')) + (file.name.match(/\.[^.]+$/) || [''])[0].toLowerCase();
-      return loadClient().then(function (c) { return c.storage.from('media').upload(path, file, { contentType: file.type, upsert: false }); })
-        .then(must).then(function () { return client.storage.from('media').getPublicUrl(path).data.publicUrl; });
+      return this._r2Put(file, 'name=' + encodeURIComponent(file.name));
     },
     // Upload to a fixed, content-hashed path (bedtime stories: stories/<slug>.<sha8>.mp3). The name changes
-    // whenever the bytes change, so the file may be cached for a year. Uploading the same bytes again
+    // whenever the bytes change, so the file is cached for a year. Uploading the same bytes again
     // (same name) is not an error: the file is already there.
     uploadMediaAt: function (file, path, opts) {
       opts = opts || {};
-      return loadClient().then(function (c) {
-        return c.storage.from('media').upload(path, file, { contentType: opts.contentType || file.type, cacheControl: opts.cacheControl || '3600', upsert: false });
-      }).then(function (res) {
-        if (res && res.error && !/exists|duplicate/i.test(res.error.message || '')) throw res.error;
-        return client.storage.from('media').getPublicUrl(path).data.publicUrl;
-      });
+      return this._r2Put(file, 'path=' + encodeURIComponent(path), opts.contentType || file.type);
     },
     getSetting: function (key) {
       return publicSettings().then(function (all) { return Object.prototype.hasOwnProperty.call(all, key) ? all[key] : null; });
