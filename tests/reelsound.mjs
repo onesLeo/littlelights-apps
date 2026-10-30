@@ -49,7 +49,7 @@ for (const [name, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { 
   const b4 = await page.evaluate(() => window.LL_reel.state());
   if (name === 'phone') await page.tap('.p-reel.on .p-rcc'); else await page.click('.p-reel.on .p-rcc');
   await page.waitForTimeout(250);
-  const o = await page.evaluate(() => ({ open: !document.querySelector('#pReelSheet').hidden, exp: document.querySelector('.p-reel.on .p-rcc').getAttribute('aria-expanded'), text: document.querySelector('#pReelSheet p').textContent, st: window.LL_reel.state(), paused: document.querySelector('.p-reel.on').classList.contains('userpaused'), awake: document.querySelector('#pReels').classList.contains('awake') }));
+  const o = await page.evaluate(() => ({ open: !document.querySelector('#pReelSheet').hidden, exp: document.querySelector('.p-reel.on .p-rcc').getAttribute('aria-expanded'), text: document.querySelector('#pReelSheet p:not(.bk-about p)').textContent, st: window.LL_reel.state(), paused: document.querySelector('.p-reel.on').classList.contains('userpaused'), awake: document.querySelector('#pReels').classList.contains('awake') }));
   check(o.open && o.exp === 'true' && /James 4:7/.test(o.text), `${name}: tapping CC opens the caption sheet (aria-expanded=true)`);
   check(o.st.story === b4.story && o.st.reel === b4.reel && !o.paused, `${name}: tapping CC never pauses or navigates`);
   check(o.awake, `${name}: the overlay is fully shown while the caption is open`);
@@ -147,11 +147,11 @@ for (const [name, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { 
   const page = await context.newPage(); await page.goto(base + '#watch'); await page.waitForSelector('#app[data-ready]');
   const i = await page.evaluate(() => window.LL_CONTENT.reels.findIndex((r) => r.title === 'First Day Jitters'));
   await page.click(`[data-watch="${i}"]`); await page.waitForTimeout(300); await page.click('.p-reel.on .p-rcc'); await page.waitForTimeout(300);
-  const ps = await page.evaluate(() => ({ want: window.LL_CONTENT.reels.find((r) => r.title === 'First Day Jitters').caption.split('\n\n'), got: [...document.querySelectorAll('#pReelSheet p')].map((p) => ({ t: p.textContent, kids: p.children.length, gap: parseFloat(getComputedStyle(p).marginTop) })) }));
+  const ps = await page.evaluate(() => ({ want: window.LL_CONTENT.reels.find((r) => r.title === 'First Day Jitters').caption.split('\n\n'), got: [...document.querySelectorAll('#pReelSheet p:not(.bk-about p)')].map((p) => ({ t: p.textContent, kids: p.children.length, gap: parseFloat(getComputedStyle(p).marginTop) })) }));
   check(ps.got.length === 3 && ps.got.every((p, k) => p.t === ps.want[k] && p.kids === 0) && ps.got[1].gap > 0 && ps.got[2].gap > 0, `${name}: a caption with blank lines shows as 3 separate paragraphs, text exact`);
   await page.keyboard.press('Escape'); await page.waitForTimeout(200);
   await page.evaluate((i) => { window.LL_reel.open(i); }, i + 1); await page.waitForTimeout(300); await page.click('.p-reel.on .p-rcc'); await page.waitForTimeout(300);
-  check(await page.$$eval('#pReelSheet p', (p) => p.length) === 1, `${name}: extra paragraphs are cleared when a single-paragraph caption opens`);
+  check(await page.$$eval('#pReelSheet p:not(.bk-about p)', (p) => p.length) === 1, `${name}: extra paragraphs are cleared when a single-paragraph caption opens`);
   await context.close();
 }
 await browser.close(); server.close();

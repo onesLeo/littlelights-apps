@@ -1736,3 +1736,48 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
 /* The top row (Reel chip + sound) keeps clear of the close button in the top-right corner. */
 .p-rtoprow { padding-right: 56px; }
 @media (max-width: 899px) { .p-rtop { top: 10px; } .p-rtoprow { padding-right: 52px; } }
+/* Desktop-only static text (lib/reel-text.mjs): "About this video" under the video on /watch/<slug>
+   and a series' intro. Solid panels so contrast holds in day and night: #f6f1ff on #1d1538 ~15:1,
+   #ffd98a ~12:1 (WCAG AA). On phones the intro is clamped to two lines with a More/Less button. */
+.p-about { margin: 20px 16px 32px; padding: 0; border-radius: 18px; background: #1d1538; color: #f6f1ff; border: 1px solid rgba(255,255,255,.12); box-sizing: border-box; max-width: min(720px, calc(100% - 32px)); line-height: 1.6; font-size: 1rem; }
+.p-about > summary { display: block; cursor: pointer; padding: 16px 48px 16px 20px; position: relative; list-style: none; border-radius: 18px; }
+.p-about > summary::-webkit-details-marker { display: none; }
+.p-about > summary::after { content: ''; position: absolute; right: 22px; top: 22px; width: 9px; height: 9px; border-right: 2px solid #ffd98a; border-bottom: 2px solid #ffd98a; transform: rotate(45deg); transition: transform .2s; }
+.p-about[open] > summary::after { transform: rotate(-135deg); top: 26px; }
+.p-about > summary:focus-visible { outline: 3px solid #ffd98a; outline-offset: 2px; }
+.p-about-k { display: block; font-weight: 800; color: #ffd98a; margin-bottom: 4px; }
+.p-about-sum, .p-about-verse { display: block; }
+.p-about-verse { margin-top: 6px; font-style: italic; }
+.p-about-body { padding: 0 20px 18px; }
+.p-about h3 { font-size: 1.05rem; margin: 0 0 4px; color: #ffd98a; }
+.p-about p { margin: 0; }
+.p-about-body > div + div { margin-top: 14px; }
+.p-sintro-wrap { margin: 12px 16px 4px; box-sizing: border-box; max-width: min(720px, calc(100% - 32px)); }
+.p-sintro-box { margin: 0 0 12px; padding: 14px 18px; border-radius: 16px; background: #1d1538; border: 1px solid rgba(255,255,255,.12); }
+.p-sintro-more { display: none; }
+.p-sintro { margin: 0; color: #f6f1ff; line-height: 1.6; font-size: 1rem; }
+@media (min-width: 900px) { .p-about, .p-sintro-wrap { margin-left: auto; margin-right: auto; } }
+@media (prefers-reduced-motion: reduce) { .p-about > summary::after { transition: none; } }
+@media (max-width: 767px) {
+  .p-about { margin: 12px 12px 24px; max-width: calc(100% - 24px); font-size: .95rem; }
+  .p-about > summary { padding: 12px 44px 12px 16px; }
+  .p-about-body { padding: 0 16px 14px; }
+  .p-sintro-wrap { margin: 8px 12px 4px; max-width: calc(100% - 24px); }
+  .p-sintro-box { padding: 10px 14px; }
+  .p-sintro { font-size: .95rem; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+  .p-sintro-box.open .p-sintro { display: block; -webkit-line-clamp: unset; line-clamp: none; overflow: visible; }
+  .p-sintro-more { display: inline-block; margin-top: 4px; min-height: 44px; padding: 0 4px; background: none; border: 0; color: #ffd98a; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
+  .p-sintro-more:focus-visible { outline: 3px solid #ffd98a; outline-offset: 2px; border-radius: 6px; }
+}
+/* In-app copies (js/app.js): series intro under the series sheet title; "About this video" inside the
+   reel caption sheet, below the episode info (never on the playing video). */
+.p-series-body .p-sintro-box { margin: 0; }
+.p-series-body .p-series-desc { font-size: .95rem; opacity: .9; }
+.p-rsheet-in .bk-about:empty { display: none; }
+.p-rsheet-in .bk-about .p-about { margin: 14px 0 4px; max-width: none; text-align: left; }
+.p-rsheet-in .bk-about .p-about p, .p-wplayer.book .p-rsheet-in .bk-about .p-about p { font: 400 1rem/1.6 var(--body, inherit); color: #f6f1ff; margin: 0; }
+.p-rsheet-in .bk-about .p-about p::first-letter, .p-wplayer.book .p-rsheet-in .bk-about .p-about p::first-letter { float: none; font: inherit; margin: 0; color: inherit; }
+.p-rsheet-in .bk-about .p-about h3 { font: 800 1.05rem/1.3 var(--body, inherit); margin: 0 0 4px; color: #ffd98a; }
+.p-about:not([open]) > .p-about-body { display: none; }
+.p-rsheet-in .bk-about :is(h3, p)::before { content: none; display: none; }
+.p-rsheet-in .bk-about :is(h3, p) { text-shadow: none !important; }

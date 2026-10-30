@@ -284,6 +284,13 @@
         return '<button type="button" class="p-fchip" data-ftype="' + esc(t) + '" aria-pressed="' + (s.type === t) + '">' + esc(t) + '</button>'; }).join('') + '</div>' : '') +
       '</div>';
   }
+  // Series intro (lib/head.mjs seriesIntroHtml): More/Less on phones, where the text is clamped to two lines.
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.p-sintro-more'); if (!b) return;
+    var open = b.getAttribute('aria-expanded') !== 'true';
+    b.setAttribute('aria-expanded', open ? 'true' : 'false'); b.textContent = open ? 'Less' : 'More';
+    b.parentNode.classList.toggle('open', open);
+  });
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-fsort], [data-ftype]'); if (!b) return;
     var bar = b.closest('[data-fpage]'); if (!bar) return;
@@ -859,7 +866,7 @@
     // Read / Listen only appear when the reel post links a devotion (fields.devotion = slug) or audio (fields.audio = title).
     var acts = '<button type="button" class="save p-ract' + (savedReels[i] ? ' saved' : '') + '" aria-label="Save">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
       '<button type="button" class="share p-ract" aria-label="Share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button>' +
-      (r.caption ? '<button type="button" class="more p-ract p-rcc" aria-label="Show caption" aria-expanded="false" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6" width="17" height="12" rx="3"/><text x="12" y="15.2" text-anchor="middle">CC</text></svg><span>Caption</span></button>' : '') +
+      (r.caption || aboutHtml(i) ? '<button type="button" class="more p-ract p-rcc" aria-label="Show caption" aria-expanded="false" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6" width="17" height="12" rx="3"/><text x="12" y="15.2" text-anchor="middle">CC</text></svg><span>Caption</span></button>' : '') +
       (r.read && indexBySlug(r.read) >= 0 ? '<button type="button" class="p-ract" data-read-slug="' + esc(r.read) + '" aria-label="Read the devotion">' + rIcon('M3 5h7a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H3zM21 5h-7a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h7z') + '<span>Read</span></button>' : '') +
       (r.listen ? '<button type="button" class="p-ract" data-listen-title="' + esc(r.listen) + '" aria-label="Listen">' + rIcon('M4 14v-2a8 8 0 0 1 16 0v2M4 14h3v6H4zM17 14h3v6h-3z') + '<span>Listen</span></button>' : '');
     var many = parts.length > 1;
@@ -894,7 +901,7 @@
   rSheet.innerHTML = '<div class="p-rsheet-in"><div class="bk-art" aria-hidden="true"></div><span class="bk-hair" aria-hidden="true"><i class="bk-led"></i></span><span class="handle" aria-hidden="true"></span>' +
     '<span class="bk-kick"></span><h3 id="pReelSheetT"></h3><i class="bk-rule" aria-hidden="true"></i><p></p>' +
     '<div class="bk-acts"><button type="button" class="bk-save" aria-pressed="false">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
-    '<button type="button" class="bk-share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button></div>' +
+    '<button type="button" class="bk-share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button></div><div class="bk-about"></div>' +
     '<button type="button" class="p-rsheet-x" aria-label="Close caption">' + rIcon('M6 6l12 12M18 6L6 18') + '</button></div>';
   $('#pWatchPlayer').appendChild(rSheet);
   var rSheetFrom = null;
@@ -971,9 +978,26 @@
   function openReelSheet(i, from) {
     var r = C.reels[i], pt = parts[visibleReel] || r;
     rSheetFrom = from; rSheetI = i; rSheet.querySelector('h3').textContent = r.title; setCaption(rSheet.querySelector('p'), r.caption);
+    rSheet.querySelector('.bk-about').innerHTML = aboutHtml(i);
     rSheet.querySelector('.bk-kick').textContent = r.series ? r.series + (r.episode ? ' · Episode ' + r.episode : '') : 'Reel' + (pt.len ? ' · ' + pt.len : '');
     rSheet.hidden = false; if (from) from.setAttribute('aria-expanded', 'true'); applyBook(); wakeOverlay(); rSheet.querySelector('.p-rsheet-x').focus();
   }
+  // "About this video" (js/reel-text.js, keyed by the reel's /watch/<slug>): collapsed <details> in the
+  // caption sheet, which opens below the episode info and never sits on the playing video.
+  function aboutHtml(i) {
+    var T = window.LL_TEXT, r = C.reels[i]; if (!T || !SEO || !r) return '';
+    return T.reelTextHtml(T.reelText(SEO.reelSlug(r)));
+  }
+  // The page's own About box (static HTML on /watch/<slug>, outside the player) follows the reel
+  // that is open, so switching reels in the app never leaves another video's text behind.
+  function syncPageAbout(i) {
+    var box = Array.prototype.filter.call(document.querySelectorAll('details.p-about'), function (d) { return !wpEl.contains(d); })[0];
+    var html = aboutHtml(i);
+    if (!html) { if (box) box.remove(); return; }
+    var tmp = document.createElement('div'); tmp.innerHTML = html; var nb = tmp.firstChild; nb.setAttribute('data-page-about', '');
+    if (box) box.replaceWith(nb); else wpEl.parentNode.insertBefore(nb, wpEl);
+  }
+  window.LL_about = { html: aboutHtml };
   function closeReelSheet() { if (rSheet.hidden) return false; rSheet.hidden = true; applyBook(); var tw = rSheet.querySelector('.bk-art video'); if (tw) tw.pause(); if (rSheetFrom) { rSheetFrom.setAttribute('aria-expanded', 'false'); rSheetFrom.focus(); } wakeOverlay(); updateReels(); return true; }
   // Keep the blurred twin video behind the glass page in step with the reel.
   function syncBookArt() {
@@ -1284,7 +1308,7 @@
       '<button type="button" class="p-series-x" aria-label="Close series">' + rIcon('M6 6l12 12M18 6L6 18') + '</button>' +
       '<div class="p-series-cover" style="--bg:' + esc(u.cover.bg) + '"><span class="p-wthumb">' + thumb(u.cover) + '</span><span class="p-wshade"></span></div>' +
       '<div class="p-series-body"><span class="p-kicker">Series · ' + u.eps.length + ' episode' + (u.eps.length === 1 ? '' : 's') + (unitWatched(u) ? ' · Watched' : '') + '</span>' +
-      '<h2 id="pSeriesT">' + esc(u.series) + '</h2>' + (u.desc ? '<p>' + esc(u.desc) + '</p>' : '') +
+      '<h2 id="pSeriesT">' + esc(u.series) + '</h2>' + seriesIntro(u.series) + (u.desc ? '<p class="p-series-desc">' + esc(u.desc) + '</p>' : '') +
       '<button type="button" class="p-series-play" data-story="' + start + '">▶ ' + (started && nx != null ? 'Continue' : 'Play') + ' · ' + esc(epLabel(start).replace(/ · $/, '') || C.reels[start].title) + '</button>' +
       '<ol class="p-eps">' + u.eps.map(function (k) { var r = C.reels[k], w = isWatched(k);
         return '<li><button type="button" class="p-ep' + (w ? ' watched' : '') + '" data-story="' + k + '" aria-label="' + esc(epLabel(k) + r.title + (r.len ? ', ' + r.len : '') + (w ? ', watched' : '')) + '">' +
@@ -1297,6 +1321,11 @@
     if (!SEO || !u) return;
     setPath(SEO.path('series', SEO.slugify(name)), true);
     setHead(SEO.meta('series', { series: name, desc: u.desc }));
+  }
+  // Series intro (js/reel-text.js, same text as the static series page) right under the title.
+  function seriesIntro(name) {
+    var T = window.LL_TEXT; if (!T || !SEO) return '';
+    return T.seriesIntroHtml(SEO.slugify(name)).replace(/pSintro-/g, 'pSintroS-');
   }
   function openSeries(name) {
     if (!seriesOpen) seriesReturn = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
@@ -1326,6 +1355,7 @@
   function closeWatch(quiet) {
     if (!watchOpen) return;
     rSheet.hidden = true; wPlayer.classList.remove('book', 'capopen'); watchOpen = false; wPlayer.hidden = true; wPlayer.classList.remove('on'); updateReels();
+    syncPageAbout(-1);
     if (quiet !== true && SEO && location.pathname.indexOf('/watch/') === 0) { if (seriesOpen) seriesHead(seriesOpen); else { setPath('/watch', true); pageHead('watch'); } }
     if (watchReturn && document.contains(watchReturn)) watchReturn.focus();
   }
@@ -1347,6 +1377,7 @@
     if (!watchOpen) watchReturn = document.activeElement;
     if (current !== 'watch') { if (navState('watch') !== 'on') { go('watch'); return; } show('watch'); }
     if (SEO && C.reels[i]) { setPath(SEO.path('watch', SEO.reelSlug(C.reels[i])), true); setHead(SEO.meta('reel', C.reels[i])); }
+    syncPageAbout(i);
     watchOpen = true; wPlayer.hidden = false; wPlayer.classList.add('on');
     setTimeout(function () { openStory(i); }, 0);
   }

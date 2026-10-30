@@ -139,7 +139,7 @@ window.LL_CONTENT = {
       // Caption page: golden-hour amber from the poster's sunrise over the school gate (auto-contrast picks text/accent).
       pageStyle: 'auto', pageColor: '#c27d4a',
       // Blank lines (\n\n) become separate paragraphs in the caption sheet.
-      caption: "First days can feel scary, for kids and grown-ups too. 💛 Mia was nervous about her new school, so she and Hana prayed together, and Mia asked Jesus for strength. God helped her be brave enough to say hello and make a new friend.\n\n\"What time I am afraid, I will trust in thee.\" Psalm 56:3 (KJV)\n\nWill you pray with your little one before their next big day?" },
+      caption: "First days can feel scary, for kids and grown-ups too. 💛 Ema was nervous about her new school, so she and Hana prayed together, and Ema asked Jesus for strength. God helped her be brave enough to say hello and make a new friend.\n\n\"What time I am afraid, I will trust in thee.\" Psalm 56:3 (KJV)\n\nWill you pray with your little one before their next big day?" },
     { title: 'The Last Straw', topic: 'When I feel angry', len: '0:28', bg: '#1f2a44', kind: 'rain',
       src: MEDIA_BASE + 'reels/the-last-straw.b5f16fb2.mp4', poster: 'media/reels/the-last-straw-poster.jpg', thumb: 'media/reels/the-last-straw-thumb', date: '2026-10-18T21:00:00+08:00',
       // Caption page: rainy-night slate blue from the poster's sky (auto-contrast picks text/accent).
