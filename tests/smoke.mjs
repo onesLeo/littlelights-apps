@@ -726,7 +726,8 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
 for (const viewport of [{ width: 320, height: 568 }, { width: 900, height: 650 }, { width: 1024, height: 768 }]) {
   const { context, page } = await openApp(viewport);
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.waitForTimeout(100);
+  // The app reacts to the media change through a listener; wait for it rather than a fixed delay (slow CI runners).
+  await page.waitForFunction(() => document.getElementById('app').classList.contains('calm'), null, { timeout: 3000 }).catch(() => {});
   check(await page.$eval('#app', (a) => a.classList.contains('calm')), `${viewport.width}px: system reduced motion enables Calm mode`);
   check(await page.$$eval('.wm-sway, .wm-flame, .wm-fo, .wm-fc, .wm-halo, .wm-ember', (f) => f.length > 20 && f.every((x) => getComputedStyle(x).animationName === 'none')), `${viewport.width}px: reduced motion keeps the wordmark flame still`);
   const calmFlare = await page.evaluate(() => { document.querySelectorAll('.wm').forEach((w) => w.classList.add('flaring')); return [...document.querySelectorAll('.wm')].map((w) => [getComputedStyle(w.querySelector('.wm-flare')).transform, getComputedStyle(w.querySelector('.wm-hw')).transform, getComputedStyle(w.querySelector('.wm-halo2')).opacity, getComputedStyle(w.querySelector('.wm-e2')).animationName, getComputedStyle(w.querySelector('.wm-jit')).animationName]); });
