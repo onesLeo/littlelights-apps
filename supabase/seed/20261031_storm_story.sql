@@ -1,5 +1,5 @@
 -- A16: Bedtime Bible Story #3 "Jesus Calms the Storm", scheduled for Mon 16 Nov 2026 00:00 Singapore time.
--- DRAFT: not run. Waits for the timings file and for Taman's OK; TIMINGS_INFO is filled in when the timings are made.
+-- DRAFT: not run. Waits for Taman's OK (run only after this PR is merged and live).
 -- Adds ONE new row to public.posts (type 'story', status 'scheduled'). It changes no existing post, table or setting.
 -- Visitors can't see it before 16 Nov 00:00 SGT; until then it shows only in the Studio, where it can be edited or deleted.
 -- Files it points at are on the site (littlelights-apps PRs #81 and the timings PR): media/audio/… and media/printables/….
@@ -25,7 +25,7 @@ select 'story', 'scheduled', '2026-11-16T00:00:00+08:00', 'Jesus Calms the Storm
  "questions": "What was Jesus doing when the storm came?\nWhat did Jesus say to the wind and the waves?\nWhen you feel scared, what can you say to Jesus?",
  "timings": "media/audio/jesus-calms-the-storm-timings.json",
  "timings_file": "jesus-calms-the-storm-timings.json",
- "timings_info": "TIMINGS_INFO",
+ "timings_info": "77 sentences, 429 words",
  "image": "media/audio/jesus-calms-the-storm-cover.jpg",
  "image_width": 1200,
  "image_height": 630,
