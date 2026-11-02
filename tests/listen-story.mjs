@@ -23,7 +23,11 @@ check(raw.includes('"@type":"PodcastEpisode"') && raw.includes('"@type":"AudioOb
 check(raw.includes('A great big fish swam up, opened its great big mouth') && raw.includes('Dear Jesus… thank You that You always hear me.'), 'story text and prayer are in the HTML without JavaScript');
 check(raw.includes('I called because of my <mark class="p-word">affliction</mark> to Yahweh. He answered me.') && raw.includes('Jonah 2:2 (WEB)'), 'verse is Jonah 2:2 (WEB) with Yahweh');
 check(raw.includes('Affliction means big trouble, and Yahweh is God’s special name.'), '"affliction" and "Yahweh" explained on screen');
-check(!/WEBBE|the LORD/.test(raw), 'no WEBBE / "the LORD" left on the page');
+// Scope to the Jonah story + verse section only (the site-wide verse of the week is WEBBE on purpose).
+{
+  const a = raw.indexOf('<h2>The story'), b = raw.indexOf('<h2>3 questions to ask afterwards');
+  check(a > -1 && b > a && !/WEBBE|the LORD/.test(raw.slice(a, b)), 'no WEBBE / "the LORD" in the Jonah story text or verse');
+}
 check(['Who trusted God?', 'How did God help?', 'How can we be like that tomorrow?'].every((q) => raw.includes('<li>' + q + '</li>')) && !raw.includes('PLACEHOLDER: question'), 'the 3 questions from the plan, no placeholders');
 {
   const cover = 'https://littlesaltandlight.com/media/audio/jonah-and-the-whale-cover.jpg';
