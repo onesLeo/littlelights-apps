@@ -36,10 +36,12 @@
   <meta name="apple-mobile-web-app-title" content="Salt and Light">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- The posts and settings come from Supabase: open the connection while the page loads.
-       Only the first screen's text font and the wordmark's font are preloaded. -->
+       Only the first screen's text fonts are preloaded (Bricolage 400 for the text, 800 for the headings, so
+       the heading doesn't reflow when it arrives); the wordmark's script font (Parisienne) is not, so it
+       doesn't compete with the first screen's text (font-display: swap shows the fallback until it arrives). -->
   <link rel="preconnect" href="https://svlvlmyugyadmehjwudm.supabase.co" crossorigin>
   <link rel="preload" href="/fonts/bricolage-normal-400.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="/fonts/parisienne-normal-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/bricolage-normal-800.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/fonts/fonts.css">
   <link rel="stylesheet" href="/css/app.css">
 </head>
@@ -313,7 +315,7 @@
   <div class="p-toast glass glass--light glass--strong" id="pToast" role="status"></div>
 </div>
 
-<script src="/js/analytics.js"></script>
+<script defer src="/js/analytics.js"></script>
 <script defer src="/js/config.js"></script>
 <script defer src="/js/store.js"></script>
 <script defer src="/js/content.js"></script>

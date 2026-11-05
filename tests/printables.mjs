@@ -32,11 +32,12 @@ check(!card.includes('evil') && (card.match(/class="p-dl"/g) || []).length === 2
 check((card.match(/rel="nofollow noopener"/g) || []).length === 2 && card.includes('<h2 id="pPrintH">Free printables</h2>'), 'links are nofollow, card has its heading');
 check(SEO.printablesHtml({}) === '' && SEO.printablesHtml({ printables: [] }) === '', 'no printables, no card');
 check(card.includes('<img src="/media/printables/jonah-colouring-page.6e78574d.jpg" width="360" height="510" alt=""') && (card.match(/<img /g) || []).length === 1 && card.includes('<svg viewBox="0 0 48 64"'), 'a site printable shows its page picture (with its size); a Studio upload shows a paper icon');
+check(card.includes('<picture><source type="image/webp" srcset="/media/printables/jonah-colouring-page.6e78574d.webp"><img src="/media/printables/jonah-colouring-page.6e78574d.jpg" width="360" height="510" alt="" loading="lazy" decoding="async"></picture>'), 'a site printable\u2019s page picture offers its WebP copy, lazy-loaded, with the .jpg as fallback');
 {
   const dir = join(root, 'media/printables');
   const pdfs = (await import('node:fs')).readdirSync(dir).filter((f) => f.endsWith('.pdf'));
-  const missing = pdfs.filter((f) => !existsSync(join(dir, f.replace(/\.pdf$/, '.jpg'))));
-  check(pdfs.length >= 8 && !missing.length, 'every PDF in media/printables has its page picture (.jpg)' + (missing.length ? ': missing ' + missing.join(', ') : ''));
+  const missing = pdfs.filter((f) => !existsSync(join(dir, f.replace(/\.pdf$/, '.jpg'))) || !existsSync(join(dir, f.replace(/\.pdf$/, '.webp'))));
+  check(pdfs.length >= 8 && !missing.length, 'every PDF in media/printables has its page picture (.jpg and a smaller .webp copy)' + (missing.length ? ': missing ' + missing.join(', ') : ''));
 }
 check(SEO.dlKey(jonahFiles[0]) === 'jonah-colouring-page' && dlKey(jonahFiles[0]) === 'jonah-colouring-page' && dlKey('stories/a-b.pdf') === 'a-b', 'count key drops folder, fingerprint and .pdf (app and /dl/ agree)');
 const t = SEO.tonightHtml([{ slug: 'old', title: 'Old', series: 'S', episode: 1, dur: 240 }, { slug: 'new-one', title: 'New One', series: 'Goodnight Little Light', episode: 2, dur: 409, narrator: 'Mr. Ginting', date: '2026-11-11T00:00:00+08:00' }]);

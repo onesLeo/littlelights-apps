@@ -1,6 +1,7 @@
 // Offline support: the app shell is cached on install; fonts are cached the first time they load.
+// Pages are served stale-while-revalidate (see the fetch handler below).
 // Bump VERSION whenever a cached file changes so visitors get the new one.
-const VERSION = 'll-v100';
+const VERSION = 'll-v101';
 const SHELL = [
   './',
   'index.html',
@@ -50,18 +51,31 @@ self.addEventListener('fetch', (event) => {
   // Private, live data (Studio Insights): never cached.
   if (url.origin === location.origin && url.pathname.startsWith('/api/')) return;
 
-  // Pages (/, /watch, /read/brave, ...): network first so new posts appear; each page is kept for
-  // offline use. Offline, an app address without its own copy gets the app shell, which routes by path.
+  // Pages (/, /watch, /read/brave, ...): stale-while-revalidate. A page this device has seen before opens
+  // straight from the cache (no wait for the network on a slow phone connection) and the fresh copy is fetched
+  // in the background for next time; new posts still appear at once, because the app loads them from
+  // Supabase after the page opens. A page not seen before comes from the network and is kept. Offline, an
+  // app address without its own copy gets the app shell, which routes by path. A new deploy changes sw.js
+  // (new asset names), and the new VERSION drops every page cached by the old one, so a cached page never
+  // outlives the files it points at.
   if (req.mode === 'navigate') {
     const app = url.origin === location.origin && !url.pathname.startsWith('/studio');
-    event.respondWith(
-      fetch(req).then((res) => {
-        if (app && res.ok && !res.redirected) caches.open(VERSION).then((cache) => cache.put(url.pathname, res.clone()));
-        return res;
-      }).catch(() => caches.match(app ? url.pathname : req, { ignoreSearch: true })
-        .then((hit) => hit || (app ? caches.match('./') : undefined))
-        .then((hit) => hit || caches.match('index.html')))
-    );
+    let saved = Promise.resolve();
+    const network = fetch(req).then((res) => {
+      if (app && res.ok && !res.redirected) {
+        const copy = res.clone();
+        saved = caches.open(VERSION).then((cache) => cache.put(url.pathname, copy)).catch(() => {});
+      }
+      return res;
+    });
+    const offline = () => caches.match(app ? url.pathname : req, { ignoreSearch: true })
+      .then((hit) => hit || (app ? caches.match('./') : undefined))
+      .then((hit) => hit || caches.match('index.html'));
+    if (!app) { event.respondWith(network.catch(offline)); return; }
+    // Only a page that is itself cached is served stale; the background fetch keeps it fresh.
+    event.waitUntil(network.then(() => saved, () => {}));
+    event.respondWith(caches.open(VERSION).then((cache) => cache.match(url.pathname, { ignoreSearch: true }))
+      .then((hit) => hit || network.catch(offline)));
     return;
   }
   // Studio files (studio.css, studio.js) are not fingerprinted and must match the Studio page, so they

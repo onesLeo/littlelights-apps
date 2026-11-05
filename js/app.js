@@ -161,7 +161,8 @@
           if (p.show_on_today) today.push({ type: 'devotion', i: devs.length - 1 });
         } else if (p.type === 'reel') {
           var look = reelLook.filter(function (l) { return l[1] === f.look; })[0] || reelLook[reels.length % 3];
-          reels.push({ title: p.title, slug: p.slug || '', len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', poster: p._poster || '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '', date: p.publish_at || p.created_at || '', series: f.series || '', episode: +f.episode || 0, seriesDesc: f.series_description || '', pageStyle: f.page_style || '', pageColor: /^#[0-9a-f]{6}$/i.test(f.page_color || '') ? f.page_color : '' });
+          var copy = window.LL_SEO && LL_SEO.posterCopy(f.poster);  // phone-sized copies of the R2 poster, if made
+          reels.push({ title: p.title, slug: p.slug || '', len: f.minutes || '', bg: look[0], kind: look[1], src: p._src || '', poster: p._poster || '', thumb: copy && p._poster ? copy.thumb : '', posterWebp: copy && p._poster ? copy.poster : '', youtube: f.youtube || '', caption: f.caption || '', read: f.devotion || '', listen: f.audio || '', date: p.publish_at || p.created_at || '', series: f.series || '', episode: +f.episode || 0, seriesDesc: f.series_description || '', pageStyle: f.page_style || '', pageColor: /^#[0-9a-f]{6}$/i.test(f.page_color || '') ? f.page_color : '' });
           if (f.builtin) copyOf[f.builtin] = reels.length - 1;
           if (p.show_on_today) today.push({ type: 'reel', i: reels.length - 1 });
         } else if (p.type === 'verse') {
@@ -815,7 +816,8 @@
   // Each reel (episode) plays alone with one progress bar. The old `parts` field is no longer read.
   // Built-in reels (the ones with made thumbnails) have a WebP copy of their poster (scripts/make-thumbs.py),
   // a third of the JPEG's size; the player shows that. The JPEG stays for link previews and JSON-LD.
-  function playerPoster(r) { return r.poster && r.thumb && /-poster\.jpg$/.test(r.poster) ? r.poster.replace(/\.jpg$/, '.webp') : (r.poster || ''); }
+  // Studio reels with copies made by scripts/make-thumbs.py --studio carry their WebP as posterWebp.
+  function playerPoster(r) { return r.poster && r.posterWebp ? r.posterWebp : r.poster && r.thumb && /-poster\.jpg$/.test(r.poster) ? r.poster.replace(/\.jpg$/, '.webp') : (r.poster || ''); }
   function partsOf(r) { return [{ src: r.src || '', youtube: r.youtube || '', len: r.len || '', kind: r.kind, bg: r.bg, poster: playerPoster(r) }]; }
   // Series: reels sharing `series` (fields.series) are grouped and ordered by `episode` (fields.episode).
   // A unit is one series or one standalone reel. Cover art = first episode's art; description =
@@ -963,7 +965,7 @@
     // its own video (a muted twin kept in sync with playback, see syncBookArt).
     var src = reelEl(visibleReel), kb = src && src.querySelector('.p-rkb'), art = rSheet.querySelector('.bk-art'), sv0 = kb && kb.querySelector('video');
     // A video reel shows its poster here (no second download of the video).
-    if (sv0) { var pst = sv0.getAttribute('poster'); art.innerHTML = pst ? '<img alt="" src="' + esc(pst) + '" style="width:100%;height:100%;object-fit:cover">' : ''; }
+    if (sv0) { var pst = sv0.getAttribute('poster'); art.innerHTML = pst ? '<img alt="" decoding="async" src="' + esc(pst) + '" style="width:100%;height:100%;object-fit:cover">' : ''; }
     else art.innerHTML = kb && !kb.querySelector('iframe, .p-yt-slot') ? kb.innerHTML : '';
     art.style.background = base;
     var sv = src && src.querySelector('.save'); rSheet.querySelector('.bk-save').setAttribute('aria-pressed', String(!!(sv && sv.classList.contains('saved'))));
@@ -1244,7 +1246,9 @@
   var THUMB_SIZES = { hero: '(min-width: 1100px) 720px, (min-width: 900px) 60vw, 100vw', card: '(min-width: 900px) 260px, 50vw' };
   function thumb(r, first) {
     var yid = ytId(r.youtube);
-    var load = first ? 'fetchpriority="high"' : 'loading="lazy" decoding="async"';
+    // ...but only while Watch is the open screen: elsewhere (Today, Listen) the gallery is hidden, so its
+    // pictures wait (a lazy picture in a hidden screen loads when the screen opens).
+    var load = first && document.querySelector('.p-view.v-watch.on') ? 'fetchpriority="high"' : 'loading="lazy" decoding="async"';
     if (r.src && r.poster && r.thumb) {
       var set = function (ext) { return esc(r.thumb) + '-360.' + ext + ' 360w, ' + esc(r.thumb) + '-720.' + ext + ' 720w'; };
       var sizes = first ? THUMB_SIZES.hero : THUMB_SIZES.card;
@@ -1978,6 +1982,9 @@
 
   // ---------- offline support ----------
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
+    // Registered after the page's load event (straight away if that has already happened), so the worker's
+    // install, which fetches the whole offline copy, never competes with the first screen.
+    var registerSw = function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); };
+    if (document.readyState === 'complete') registerSw(); else window.addEventListener('load', registerSw);
   }
 })();

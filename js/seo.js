@@ -141,6 +141,21 @@
       '</div>';
   }
 
+  // ---------- phone-sized copies of Studio reel posters ----------
+  // A Studio reel's poster (posts.fields.poster) is a full-size JPEG on R2 (about 115 KB). Copies made with
+  // scripts/make-thumbs.py --studio live in media/reels/studio/: 16:9 thumbnails at 360 and 720 px (AVIF,
+  // WebP) for the Watch gallery and a WebP of the poster for the player, like the built-in reels. The R2
+  // file is not changed and stays the fallback (link previews, JSON-LD, posters without copies).
+  var POSTER_COPIES = {
+    'https://media.littlesaltandlight.com/reels/slice-of-life-ep01-exact-change-poster.7543b119.jpg': 'slice-of-life-ep01-exact-change',
+    'https://media.littlesaltandlight.com/reels/slice-of-life-ep04-the-last-dumpling-poster.c265ae41.jpg': 'slice-of-life-ep04-the-last-dumpling'
+  };
+  // { thumb: '/media/reels/studio/<name>-thumb' (add -360.avif and so on), poster: '/media/reels/studio/<name>-poster.webp' } or null.
+  function posterCopy(url) {
+    var name = Object.prototype.hasOwnProperty.call(POSTER_COPIES, String(url || '')) ? POSTER_COPIES[url] : '';
+    return name ? { thumb: '/media/reels/studio/' + name + '-thumb', poster: '/media/reels/studio/' + name + '-poster.webp' } : null;
+  }
+
   // ---------- free printables (bedtime story pages) ----------
   // Each PDF opens through /dl/<path> (functions/dl), which adds 1 to that file's count for the day and the visitor's
   // country (from the connection, nothing stored about the visitor) and then sends the PDF. rel="nofollow" and
@@ -164,6 +179,13 @@
     return m ? '/media/printables/' + m[1] + '.jpg' : '';
   }
   var PAPER = '<svg viewBox="0 0 48 64" width="48" height="64" aria-hidden="true" focusable="false"><path d="M6 2h26l10 10v48a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#fff" stroke="currentColor" stroke-width="2"/><path d="M32 2v10h10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 26h24M12 34h24M12 42h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  // The page picture keeps its size in the markup (360x510, so the card never jumps), loads only near the
+  // screen, and site printables also have a WebP copy (about half the size, next to the .jpg) that browsers
+  // which read WebP pick; the .jpg stays the fallback. Studio uploads have only their .jpg.
+  function pageImg(src) {
+    var img = '<img src="' + esc(src) + '" width="360" height="510" alt="" loading="lazy" decoding="async">';
+    return /^\/media\/printables\/[a-z0-9._-]+\.jpg$/.test(src) ? '<picture><source type="image/webp" srcset="' + esc(src.replace(/\.jpg$/, '.webp')) + '">' + img + '</picture>' : img;
+  }
   function printablesHtml(x) {
     var list = (x.printables || []).map(function (p) { return { title: p.title, href: dlHref(p.file), thumb: p.thumb ? (/^https:/.test(p.thumb) ? p.thumb : '/' + p.thumb) : printThumb(p.file) }; }).filter(function (p) { return p.href; });
     if (!list.length) return '';
@@ -171,7 +193,7 @@
       '<p>Print at home on A4 for bedtime or Sunday school. Free to share.</p><ul class="p-print-list">' +
       list.map(function (p) {
         return '<li><a class="p-dl" href="' + esc(p.href) + '" target="_blank" rel="nofollow noopener" type="application/pdf">' +
-          '<span class="p-dl-pg">' + (p.thumb ? '<img src="' + esc(p.thumb) + '" width="360" height="510" alt="" loading="lazy" decoding="async">' : PAPER) + '</span>' +
+          '<span class="p-dl-pg">' + (p.thumb ? pageImg(p.thumb) : PAPER) + '</span>' +
           '<span class="p-dl-t"><b>' + esc(p.title) + '</b><small>Free PDF \u00b7 A4</small></span>' +
           '<span class="p-dl-go"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Download</span></a></li>';
       }).join('') + '</ul></section>';
@@ -341,5 +363,5 @@
     }).filter(Boolean).join('').trim();
   }
 
-  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, printablesHtml: printablesHtml, printThumb: printThumb, dlHref: dlHref, dlKey: dlKey, tonightStory: tonightStory, tonightHtml: tonightHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml, SOCIAL: SOCIAL, followHtml: followHtml, footerHtml: footerHtml, footerStyle: footerStyle, FOOTER_STYLES: FOOTER_STYLES, FOOTER_DEFAULT: FOOTER_DEFAULT };
+  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, printablesHtml: printablesHtml, printThumb: printThumb, posterCopy: posterCopy, dlHref: dlHref, dlKey: dlKey, tonightStory: tonightStory, tonightHtml: tonightHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml, SOCIAL: SOCIAL, followHtml: followHtml, footerHtml: footerHtml, footerStyle: footerStyle, FOOTER_STYLES: FOOTER_STYLES, FOOTER_DEFAULT: FOOTER_DEFAULT };
 })(typeof window !== 'undefined' ? window : globalThis);
