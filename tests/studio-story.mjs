@@ -114,19 +114,23 @@ await page.screenshot({ path: 'test-results/studio-story-phone.png', fullPage: t
 
 check(!errors.length, 'no page errors' + (errors.length ? ': ' + errors.join('; ') : ''));
 // Posts 36 and 37 as they are in the database: the table shows the day, year, 12:00 AM SGT and 'Goes live'.
-await page.evaluate(() => {
+// Dates are always in the future (2 and 7 days from now), so the check doesn't break once a fixed date has passed.
+const d36 = sgtDay(2), d37 = sgtDay(7);
+const midnightSgt = (day) => new Date(day + 'T00:00:00+08:00').toISOString();
+const label = (day) => { const [y, m, d] = day.split('-').map(Number); return `${d} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1]} ${y}`; };
+await page.evaluate(([at36, at37]) => {
   const all = JSON.parse(localStorage.getItem('ll.posts.v1') || '[]');
   const mk = (id, title, at) => ({ id, type: 'story', status: 'scheduled', publish_at: at, title, slug: 's' + id, show_on_today: false, fields: { publish_date: '' }, updated_at: '2026-10-27T11:00:00Z', created_at: '2026-10-27T11:00:00Z' });
-  all.push(mk(9036, 'Elijah and the Still Small Voice', '2026-11-03T16:00:00+00:00'), mk(9037, 'The Smallest Star', '2026-11-08T16:00:00+00:00'));
+  all.push(mk(9036, 'Elijah and the Still Small Voice', at36), mk(9037, 'The Smallest Star', at37));
   localStorage.setItem('ll.posts.v1', JSON.stringify(all));
-});
+}, [midnightSgt(d36), midnightSgt(d37)]);
 await page.reload(); await page.waitForSelector('.list .row');
 const cellOf = (t) => page.$$eval('.list .row', (rs, t) => { const r = rs.find((x) => x.textContent.includes(t)); return r ? r.querySelector('.c-date').textContent.replace(/\s+/g, ' ').trim() : ''; }, t);
 const c36 = await cellOf('Elijah and the Still Small Voice'), c37 = await cellOf('The Smallest Star');
-check(c36 === 'Goes live 4 Nov 2026 · 12:00 AM SGT', 'post 36 shows ' + c36);
-check(c37 === 'Goes live 9 Nov 2026 · 12:00 AM SGT', 'post 37 shows ' + c37);
+check(c36 === `Goes live ${label(d36)} · 12:00 AM SGT`, 'post 36 shows ' + c36);
+check(c37 === `Goes live ${label(d37)} · 12:00 AM SGT`, 'post 37 shows ' + c37);
 await page.click('.list .row:has-text("The Smallest Star") .titlebtn'); await page.waitForSelector('#f_publish_time');
-check(await page.inputValue('#f_publish_date') === '2026-11-09' && await page.inputValue('#f_publish_time') === '00:00', 'post 37 opens as 9 Nov, 00:00');
+check(await page.inputValue('#f_publish_date') === d37 && await page.inputValue('#f_publish_time') === '00:00', 'post 37 opens on its day at 00:00');
 await browser.close(); server.close();
 if (failures) { console.error(`\n${failures} check(s) failed`); process.exit(1); }
 console.log('\nAll Studio story checks passed');
