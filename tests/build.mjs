@@ -94,7 +94,7 @@ for (const [file, path] of Object.entries(routes)) {
   check(h.ogImage === 'https://littlesaltandlight.com/icons/og-image.png' && h.card === 'summary_large_image' && !!h.ogType, `${path}: share preview (og:image 1200x630, twitter summary_large_image)`);
   check(h.types.includes('WebSite') && h.types.includes('Organization'), `${path}: JSON-LD has WebSite and Organization`);
   const html = page(file), tab = path === '/' ? 'today' : path.split('/')[1];
-  check(new RegExp(`class="p-view v-${tab} on"`).test(html) && (html.match(/class="p-view [^"]* on"/g) || []).length === 1, `${path}: the ${tab} screen is the one shown before scripts run`);
+  check(new RegExp(`class="p-view v-${tab}(?: p-one-ep)? on"`).test(html) && (html.match(/class="p-view [^"]* on"/g) || []).length === 1, `${path}: the ${tab} screen is the one shown before scripts run`);
 }
 check(titles.size === Object.keys(routes).length, 'every page has its own title');
 check(head(page('read/brave.html')).types.includes('Article') && /<article class="p-over p-article on" id="pArticle"[^>]*>[\s\S]*?<h1>You don’t have to feel brave to be brave<\/h1>[\s\S]*?valley of Elah/.test(page('read/brave.html')), '/read/brave: Article JSON-LD and the devotion text are in the HTML');
@@ -133,12 +133,16 @@ check(existsSync(join(root, 'functions', 'read', '[slug].js')) && existsSync(joi
   const assets = await rd(join(dist, 'assets'));
   const page = await rf(join(dist, 'watch.html'), 'utf8');
   const hashed = assets.every((f) => /\.[0-9a-f]{10}\.(js|css)$/.test(f));
-  const used = ['app', 'store', 'content', 'seo', 'config'].every((n) => new RegExp(`/assets/${n}\\.[0-9a-f]{10}\\.(js|css)`).test(page));
+  // The app's scripts are one deferred bundle.
+  const used = ['app', 'analytics', 'bundle'].every((n) => new RegExp(`/assets/${n}\\.[0-9a-f]{10}\\.(js|css)`).test(page)) &&
+    /<script defer src="\/assets\/bundle\.[0-9a-f]{10}\.js"><\/script>/.test(page) &&
+    !/\/(js|assets)\/(config|store|content|seo|reel-text)\b/.test(page);
   const headers = await rf(join(dist, '_headers'), 'utf8');
   check(hashed && used && !/"\/js\/app\.js"/.test(page), 'build: public pages load fingerprinted /assets/ files');
-  const appJs = assets.find((f) => /^app\.[0-9a-f]{10}\.js$/.test(f)), appCss = assets.find((f) => /^app\.[0-9a-f]{10}\.css$/.test(f));
+  const appJs = assets.find((f) => /^bundle\.[0-9a-f]{10}\.js$/.test(f)), appCss = assets.find((f) => /^app\.[0-9a-f]{10}\.css$/.test(f));
   const [js, css] = [await rf(join(dist, 'assets', appJs), 'utf8'), await rf(join(dist, 'assets', appCss), 'utf8')];
-  check(js.length < (await rf(join(root, 'js', 'app.js'), 'utf8')).length * 0.8 && css.length < (await rf(join(root, 'css', 'app.css'), 'utf8')).length * 0.9 && !/\n\s*\/\/ /.test(js), 'build: the fingerprinted CSS and scripts are minified');
+  const sources = (await Promise.all(['config', 'store', 'content', 'seo', 'reel-text', 'app'].map((n) => rf(join(root, 'js', n + '.js'), 'utf8')))).join('\n');
+  check(js.length < sources.length * 0.8 && css.length < (await rf(join(root, 'css', 'app.css'), 'utf8')).length * 0.9 && !/\n\s*\/\/ /.test(js), 'build: the fingerprinted CSS and scripts are minified');
   check(/\/media\/\*\s+Cache-Control: public, max-age=\d+, stale-while-revalidate=\d+/.test(headers) && !/\/media\/\*\s+Cache-Control:[^\n]*immutable/.test(headers), 'build: media (not renamed on change) is cached but not immutable');
   check(/\/assets\/\*\s+Cache-Control: public, max-age=31536000, immutable/.test(headers) && !/^\/\*\n(?:\s+.*\n)*?\s+Cache-Control/m.test(headers), 'build: /assets/ is cached for a year, pages are not');
   const sw = await rf(join(dist, 'sw.js'), 'utf8');
