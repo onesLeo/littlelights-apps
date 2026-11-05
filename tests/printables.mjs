@@ -118,6 +118,8 @@ check(jonahFiles.every((f) => story.includes('href="/dl/' + f + '"')) && story.i
 const browser = await chromium.launch();
 for (const night of [false, true]) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, colorScheme: night ? 'dark' : 'light' });
+  // Built-in stories only: the live database's newer Studio stories (Elijah from 4 Nov) would take the Tonight card.
+  await page.route(/supabase\.co/, (r) => r.abort());
   await page.goto(base + '/', { waitUntil: 'load' });
   await page.waitForTimeout(600);
   const box = await page.locator('#pTonight').boundingBox();
