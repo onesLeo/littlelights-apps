@@ -4,12 +4,12 @@
 -- Caption is the YouTube Shorts description from ep4-social-upload-guide.md, word for word.
 -- Does not change any other post, user, team or setting. Undo before it goes live:
 --   update posts set status = 'draft' where slug = 'who-walks-at-the-back' and type = 'reel';
--- Media files are in this repo: media/reels/little-light-lessons-ep04-who-walks-at-the-back.199ee030.mp4 and little-light-lessons-ep04-who-walks-at-the-back-poster.e75069ef.jpg.
+-- Media files are in this repo: media/reels/little-light-lessons-ep04-who-walks-at-the-back.25ed661a.mp4 and little-light-lessons-ep04-who-walks-at-the-back-poster.e75069ef.jpg.
 insert into posts (type, status, publish_at, title, slug, show_on_today, media_url, author_email, fields)
 values (
   'reel', 'scheduled', '2026-11-12 11:00:00+00',
   'Who Walks at the Back?', 'who-walks-at-the-back', true,
-  'https://littlesaltandlight.com/media/reels/little-light-lessons-ep04-who-walks-at-the-back.199ee030.mp4',
+  'https://littlesaltandlight.com/media/reels/little-light-lessons-ep04-who-walks-at-the-back.25ed661a.mp4',
   'admin@littlesaltandlight.com',
   jsonb_build_object(
     'file', 'little-light-lessons-ep04-who-walks-at-the-back.mp4',
