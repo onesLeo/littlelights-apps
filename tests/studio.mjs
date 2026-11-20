@@ -462,10 +462,10 @@ await page.waitForTimeout(200);
     r.fulfill({ contentType: 'application/json', body: JSON.stringify(d === 90 ? { connected: true, days: 90, total: { views: 0, visits: 0 }, previous: { views: 0, visits: 0 }, series: [], pages: [], countries: [], sources: [], plays: {}, playsTotal: { started: 0, finished: 0, read_end: 0 }, playsPrevious: { started: 0, finished: 0, read_end: 0 } } : {
       connected: true, days: d, total: { views: 240, visits: 120 }, previous: { views: 200, visits: 100 },
       series: [{ date: day(2), views: 100, visits: 50 }, { date: day(1), views: 140, visits: 70 }],
-      pages: [{ path: '/read/' + restSlug, views: 90, visits: 60, countries: [], referrers: [] }, { path: '/', views: 150, visits: 100, countries: [], referrers: [] }],
+      pages: [{ path: '/read/' + restSlug, views: 90, visits: 60, countries: [], referrers: [] }, { path: '/', views: 150, visits: 100, countries: [], referrers: [] }, { path: '/listen/jonah-and-the-whale-bedtime-story', views: 30, visits: 25, countries: [], referrers: [] }],
       countries: [{ name: 'SG', views: 30 }, { name: 'ID', views: 10 }], sources: [{ name: 'Google search', views: 20 }, { name: 'Direct', views: 10 }],
       vitals: { samples: 10, lcp: 1800, inp: 100, cls: 0.02 },
-      plays: { ['devotion:' + restSlug]: { started: 0, finished: 0, read_end: 12 } }, playsTotal: { started: 8, finished: 4, read_end: 12 }, playsPrevious: { started: 8, finished: 2, read_end: 6 } }) });
+      plays: { ['devotion:' + restSlug]: { started: 0, finished: 0, read_end: 12 }, 'story:jonah-and-the-whale-bedtime-story': { started: 10, finished: 4, love: 7, unlove: 1, share: 3 } }, playsTotal: { started: 18, finished: 8, read_end: 12, love: 7, unlove: 1, share: 3 }, playsPrevious: { started: 18, finished: 2, read_end: 6 } }) });
   });
   await page.reload();
   await page.waitForSelector('.shell');
@@ -508,6 +508,9 @@ await page.waitForTimeout(200);
     await ph.close();
   }
   check((await text('#topPosts li:first-child')).includes('Rest for the weary') && (await text('#topPosts')).includes('12 read to the end') && !(await text('#topPosts')).includes('Home'), 'insights: top posts use post titles and plain labels');
+  check((await text('#topPosts')).includes('Jonah and the Whale') && (await text('#topPosts')).includes('10 plays') && (await text('#topPosts')).includes('40% finished') && (await text('#topPosts')).includes('6 loves') && (await text('#topPosts')).includes('3 shares') && (await text('#topPosts')).includes('Bedtime story'), 'insights: bedtime stories appear in top posts with plays, finish rate, loves and shares');
+  check((await text('#insLoves')).includes('Loves') && (await text('#insLoves')).includes('6'), 'insights: Loves card shows the net love total');
+  check((await text('#insPlays')).includes('18'), 'insights: Videos & audio played includes bedtime-story starts');
   const where = await text('.igrid');
   check(where.includes('Singapore') && where.includes('Indonesia') && where.includes('Google search') && where.includes('Direct') && where.includes('Home (Today)'), 'insights: countries, sources and pages have friendly names');
   check((await text('.speed')).includes('Fast'), 'insights: site speed in one word, details tucked away');

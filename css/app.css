@@ -1776,3 +1776,26 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
 .p-about:not([open]) > .p-about-body { display: none; }
 .p-rsheet-in .bk-about :is(h3, p)::before { content: none; display: none; }
 .p-rsheet-in .bk-about :is(h3, p) { text-shadow: none !important; }
+
+/* ---------- Love and Share (js/app.js, js/seo.js reactHtml) ----------
+   A heart plus its public count, and a Share button, on bedtime stories, Read posts,
+   Listen episodes and Watch reels. 44px tap targets. The filled heart uses the site gold
+   (#F2C46B) on dark, and a deep plum on light, both AA against their backgrounds.
+   No motion beyond the existing .p-btn press; calm mode and reduced-motion already zero that. */
+.p-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 4px; }
+.p-btn.p-love, .p-btn[data-share] { min-height: 44px; min-width: 44px; }
+.p-btn.p-love { background: rgba(0,0,0,.82); color: #fff; }
+.p-btn.p-love svg { flex: none; }
+.p-btn.p-love svg path { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.p-btn.p-love[aria-pressed="true"] svg path, .p-btn.p-love.on svg path { fill: #F2C46B; stroke: #F2C46B; }
+.p-btn.p-love .p-love-n:not(:empty) { font-variant-numeric: tabular-nums; min-width: 1ch; }
+.p-app:not(.night) .p-article .p-btn.p-love[aria-pressed="true"] svg path,
+.p-app:not(.night) .p-epage .p-btn.p-love[aria-pressed="true"] svg path { fill: #8A4B0A; stroke: #8A4B0A; }
+/* Watch reels: Love is one of the floating right-hand buttons; it hides with them. */
+.p-ract.p-love svg path { fill: none; stroke: #fff; stroke-width: 1.8; stroke-linejoin: round; }
+.p-ract.p-love[aria-pressed="true"] svg path, .p-ract.p-love.on svg path { fill: #F2C46B; stroke: #F2C46B; }
+.p-ract.p-love .p-love-n { font-variant-numeric: tabular-nums; }
+.bk-acts .bk-love { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; gap: 6px; }
+.bk-acts .bk-love svg { width: 20px; height: 20px; }
+.bk-acts .bk-love svg path { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.bk-acts .bk-love[aria-pressed="true"] svg path { fill: currentColor; }

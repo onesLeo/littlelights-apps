@@ -71,15 +71,17 @@ await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/jav
 const page = await context.newPage();
 const errors = [], rpc = [];
 page.on('pageerror', (e) => errors.push(e.message));
-page.on('request', (r) => { if (/rpc\/|increment_post_stat/.test(r.url())) rpc.push(r.url()); });
+page.on('request', (r) => { if (/\/api\/stat(?:\?|$)/.test(r.url()) || /increment_post_stat/.test(r.url())) rpc.push(r.url() + ' ' + (r.postData() || '')); });
 await page.goto(base + PATH);
 await page.waitForSelector('#app[data-ready]');
 check(await page.$eval('#pEpisode', (e) => e.classList.contains('on') && !!e.querySelector('h1')), 'the app keeps the story page open');
 check((await page.title()).startsWith('Jonah and the Whale'), 'title stays after the app starts');
 await page.$eval('#pEpisode audio', (a) => a.play().catch(() => {}));
-await page.waitForTimeout(100);
+await page.waitForTimeout(500);
+check(rpc.some((u) => /"event":"started"/.test(u) && /story:jonah-and-the-whale-bedtime-story/.test(u)), 'playing the story audio sends a started count');
+await page.$eval('#pEpisode audio', (a) => { a.pause(); a.dispatchEvent(new Event('ended')); });
 await page.waitForTimeout(400);
-check(rpc.length === 0, 'playing the story audio sends no counting request');
+check(rpc.some((u) => /"event":"finished"/.test(u) && /story:jonah-and-the-whale-bedtime-story/.test(u)), 'finishing the story sends a finished count');
 // AA contrast of the key text, day and night.
 const ratio = () => page.evaluate(() => {
   const lum = (c) => { const m = c.match(/[\d.]+/g).map(Number); const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(m[0]) + 0.7152 * f(m[1]) + 0.0722 * f(m[2]); };

@@ -139,6 +139,14 @@ One-time steps:
 2. Run `supabase/seed/20261030_story_printables.sql` to give Elijah, The Smallest Star and Pip their printables (files in `media/printables/`).
 3. Update `EFFECTIVE_WEB` in `legal/build.py` and redeploy the legal site: the website privacy notice now mentions play and download counts.
 
+### Story plays, Love and Share
+
+Bedtime stories count anonymous plays (`started` and `finished`) the same way reels do, under `story:<slug>`. A Love button (heart plus the public total) and a Share button appear on bedtime stories, Read posts, Listen episodes and Watch reels. Love is one per device per post (`localStorage 'll.loved'`, toggleable, no login). Share uses the device share sheet, with copy-as-link if that isn't available; share totals are shown only in Studio Insights, never on the public page.
+
+Counts go through `POST /api/stat` (which caps how often one connection can increment a post, without storing an IP in the database) and `public.increment_post_stat`. Public love numbers come from `GET /api/loves` / `get_post_love_counts`. Devices with "don't count me" on, and every visit to `/studio`, send no increments. Previews (`*.pages.dev`) are accepted but not saved, so they never change the live totals.
+
+One-time step: apply `supabase/migrations/20261121010000_measure_story_love_share.sql` in the SQL Editor. Until then the buttons still work on the device, but new events (story plays, love, share, and the extra taps) are not stored, and Insights won't have those numbers.
+
 ## Daily rebuild
 
 `.github/workflows/daily-rebuild.yml` runs every day at 05:00 SGT (21:00 UTC). It calls a Cloudflare Pages deploy hook, so the prerendered pages and sitemap pick up stories whose day has come. Before the rebuild, a newly due story still shows in the app, just without its prerendered page.
@@ -157,7 +165,7 @@ If the secret is missing, the workflow skips with a warning instead of failing. 
 Visitor numbers in **Insights** come from Cloudflare Web Analytics (cookie-free). The site loads the beacon itself, from `js/analytics.js`, which every public page runs first (index.html, so also the prerendered pages and the `/listen`, `/read` and `/watch` functions, and 404.html). No other tracking is added.
 
 - **The Studio is never counted.** `/studio` doesn't include the loader, the loader skips `/studio` anyway, and `_headers` adds a second policy on `/studio/*` (`script-src 'self'`) so no beacon can run there.
-- **Don't count me, per device.** Open **https://littlesaltandlight.com/?nocount=1** once on each device and browser you use. It saves `ll.nocount` in that browser's local storage, removes `?nocount=1` from the address and shows a short note. While it is set, the beacon is never loaded on any page. **?nocount=0** turns it off again. Studio → Guide → *Don't count your own visits* (and the Insights page) show this device's state with a button to switch it. Clearing the browser's site data clears it too.
+- **Don't count me, per device.** Open **https://littlesaltandlight.com/?nocount=1** once on each device and browser you use. It saves `ll.nocount` in that browser's local storage, removes `?nocount=1` from the address and shows a short note. While it is set, the beacon is never loaded on any page, and play, love, share and other anonymous increments are not sent. **?nocount=0** turns it off again. Studio → Guide → *Don't count your own visits* (and the Insights page) show this device's state with a button to switch it. Clearing the browser's site data clears it too.
 - **Cloudflare setting:** Web Analytics' *automatic setup* (auto-install) for littlesaltandlight.com must be **off**, otherwise Cloudflare adds its own beacon to every page as well and the switch can't stop it. Turn it off when this change goes live (Cloudflare dashboard → Analytics & Logs → Web Analytics → littlesaltandlight.com → Manage site → automatic setup / "Disable"); the site tag and token stay the same, so Insights keeps its history.
 
 ## Follow links (Instagram, TikTok, YouTube)

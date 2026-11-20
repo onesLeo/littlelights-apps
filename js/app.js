@@ -360,6 +360,11 @@
     feed.classList.add('mid-' + n);
   }
   markRow();
+  function pinFeedFooter(feed) {
+    feed = feed || document.getElementById('pFeed');
+    var foot = feed && feed.querySelector('footer.p-legal.in-feed');
+    if (foot) feed.appendChild(foot);
+  }
   // Today filters: every post card except the built-in welcome slide, which keeps its place.
   // Types come from the card kind each slide already has (Verse, Devotion, Reel, Audio, Game).
   (function todayFilters() {
@@ -377,6 +382,9 @@
       if (html && !wide.matches && welcome) welcome.insertAdjacentHTML('beforeend', html);
       applyDom('today', feed, items, function (el) { return el.dataset.date; }, typeOf);
       if (welcome) { var kids = $$('.p-slide', feed); feed.insertBefore(welcome, kids[Math.min(at, kids.length)] || null); if (kids.indexOf(welcome) < 0 && at >= kids.length) feed.appendChild(welcome); }
+      // Keep the in-feed footer at the end. Reordering the slides would otherwise move it
+      // into the first screen (~240px) and shift the cards (the home-page layout jump).
+      pinFeedFooter(feed);
       markRow();
     }
     FILTER_APPLY.today = apply; apply();
@@ -534,7 +542,7 @@
     }
     if (tab === 'listen' && r.slug) {
       // Bedtime story page (/listen/<slug>): the build already wrote it into the page (scripts/prerender.mjs),
-      // so keep that text and only draw it when arriving from another screen. No play counting here.
+      // so keep that text and only draw it when arriving from another screen.
       var x = storyBySlug(r.slug), ep = $('#pEpisode');
       var pre = x && ep.getAttribute('data-slug') === x.slug && ep.querySelector('.body');
       show('listen');
@@ -542,6 +550,7 @@
         if (!pre) { ep.innerHTML = SEO.storyHtml(x, 'h1'); ep.setAttribute('data-slug', x.slug); ep.scrollTop = 0; app.classList.remove('p-boot'); }
         ep.classList.add('on');
         readAlong(ep, x);
+        bindStoryCounts(ep, x);
         setHead(SEO.meta('story', x));
         return;
       }
@@ -617,6 +626,7 @@
     $$('#pFeed .p-slide.s-studio').forEach(function (s, k) { var t = C.today[k]; var it = t && lists[t.type] && lists[t.type][t.i]; if (it) s.dataset.date = it.date || ''; });
     var hint = $('#pHint');
     if (hint) { feedEl.firstElementChild.appendChild(hint); feedEl.firstElementChild.classList.add('has-hint'); }
+    pinFeedFooter(feedEl);
   })();
 
   // ---------- day / night and calm mode ----------
@@ -866,7 +876,12 @@
     var r = C.reels[i]; curStory = i; parts = partsOf(r);
     // Read only shows when its devotion slug resolves (a draft post isn't in C.devotions, so no dead link).
     // Read / Listen only appear when the reel post links a devotion (fields.devotion = slug) or audio (fields.audio = title).
-    var acts = '<button type="button" class="save p-ract' + (savedReels[i] ? ' saved' : '') + '" aria-label="Save">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
+    var rSlug = SEO ? SEO.reelSlug(r) : (r.slug || r.title);
+    var loveN = loveShown('reel', rSlug);
+    var acts = '<button type="button" class="love p-ract p-love' + (isLoved('reel', rSlug) ? ' on' : '') + '" data-love="reel" data-love-slug="' + esc(rSlug) + '" aria-pressed="' + (isLoved('reel', rSlug) ? 'true' : 'false') + '" aria-label="Love this">' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + ((SEO && SEO.heartPath) ? SEO.heartPath() : 'M12 21s-6.5-4.35-9.33-8.18C.8 10.5 1.2 7.1 3.7 5.6c2-1.2 4.5-.7 5.9 1.1 1.4-1.8 3.9-2.3 5.9-1.1 2.5 1.5 2.9 4.9 1.03 7.22C18.5 16.65 12 21 12 21z') + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>' +
+      '<span class="p-love-n">' + (loveN ? loveN : 'Love') + '</span></button>' +
+      '<button type="button" class="save p-ract' + (savedReels[i] ? ' saved' : '') + '" aria-label="Save">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
       '<button type="button" class="share p-ract" aria-label="Share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button>' +
       (r.caption || aboutHtml(i) ? '<button type="button" class="more p-ract p-rcc" aria-label="Show caption" aria-expanded="false" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6" width="17" height="12" rx="3"/><text x="12" y="15.2" text-anchor="middle">CC</text></svg><span>Caption</span></button>' : '') +
       (r.read && indexBySlug(r.read) >= 0 ? '<button type="button" class="p-ract" data-read-slug="' + esc(r.read) + '" aria-label="Read the devotion">' + rIcon('M3 5h7a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H3zM21 5h-7a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h7z') + '<span>Read</span></button>' : '') +
@@ -902,7 +917,10 @@
   rSheet.setAttribute('role', 'dialog'); rSheet.setAttribute('aria-modal', 'true'); rSheet.setAttribute('aria-labelledby', 'pReelSheetT');
   rSheet.innerHTML = '<div class="p-rsheet-in"><div class="bk-art" aria-hidden="true"></div><span class="bk-hair" aria-hidden="true"><i class="bk-led"></i></span><span class="handle" aria-hidden="true"></span>' +
     '<span class="bk-kick"></span><h3 id="pReelSheetT"></h3><i class="bk-rule" aria-hidden="true"></i><p></p>' +
-    '<div class="bk-acts"><button type="button" class="bk-save" aria-pressed="false">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
+    '<div class="bk-acts"><button type="button" class="bk-love" aria-pressed="false">' +
+    '<svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><path d="' + ((SEO && SEO.heartPath) ? SEO.heartPath() : '') + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>' +
+    '<span class="p-love-n"></span><span>Love</span></button>' +
+    '<button type="button" class="bk-save" aria-pressed="false">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
     '<button type="button" class="bk-share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button></div><div class="bk-about"></div>' +
     '<button type="button" class="p-rsheet-x" aria-label="Close caption">' + rIcon('M6 6l12 12M18 6L6 18') + '</button></div>';
   $('#pWatchPlayer').appendChild(rSheet);
@@ -969,6 +987,13 @@
     else art.innerHTML = kb && !kb.querySelector('iframe, .p-yt-slot') ? kb.innerHTML : '';
     art.style.background = base;
     var sv = src && src.querySelector('.save'); rSheet.querySelector('.bk-save').setAttribute('aria-pressed', String(!!(sv && sv.classList.contains('saved'))));
+    var lv = rSheet.querySelector('.bk-love'), rSlug = r && (SEO ? SEO.reelSlug(r) : r.slug);
+    if (lv && rSlug) {
+      lv.setAttribute('data-love', 'reel'); lv.setAttribute('data-love-slug', rSlug);
+      var on = isLoved('reel', rSlug), n = loveShown('reel', rSlug);
+      lv.setAttribute('aria-pressed', String(on)); lv.classList.toggle('on', on);
+      var num = lv.querySelector('.p-love-n'); if (num) num.textContent = n ? String(n) : '';
+    }
   }
   // Caption text: blank lines (\n\n) become separate <p>s, built with textContent (no HTML parsing).
   function setCaption(p0, text) {
@@ -1010,6 +1035,7 @@
   }
   if (BOOK_MQ.addEventListener) BOOK_MQ.addEventListener('change', applyBook);
   rSheet.addEventListener('click', function (e) {
+    if (e.target.closest('.bk-love')) { var lv = reelEl(visibleReel) && reelEl(visibleReel).querySelector('[data-love="reel"]'); if (lv) lv.click(); applyBook(); return; }
     if (e.target.closest('.bk-save')) { var sv = reelEl(visibleReel) && reelEl(visibleReel).querySelector('.save'); if (sv) sv.click(); applyBook(); return; }
     if (e.target.closest('.bk-share')) { var sh = reelEl(visibleReel) && reelEl(visibleReel).querySelector('.share'); if (sh) sh.click(); return; }
     if (e.target === rSheet || e.target.closest('.p-rsheet-x')) closeReelSheet();
@@ -1235,8 +1261,9 @@
       savedReels[i] = s.classList.contains('saved');
       store('savedReels', JSON.stringify(savedReels));
       toast(savedReels[i] ? 'Saved on this device' : 'Removed from saved');
+      if (savedReels[i]) countEvent('reel', SEO.reelSlug(C.reels[i]), 'save');
     } else if (e.target.closest('.share')) {
-      share(C.reels[i].title, C.reels[i].caption, location.origin + SEO.path('watch', SEO.reelSlug(C.reels[i])));
+      share(C.reels[i].title, C.reels[i].caption, location.origin + SEO.path('watch', SEO.reelSlug(C.reels[i])), 'reel', SEO.reelSlug(C.reels[i]));
     }
   });
   // ---------- Watch gallery: featured hero + thumbnail grid; the feed opens in a glass player ----------
@@ -1398,19 +1425,119 @@
   // credentials or referrer go with the request. At most once per page load per post and event.
   var counted = {};
   function slugKey(s) { return String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80); }
-  function countEvent(kind, slug, ev) {
+  function countOff() {
+    try { if (localStorage.getItem('ll.nocount') === '1') return true; } catch (e) {}
+    try { if (/^\/studio(\/|$)/.test(location.pathname)) return true; } catch (e) {}
+    return false;
+  }
+  function countEvent(kind, slug, ev, opts) {
     var cfg = window.LL_CONFIG || {}, k = slugKey(slug);
-    if (!k || !cfg.supabaseUrl || !cfg.supabaseAnonKey || counted[kind + ':' + k + '|' + ev]) return;
-    counted[kind + ':' + k + '|' + ev] = 1;
+    if (!k || !cfg.supabaseUrl || !cfg.supabaseAnonKey || countOff()) return;
+    var id = kind + ':' + k + '|' + ev;
+    if (!(opts && opts.repeat) && counted[id]) return;
+    counted[id] = 1;
+    var payload = { p_post_id: kind + ':' + k, p_event: ev };
+    var rpc = function () {
+      try {
+        fetch(cfg.supabaseUrl + '/rest/v1/rpc/increment_post_stat', {
+          method: 'POST', keepalive: location.hostname === 'littlesaltandlight.com', credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store',
+          headers: { apikey: cfg.supabaseAnonKey, Authorization: 'Bearer ' + cfg.supabaseAnonKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(function () {});
+      } catch (x) {}
+    };
+    // Prefer same-origin /api/stat (rate-limited, and previews are ignored). If the function is
+    // missing (local tests, an older preview), fall back to the RPC so counts still work.
     try {
-      fetch(cfg.supabaseUrl + '/rest/v1/rpc/increment_post_stat', {
-        method: 'POST', keepalive: true, credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store',
-        headers: { apikey: cfg.supabaseAnonKey, Authorization: 'Bearer ' + cfg.supabaseAnonKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ p_post_id: kind + ':' + k, p_event: ev })
-      }).catch(function () {});
-    } catch (x) {}
+      fetch('/api/stat', {
+        method: 'POST', keepalive: location.hostname === 'littlesaltandlight.com', credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: kind + ':' + k, event: ev })
+      }).then(function (r) { if (!r || r.status === 404 || r.status === 405) rpc(); }).catch(rpc);
+    } catch (x) { rpc(); }
   }
   window.LL_countEvent = countEvent;
+
+  // Love: one per device per post (localStorage 'll.loved'), toggleable, no login. The public
+  // number is the net of anonymous love/unlove increments. Share counts are Insights-only.
+  var LOVED_KEY = 'll.loved', loveTotals = {};
+  function lovedMap() { try { return JSON.parse(localStorage.getItem(LOVED_KEY) || '{}') || {}; } catch (e) { return {}; } }
+  function isLoved(kind, slug) { return !!lovedMap()[kind + ':' + slugKey(slug)]; }
+  function setLovedLocal(kind, slug, on) {
+    var m = lovedMap(), k = kind + ':' + slugKey(slug);
+    if (on) m[k] = 1; else delete m[k];
+    try { localStorage.setItem(LOVED_KEY, JSON.stringify(m)); } catch (e) {}
+  }
+  function loveShown(kind, slug) {
+    var n = Number(loveTotals[kind + ':' + slugKey(slug)] || 0) || 0;
+    if (isLoved(kind, slug) && n < 1) n = 1;
+    return n;
+  }
+  function paintLove(root) {
+    Array.prototype.forEach.call((root || document).querySelectorAll('[data-love]'), function (b) {
+      var kind = b.getAttribute('data-love'), slug = b.getAttribute('data-love-slug');
+      if (!kind || !slug) return;
+      var on = isLoved(kind, slug), n = loveShown(kind, slug);
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+      b.setAttribute('aria-label', on ? (n ? 'Loved, ' + n + '. Tap to remove.' : 'Loved. Tap to remove.') : (n ? 'Love this, ' + n + ' loves' : 'Love this'));
+      var num = b.querySelector('.p-love-n');
+      if (num) num.textContent = b.classList.contains('p-ract') ? (n ? String(n) : 'Love') : (n ? String(n) : '');
+    });
+  }
+  function toggleLove(kind, slug) {
+    if (countOff()) { toast('This device isn’t counted, so Love isn’t saved.'); return; }
+    var on = !isLoved(kind, slug);
+    setLovedLocal(kind, slug, on);
+    var key = kind + ':' + slugKey(slug);
+    loveTotals[key] = Math.max(0, (Number(loveTotals[key] || 0) || 0) + (on ? 1 : -1));
+    paintLove();
+    countEvent(kind, slug, on ? 'love' : 'unlove', { repeat: true });
+  }
+  function fetchLoves(ids) {
+    var uniq = [], seen = {};
+    (ids || []).forEach(function (id) {
+      var k = String(id || '');
+      if (!k || seen[k]) return;
+      seen[k] = 1; uniq.push(k);
+    });
+    if (!uniq.length) { paintLove(); return; }
+    var apply = function (map) {
+      Object.keys(map || {}).forEach(function (k) { loveTotals[k] = Number(map[k] || 0) || 0; });
+      paintLove();
+    };
+    var rpc = function () {
+      var cfg = window.LL_CONFIG || {};
+      if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) { paintLove(); return; }
+      fetch(cfg.supabaseUrl + '/rest/v1/rpc/get_post_love_counts', {
+        method: 'POST', credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store',
+        headers: { apikey: cfg.supabaseAnonKey, Authorization: 'Bearer ' + cfg.supabaseAnonKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_ids: uniq })
+      }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
+        var map = {};
+        (rows || []).forEach(function (row) { map[row.post_id] = Number(row.loves || 0) || 0; });
+        apply(map);
+      }).catch(function () { paintLove(); });
+    };
+    fetch('/api/loves?ids=' + uniq.map(encodeURIComponent).join(','), { credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store' })
+      .then(function (r) {
+        if (!r || r.status === 404 || r.status === 405) { rpc(); return null; }
+        return r.ok ? r.json() : {};
+      })
+      .then(function (map) { if (map) apply(map); })
+      .catch(rpc);
+  }
+  function bindStoryCounts(ep, x) {
+    var a = ep && ep.querySelector('audio');
+    if (!a || !x || !x.slug) return;
+    if (a.getAttribute('data-ll-count') === x.slug) { paintLove(ep); return; }
+    a.setAttribute('data-ll-count', x.slug);
+    a.addEventListener('play', function () { countEvent('story', x.slug, 'started'); });
+    a.addEventListener('ended', function () { countEvent('story', x.slug, 'finished'); });
+    paintLove(ep);
+  }
+  window.LL_love = { toggle: toggleLove, paint: paintLove, isLoved: isLoved, fetch: fetchLoves };
+
   function reelKey(i) { var r = C.reels[i]; return r ? (SEO ? SEO.reelSlug(r) : (r.slug || r.title)) : ''; }
 
   // ---------- audio: real files when `src` is set, otherwise a silent demo ----------
@@ -1649,11 +1776,13 @@
       '<div class="times"><span id="pTimeNow">' + fmt(player.t) + '</span><span>' + fmt(duration()) + '</span></div>' +
       '<div class="ctls"><button type="button" data-skip="-15">−15s</button><button class="main" type="button" id="pFullPP" aria-label="Play or pause"></button><button type="button" data-skip="15">+15s</button></div>' +
       (e.devotion != null ? '<button class="p-btn ghost readalong" type="button" data-read="' + e.devotion + '" style="color:#fff">Open the devotion</button>' : '') +
+      (SEO && SEO.reactHtml ? SEO.reactHtml('audio', slugKey(e.title)) : '') +
       (e.src ? '' : '<div class="note">Recording coming soon. This player shows progress without sound.</div>') +
       (tx ? '<section class="transcript" aria-labelledby="pTxHead" tabindex="0"><h4 id="pTxHead">Read along</h4>' + tx + '</section>' : '');
     full.classList.toggle('has-text', !!tx);
     full.classList.add('on');
     renderPlayer();
+    paintLove(full);
   }
   $('#pFull').addEventListener('click', function (e) {
     if (e.target.closest('[data-close]')) $('#pFull').classList.remove('on');
@@ -1693,8 +1822,11 @@
     if (!pre) app.classList.remove('p-boot');
     var top = '<button class="back" type="button" data-close>← Back</button>' +
       '<div class="hero" style="background:' + d.color + ';color:' + d.ink + '"><span class="p-kicker">' + esc(d.kicker) + '</span><h2>' + esc(d.title) + '</h2></div>' +
-      '<div style="padding-top:16px;display:flex;gap:8px;flex-wrap:wrap">' + (d.episode >= 0 ? '<button class="p-btn listen" type="button" data-ep="' + d.episode + '">▶ Listen to this devotion</button>' : '') +
-      '<button class="p-btn ghost" type="button" data-share-dev="' + i + '" style="background:rgba(0,0,0,.08);color:inherit">Share</button></div>';
+      '<div class="p-acts" style="padding-top:16px">' + (d.episode >= 0 ? '<button class="p-btn listen" type="button" data-ep="' + d.episode + '">▶ Listen to this devotion</button>' : '') +
+      '<button type="button" class="p-btn p-love" data-love="devotion" data-love-slug="' + esc(d.slug) + '" aria-pressed="false" aria-label="Love this">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><path d="' + ((SEO && SEO.heartPath) ? SEO.heartPath() : '') + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>' +
+        '<span class="p-love-n"></span><span class="p-love-t">Love</span></button>' +
+      '<button class="p-btn ghost" type="button" data-share-dev="' + i + '" data-share="devotion" data-share-slug="' + esc(d.slug) + '" style="background:rgba(0,0,0,.08);color:inherit">Share</button></div>';
     var same = document.createElement('div'); same.innerHTML = d.html;
     if (pre && pre.innerHTML === same.innerHTML) {
       while (a.firstChild !== pre) a.removeChild(a.firstChild);
@@ -1703,6 +1835,7 @@
     closeOverlays();
     a.classList.add('on');
     a.scrollTop = 0;
+    paintLove(a);
     readSlug = d.slug;
     setTimeout(function () { if (readSlug === d.slug && a.scrollHeight <= a.clientHeight + 80) countEvent('devotion', d.slug, 'read_end'); }, 4000);
     if (SEO) setHead(SEO.meta('devotion', d));
@@ -1886,7 +2019,8 @@
   }
 
   // ---------- sharing ----------
-  function share(title, text, url) {
+  function share(title, text, url, kind, slug) {
+    if (kind && slug) countEvent(kind, slug, 'share');
     if (navigator.share) { navigator.share({ title: title, text: text, url: url }).catch(function () {}); return; }
     var msg = text + '\n' + url;
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1943,9 +2077,19 @@
     var b = e.target.closest('button');
     if (!b) return;
     var d = b.dataset;
+    if (b.getAttribute('data-love')) { toggleLove(b.getAttribute('data-love'), b.getAttribute('data-love-slug')); return; }
+    if (b.getAttribute('data-share') && d.shareDev == null && d.shareVerse == null) {
+      var sk = b.getAttribute('data-share'), ss = b.getAttribute('data-share-slug');
+      if (sk === 'story') { var st = storyBySlug(ss); if (st) share(st.title, st.desc || '', pageUrl(SEO.path('listen', ss)), 'story', ss); }
+      else if (sk === 'audio') {
+        var ep = C.episodes.filter(function (x) { return slugKey(x.title) === slugKey(ss); })[0];
+        if (ep) share(ep.title, ep.meta || '', pageUrl('/listen'), 'audio', ep.title);
+      }
+      return;
+    }
     if (d.mode != null) setNight(!app.classList.contains('night'), true);
     else if (d.calm != null) setCalm(!app.classList.contains('calm'), true);
-    else if (d.install != null && installEvent) { installEvent.prompt(); installEvent = null; }
+    else if (d.install != null && installEvent) { countEvent('action', 'install', 'click'); installEvent.prompt(); installEvent = null; }
     else if (d.soonClose != null) closeSoon();
     else if (d.go) go(d.go);
     else if (d.ep != null && !b.closest('#pFull')) playEp(+d.ep);
@@ -1953,9 +2097,9 @@
     else if (d.openVerse != null) openFullVerse(+d.openVerse);
     else if (d.read != null) openArticle(+d.read);
     else if (d.reel != null) openReel(+d.reel);
-    else if (d.saveVerse != null) saveVerse(+d.saveVerse);
-    else if (d.shareVerse != null) { var v = C.verses[+d.shareVerse]; share(v.ref, '“' + v.text + '” ' + v.ref + ' (' + (v.translation || 'WEB') + ')', pageUrl('/verses')); }
-    else if (d.shareDev != null) { var dv = C.devotions[+d.shareDev]; share(dv.title, dv.teaser, pageUrl(SEO.path('read', dv.slug))); }
+    else if (d.saveVerse != null) { saveVerse(+d.saveVerse); var vv = C.verses[+d.saveVerse]; if (vv) countEvent('verse', vv.slug || vv.ref, 'save'); }
+    else if (d.shareVerse != null) { var v = C.verses[+d.shareVerse]; share(v.ref, '“' + v.text + '” ' + v.ref + ' (' + (v.translation || 'WEB') + ')', pageUrl('/verses'), 'verse', v.slug || v.ref); }
+    else if (d.shareDev != null) { var dv = C.devotions[+d.shareDev]; share(dv.title, dv.teaser, pageUrl(SEO.path('read', dv.slug)), 'devotion', dv.slug); }
     else if (d.preview != null) {
       if (C.gamePreviewUrl) window.open(C.gamePreviewUrl, '_blank', 'noopener');
       else toast('The free preview opens here once the browser build is published.');
@@ -1972,6 +2116,25 @@
   });
 
   $('#pSoon').addEventListener('click', function (e) { if (e.target.id === 'pSoon') closeSoon(); });
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a) return;
+    var href = a.getAttribute('href') || '', path = '';
+    try { path = new URL(href, location.href).pathname; } catch (x) { path = href; }
+    if (path === '/join' || path.indexOf('/join/') === 0) countEvent('action', 'join', 'click');
+    if (a.classList.contains('p-follow-a') || a.classList.contains('sf-soc') || (a.classList.contains('p-follow-a') === false && a.closest && a.closest('.p-follow, .p-sfoot, .sf-follow'))) {
+      var label = ((a.getAttribute('aria-label') || '') + ' ' + (a.getAttribute('title') || '')).toLowerCase();
+      var net = /instagram/.test(label) ? 'instagram' : /tiktok/.test(label) ? 'tiktok' : /youtube/.test(label) ? 'youtube' : '';
+      if (net && (a.classList.contains('p-follow-a') || a.classList.contains('sf-soc'))) countEvent('action', net, 'click');
+    }
+  }, true);
+  var loveIds = [];
+  (C.bedtimeStories || []).forEach(function (x) { if (x.slug) loveIds.push('story:' + slugKey(x.slug)); });
+  (C.reels || []).forEach(function (r) { loveIds.push('reel:' + slugKey(SEO ? SEO.reelSlug(r) : (r.slug || r.title))); });
+  (C.devotions || []).forEach(function (d) { if (d.slug) loveIds.push('devotion:' + slugKey(d.slug)); });
+  (C.episodes || []).forEach(function (ep) { if (ep.title) loveIds.push('audio:' + slugKey(ep.title)); });
+  (C.verses || []).forEach(function (v) { loveIds.push('verse:' + slugKey(v.slug || v.ref)); });
+  fetchLoves(loveIds);
   applyNav();
   route();
   app.dataset.ready = '1';
