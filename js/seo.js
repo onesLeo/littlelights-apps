@@ -107,6 +107,19 @@
         '<span class="p-pp" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>';
     }).join('');
   }
+  // Love + Share under a bedtime story's audio (and reused by js/app.js for Read and Listen).
+  // The public love number is filled in by the app; Share counts are only shown in Studio Insights.
+  function heartPath() { return 'M12 21s-6.5-4.35-9.33-8.18C.8 10.5 1.2 7.1 3.7 5.6c2-1.2 4.5-.7 5.9 1.1 1.4-1.8 3.9-2.3 5.9-1.1 2.5 1.5 2.9 4.9 1.03 7.22C18.5 16.65 12 21 12 21z'; }
+  function reactHtml(kind, slug) {
+    kind = String(kind || ''); slug = String(slug || '');
+    if (!kind || !slug) return '';
+    return '<div class="p-acts" data-acts="' + esc(kind) + '" data-acts-slug="' + esc(slug) + '">' +
+      '<button type="button" class="p-btn p-love" data-love="' + esc(kind) + '" data-love-slug="' + esc(slug) + '" aria-pressed="false" aria-label="Love this">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><path d="' + heartPath() + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>' +
+        '<span class="p-love-n"></span><span class="p-love-t">Love</span></button>' +
+      '<button type="button" class="p-btn ghost" data-share="' + esc(kind) + '" data-share-slug="' + esc(slug) + '">Share</button>' +
+    '</div>';
+  }
   function storyHtml(x, h) {
     h = h || 'h1';
     var src = /^https?:/i.test(x.src || '') ? x.src : '/' + String(x.src || '').replace(/^\/+/, '');
@@ -122,7 +135,7 @@
         '<div class="p-ep-player">' +
           '<audio controls preload="none" src="' + esc(src) + '">Your browser can\u2019t play this audio.</audio>' +
           (x.placeholder ? '<p class="p-ep-note" data-placeholder-audio>[PLACEHOLDER AUDIO: the narration is coming soon]</p>' : '') +
-        '</div>' +
+        '</div>' + reactHtml('story', x.slug) +
         '<h2>The story</h2>' + (x.story || []).map(function (p, i) { return '<p data-ra="story-' + i + '">' + mark(p, x.word) + '</p>'; }).join('') +
         '<h2>Bible verse</h2>' +
         '<blockquote class="p-ep-verse">\u201c' + mark(x.verse.text, x.word) + '\u201d<br><span class="meta">' + esc(x.verse.ref) + ' (' + esc(x.verse.version) + ')</span></blockquote>' +
@@ -363,5 +376,5 @@
     }).filter(Boolean).join('').trim();
   }
 
-  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, storyRowsHtml: storyRowsHtml, printablesHtml: printablesHtml, printThumb: printThumb, posterCopy: posterCopy, dlHref: dlHref, dlKey: dlKey, tonightStory: tonightStory, tonightHtml: tonightHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml, SOCIAL: SOCIAL, followHtml: followHtml, footerHtml: footerHtml, footerStyle: footerStyle, FOOTER_STYLES: FOOTER_STYLES, FOOTER_DEFAULT: FOOTER_DEFAULT };
+  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, reactHtml: reactHtml, heartPath: heartPath, storyRowsHtml: storyRowsHtml, printablesHtml: printablesHtml, printThumb: printThumb, posterCopy: posterCopy, dlHref: dlHref, dlKey: dlKey, tonightStory: tonightStory, tonightHtml: tonightHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml, SOCIAL: SOCIAL, followHtml: followHtml, footerHtml: footerHtml, footerStyle: footerStyle, FOOTER_STYLES: FOOTER_STYLES, FOOTER_DEFAULT: FOOTER_DEFAULT };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -37,6 +37,14 @@ const cfDay = (date, views = 10, visits = 4) => ({
   check(/revoke all on public\.site_daily_stats from anon, authenticated/.test(sql) && /security definer/.test(sql) && /secret_hash = extensions\.digest/.test(sql), 'migration: writes only via the secret-checked function');
   check(!/\b(ip|ip_address|user_agent|cookie)\b/i.test(sql.replace(/--.*$/gm, '')), 'migration: no visitor columns');
 }
+{
+  const sql = readFileSync(new URL('../supabase/migrations/20261121010000_measure_story_love_share.sql', import.meta.url), 'utf8');
+  check(/story:/.test(sql) && /'love'/.test(sql) && /'share'/.test(sql) && /get_post_love_counts/.test(sql), 'measure migration: story, love, share and public love totals');
+  check(/grant execute on function public.get_post_love_counts/.test(sql) && /security definer/.test(sql), 'measure migration: love totals are a definer function granted to anon');
+  check(!/\b(ip|ip_address|user_agent|cookie|fingerprint)\b/i.test(sql.replace(/--.*$/gm, '')), 'measure migration: no visitor columns');
+  check(/10000/.test(sql) && /unlove/.test(sql), 'measure migration: daily clamp and unlove never goes below zero');
+}
+
 
 // ---------- snapshot job ----------
 {

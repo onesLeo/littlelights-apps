@@ -134,9 +134,10 @@ const textOf = (p) => p.$$eval('#pEpisode [data-ra^="story-"]', (e) => e.map((n)
   check(await page.$eval('.p-ra-toggle', (b) => b.getAttribute('aria-pressed')) === 'false' && await page.$$eval('#pEpisode .p-sen', (e) => e.length) === 0, 'after reload it stays off');
   await page.click('.p-ra-toggle');
   check(await page.$$eval('#pEpisode .p-sen', (e) => e.length) === m.count, 'toggle on again: highlight back');
-  // The app's own existing Supabase reads (posts, site settings) are not part of the read-along; nothing else may leave.
-  const other = outside.filter((u) => !/\.supabase\.co\/rest\/v1\/(posts|site_settings)\?/.test(u));
-  check(other.length === 0, 'read-along makes no outside requests (no counting, no tracking)' + (other.length ? ': ' + other.join(', ') : ''));
+  // The app's own existing Supabase reads (posts, site settings) and the anonymous
+  // play / love counters added in feat/measure-everything are not part of read-along; nothing else may leave.
+  const other = outside.filter((u) => !/\.supabase\.co\/rest\/v1\/(posts|site_settings)\?/.test(u) && !/\/rpc\/(get_post_love_counts|increment_post_stat)/.test(u) && !/\/api\/(loves|stat)/.test(u));
+  check(other.length === 0, 'read-along makes no outside requests beyond anonymous post counts' + (other.length ? ': ' + other.join(', ') : ''));
   check(errors.length === 0, 'no page errors' + (errors.length ? ': ' + errors.join(' | ') : ''));
   await context.close();
 }

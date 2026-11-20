@@ -848,8 +848,10 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
   function insightTitle(kind, slug) {
     var p = state.posts.filter(function (x) { return x.type === kind && (x.slug === slug || S.slugify(x.title || '') === slug); })[0];
     if (p) return p.title;
-    var C = window.LL_CONTENT || {}, list = kind === 'devotion' ? C.devotions : kind === 'reel' ? C.reels : kind === 'audio' ? C.episodes : [];
+    var C = window.LL_CONTENT || {}, list = kind === 'devotion' ? C.devotions : kind === 'reel' ? C.reels : kind === 'audio' ? C.episodes : kind === 'story' ? (C.bedtimeStories || []) : [];
     var b = (list || []).filter(function (x) { return (x.slug || S.slugify(x.title || '')) === slug; })[0];
+    var names = { join: 'Join testers', instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube', install: 'Install the app' };
+    if (!b && kind === 'action') return names[slug] || slug;
     return b ? b.title : slug;
   }
   // Friendly country name and flag from the two-letter code Cloudflare reports.
@@ -932,12 +934,20 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var plays = I.plays || null, rows = {}, order = [];
     function row(kind, slug) { var k = kind + ':' + slug; if (!rows[k]) { rows[k] = { kind: kind, slug: slug, views: 0, plays: null }; order.push(k); } return rows[k]; }
     (I.pages || []).forEach(function (pg) {
-      var m = /^\/(read|watch)\/([a-z0-9-]+)\/?$/.exec(pg.path);
-      var r = m ? row(m[1] === 'read' ? 'devotion' : 'reel', m[2]) : row('page', pg.path);
+      var m = /^\/(read|watch|listen)\/([a-z0-9-]+)\/?$/.exec(pg.path);
+      var r = m ? row(m[1] === 'read' ? 'devotion' : m[1] === 'watch' ? 'reel' : 'story', m[2]) : row('page', pg.path);
       r.views = pg.views;
     });
     Object.keys(plays || {}).forEach(function (k) { var i = k.indexOf(':'); row(k.slice(0, i), k.slice(i + 1)).plays = plays[k]; });
-    var KIND = { devotion: 'Devotion', reel: 'Reel', audio: 'Audio', verse: 'Verse', page: 'Page', game: 'Game update' };
+    var KIND = { devotion: 'Devotion', reel: 'Reel', audio: 'Audio', verse: 'Verse', story: 'Bedtime story', page: 'Page', game: 'Game update', action: 'Action' };
+    function netLoves(pl) { pl = pl || {}; return Math.max(0, (pl.love || 0) - (pl.unlove || 0)); }
+    function storyDownloads(slug, files) {
+      var s = String(slug || '').replace(/-bedtime-story$/, '');
+      return (files || []).filter(function (f) {
+        var stem = String(f.file || '').replace(/-(colouring-page|verse-and-question-cards|memory-verse-and-question-cards)$/, '');
+        return stem && (s === stem || s.indexOf(stem + '-') === 0 || stem.indexOf(s) === 0);
+      }).reduce(function (n, f) { return n + (f.total || 0); }, 0);
+    }
     var notice = '';
     if (I.connected === false) notice = '<div class="ins-note"><b>Visitor numbers aren’t switched on yet.</b> Visits, countries and sources appear here once the site owner adds the Cloudflare Analytics key. Plays and “read to the end” below already work.</div>';
     else if (I.error) notice = '<div class="ins-note err">' + esc(I.error) + '</div>';
@@ -946,23 +956,35 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
     var cards = '<div class="stats icards">' +
       card('insVisits', 'People visited', I.connected ? T.visits || 0 : null, 'Visits to the site. Someone who comes back on another day counts again.', I.connected && P ? change(T.visits || 0, P.visits, days) : '') +
       card('insViews', 'Pages opened', I.connected ? T.views || 0 : null, 'Every time a page was opened, including going back to one.', I.connected && P ? change(T.views || 0, P.views, days) : '') +
-      card('insPlays', 'Videos & audio played', PT ? PT.started || 0 : null, 'Times someone pressed play on a reel, video or audio.', PT && PP ? change(PT.started || 0, PP.started, days) : '') +
+      card('insPlays', 'Videos & audio played', PT ? PT.started || 0 : null, 'Times someone pressed play on a reel, video or bedtime story.', PT && PP ? change(PT.started || 0, PP.started, days) : '') +
       card('insReads', 'Read to the end', PT ? PT.read_end || 0 : null, 'Times someone scrolled to the end of a devotion.', PT && PP ? change(PT.read_end || 0, PP.read_end, days) : '') +
+      card('insLoves', 'Loves', PT ? netLoves(PT) : null, 'Times someone tapped Love. They can take it back. No names are stored.', PT && PP ? change(netLoves(PT), netLoves(PP), days) : '') +
       '</div>';
     var series = I.series && I.series.length ? I.series : null, chart;
     if (series) chart = '<section class="ipanel"><h3>Visits per day</h3><p class="ihint">Each bar is one day. Tap a bar to see its number.</p>' + trend(series, 'visits', 'Visits per day') + '</section>';
     else if (I.playsSeries && I.playsSeries.length) chart = '<section class="ipanel"><h3>Plays per day</h3><p class="ihint">Each bar is one day. Tap a bar to see its number.</p>' + trend(I.playsSeries, 'started', 'Plays per day') + '</section>';
     else chart = '<section class="ipanel"><h3>Visits per day</h3><p class="iempty">No daily numbers yet for these ' + days + ' days. Once people visit, a small chart appears here.</p></section>';
-    var ranked = order.map(function (k) { return rows[k]; }).map(function (r) { r.score = (r.views || 0) + ((r.plays && r.plays.started) || 0); return r; })
-      .filter(function (r) { return r.score > 0 || (r.plays && r.plays.read_end); }).sort(function (a, b) { return b.score - a.score; });
-    var postsOnly = ranked.filter(function (r) { return r.kind !== 'page'; }).slice(0, 10), topMax = postsOnly.length ? postsOnly[0].score || 1 : 1;
-    var top = '<section class="ipanel"><h3>Top posts</h3><p class="ihint">Most opened and played posts in the last ' + days + ' days.</p>' +
+    var ranked = order.map(function (k) { return rows[k]; }).map(function (r) {
+        var pl = r.plays || {};
+        r.score = (r.views || 0) + (pl.started || 0) + netLoves(pl) + (pl.share || 0);
+        return r;
+      })
+      .filter(function (r) { var pl = r.plays || {}; return r.score > 0 || pl.read_end || pl.save; }).sort(function (a, b) { return b.score - a.score; });
+    var postsOnly = ranked.filter(function (r) { return r.kind !== 'page' && r.kind !== 'action'; }).slice(0, 10), topMax = postsOnly.length ? postsOnly[0].score || 1 : 1;
+    var top = '<section class="ipanel"><h3>Top posts</h3><p class="ihint">Most opened and played posts in the last ' + days + ' days, including bedtime stories. Share counts are only shown here, not on the public site.</p>' +
       (postsOnly.length ? '<ol class="toplist" id="topPosts">' + postsOnly.map(function (r, i) {
-        var pl = r.plays || {}, bits = [];
+        var pl = r.plays || {}, bits = [], loves = netLoves(pl);
         if (r.views) bits.push(r.views.toLocaleString() + (r.views === 1 ? ' view' : ' views'));
         if (pl.started) bits.push(pl.started.toLocaleString() + (pl.started === 1 ? ' play' : ' plays'));
-        if (pl.finished) bits.push(pl.finished.toLocaleString() + ' watched to the end');
+        if (pl.finished) bits.push(pl.finished.toLocaleString() + (r.kind === 'story' || r.kind === 'audio' ? ' listened to the end' : ' watched to the end'));
+        if (pl.started && pl.finished) bits.push(Math.round(100 * pl.finished / pl.started) + '% finished');
         if (pl.read_end) bits.push(pl.read_end.toLocaleString() + ' read to the end');
+        if (loves) bits.push(loves.toLocaleString() + (loves === 1 ? ' love' : ' loves'));
+        if (pl.share) bits.push(pl.share.toLocaleString() + (pl.share === 1 ? ' share' : ' shares'));
+        if (r.kind === 'story') {
+          var dn = storyDownloads(r.slug, (I.downloads && I.downloads.files) || []);
+          if (dn) bits.push(dn.toLocaleString() + (dn === 1 ? ' printable download' : ' printable downloads'));
+        }
         var t = TYPES[r.kind];
         return '<li><span class="rank">' + (i + 1) + '</span><span class="tp"><b>' + esc(insightTitle(r.kind, r.slug)) + '</b><small><span class="kind"><i style="background:' + (t ? t.color : 'var(--muted)') + '"></i>' + esc(KIND[r.kind] || r.kind) + '</span> · ' + bits.join(' · ') + '</small>' +
           '<span class="bt"><i style="width:' + Math.max(2, Math.round(r.score / topMax * 100)) + '%"></i></span></span></li>';
@@ -974,7 +996,24 @@ function wordmark(id) { return '<span class="wm" role="img" aria-label="Salt and
         '<p class="ihint small"><b>Direct</b> means a typed address, a bookmark, or a link from an app like WhatsApp that doesn’t say where it came from.</p></section>' +
       (pagesList.length ? '<section class="ipanel"><h3>Most visited pages</h3><p class="ihint">Main pages of the site, not single posts.</p>' + bars(pagesList, pageLabel, null, '') + '</section>' : '') +
       speedPanel(I.vitals) + '</div>';
-    return head + notice + cards + chart + top + where + downloadsPanel(I.downloads, days);
+    return head + notice + cards + chart + top + where + tapsPanel(plays, days) + downloadsPanel(I.downloads, days);
+  }
+  function tapsPanel(plays, days) {
+    var items = [], saves = 0;
+    Object.keys(plays || {}).forEach(function (k) {
+      var pl = plays[k] || {};
+      saves += pl.save || 0;
+      if (k.indexOf('action:') === 0 && pl.click) items.push({ name: insightTitle('action', k.slice(7)), n: pl.click });
+    });
+    if (saves) items.push({ name: 'Saves', n: saves });
+    items.sort(function (a, b) { return b.n - a.n; });
+    var h = '<section class="ipanel" id="insTaps"><h3>Taps</h3><p class="ihint">Join testers, social links, Save and Install, in these ' + days + ' days. Anonymous counts only.</p>';
+    if (!items.length) return h + '<p class="iempty">No taps counted in these ' + days + ' days yet.</p></section>';
+    var max = items[0].n || 1;
+    return h + '<ol class="toplist">' + items.map(function (x, i) {
+      return '<li><span class="rank">' + (i + 1) + '</span><span class="tp"><b>' + esc(x.name) + '</b><small>' + x.n.toLocaleString() + (x.n === 1 ? ' tap' : ' taps') + '</small>' +
+        '<span class="bt"><i style="width:' + Math.max(2, Math.round(x.n / max * 100)) + '%"></i></span></span></li>';
+    }).join('') + '</ol></section>';
   }
   // Free printables (bedtime story PDFs) downloaded through /dl/: per file with its top countries, and all countries.
   function printLabel(key) {

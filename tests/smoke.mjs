@@ -535,7 +535,7 @@ const seriesStub = shippedContent
       check(await page.$$eval('.p-reel', (rs) => rs.length === 1 && rs[0].querySelectorAll('.p-rsegs i').length === 1 && rs[0].querySelector('.p-rsegs i').classList.contains('cur')), `reel ${tag}: a 1-part story has one progress segment`);
       check(await page.$eval('.p-reel .p-rchip', (e) => /^Reel · \d+:\d\d$/.test(e.textContent)), `reel ${tag}: "Reel · 0:48" chip`);
       check(await page.$eval('.p-reel .p-rtitle', (e) => getComputedStyle(e).fontWeight === '800' && /Bricolage/.test(getComputedStyle(e).fontFamily)), `reel ${tag}: bold display title (self-hosted Bricolage 800)`);
-      check(await page.$$eval('.p-reel .side', (s) => s.every((x) => [...x.querySelectorAll('.p-ract span')].map((e) => e.textContent).join() === 'Save,Share,Caption')), `reel ${tag}: only Save, Share and the CC caption button when no devotion or audio is linked`);
+      check(await page.$$eval('.p-reel .side', (s) => s.every((x) => [...x.querySelectorAll('.p-ract span')].map((e) => e.textContent).join() === 'Love,Save,Share,Caption')), `reel ${tag}: Love, Save, Share and the CC caption button when no devotion or audio is linked`);
       check(await page.$eval('.p-reel .p-ract svg', (s) => { const r = s.getBoundingClientRect(); return r.width >= 44 && getComputedStyle(s).borderRadius === '50%'; }), `reel ${tag}: round action buttons at least 44px`);
       check(!/\blikes?\b|\bcomments?\b/i.test(await page.$eval('#pReels', (e) => e.textContent)), `reel ${tag}: no like counts or comments`);
       check(await page.$eval('.p-reel .p-rkb', (e) => getComputedStyle(e).animationName === 'kenburns'), `reel ${tag}: slow Ken Burns on the art while playing`);
@@ -854,7 +854,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
     await ctx.close(); }
   { const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } }); await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.LL_CONFIG = {};' })); const pg = await ctx.newPage();
     await pg.goto(base + '#watch'); await pg.waitForSelector('.p-whero'); await pg.click('.p-whero'); await pg.waitForTimeout(700); await pg.click('.p-reel.on .more'); await pg.waitForTimeout(200);
-    check(await pg.evaluate(() => !document.querySelector('.p-wplayer').classList.contains('book') && getComputedStyle(document.querySelector('.bk-acts')).display === 'flex' && getComputedStyle(document.querySelector('.p-rsheet-in .handle')).display !== 'none'), 'book: phones keep the bottom sheet (with Save/Share and a grab handle)');
+    check(await pg.evaluate(() => !document.querySelector('.p-wplayer').classList.contains('book') && getComputedStyle(document.querySelector('.bk-acts')).display === 'flex' && getComputedStyle(document.querySelector('.p-rsheet-in .handle')).display !== 'none'), 'book: phones keep the bottom sheet (with Love/Save/Share and a grab handle)');
     await ctx.close(); }
   // phone sheet: same reel-coloured glass at 390px, all reels, day and night
   for (const theme of ['night', 'day']) for (const [name, open] of [['robe', '.p-whero'], ['noah', '.p-wcard >> nth=0'], ['jonah', '.p-wcard >> nth=1']]) {
@@ -869,7 +869,7 @@ for (const w of [390, 1024, 1280, 1440]) for (const theme of ['night', 'day']) {
     check(st.style === (theme === 'night' ? 'dark' : 'light') && /blur\(18px\)/.test(st.bf) && /saturate\(1\.8\)/.test(st.bf) && /rgba\(/.test(st.bg), `sheet ${name} ${theme}: ${st.style} reel-coloured glass (${st.bf})`);
     check(/none rgba\(0, 0, 0, 0\) none/.test(st.scrim), `sheet ${name} ${theme}: no scrim behind the sheet, the reel blurs through (${st.scrim})`);
     check(/Newsreader/.test(st.h3) && /italic/.test(st.h3) && /^(28|29|30)/.test(st.h3.split(' ').pop()) && /Newsreader/.test(st.p) && /18\.5px/.test(st.p), `sheet ${name} ${theme}: Newsreader italic title and 18.5px Newsreader caption (${st.h3.split(' ').slice(-2).join(' ')})`);
-    check(st.hair === 'block' && st.kick === 'uppercase' && st.acts === 2 && st.side === 'hidden' && st.xw >= 44, `sheet ${name} ${theme}: hairline, label, Save/Share in the sheet only, 44px close`);
+    check(st.hair === 'block' && st.kick === 'uppercase' && st.acts === 3 && st.side === 'hidden' && st.xw >= 44, `sheet ${name} ${theme}: hairline, label, Love/Save/Share in the sheet only, 44px close`);
     check(st.anim === 'none' && st.focus === 'p-rsheet-x', `sheet ${name} ${theme}: calm opens instantly, focus on Close`);
     const r = await pixelMin(pg, TEXT);
     check(r.min >= 4.5, `sheet ${name} ${theme}: text vs the busiest pixel behind it ${r.min.toFixed(2)}:1 (AA 4.5, worst ${r.w})`);

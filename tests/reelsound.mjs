@@ -54,6 +54,7 @@ for (const [name, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { 
   check(o.st.story === b4.story && o.st.reel === b4.reel && !o.paused, `${name}: tapping CC never pauses or navigates`);
   check(o.awake, `${name}: the overlay is fully shown while the caption is open`);
   await page.click('#pReelSheet .p-rsheet-x'); await page.waitForTimeout(200);
+  await page.mouse.move(16, 16);
   check(await page.$eval('.p-reel.on .p-rcc', (b) => b.getAttribute('aria-expanded')) === 'false', `${name}: closing the caption sets aria-expanded=false`);
   // Resting opacity: 60% while playing and idle, 100% when awake; instant in calm mode.
   const op = await page.evaluate(async () => { const r = document.querySelector('#pReels'), el = r.querySelector('.p-reel.on'), cap = el.querySelector('.cap');
@@ -75,7 +76,7 @@ for (const [name, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { 
     r.dispatchEvent(new PointerEvent('pointermove', { bubbles: true })); await wait(800); const awake = ops();
     r.classList.remove('awake'); el.classList.add('userpaused'); await wait(450); const paused = ops(); el.classList.remove('userpaused');
     return { rest, pe, top, awake, paused, tr: getComputedStyle(el.querySelector('.p-rsound')).transitionDuration }; });
-  check(ctl.rest.length >= 4 && ctl.rest.every((o) => o === '0.4'), `${name}: CC/Save/Share and the sound toggle rest at 40% while playing (${ctl.rest.join(',')})`);
+  check(ctl.rest.length >= 4 && ctl.rest.every((o) => o === '0.4'), `${name}: Love/CC/Save/Share and the sound toggle rest at 40% while playing (${ctl.rest.join(',')})`);
   check(ctl.pe && ctl.top, `${name}: resting controls stay tappable (not covered, pointer events on)`);
   check(ctl.awake.every((o) => +o > 0.99) && ctl.paused.every((o) => +o > 0.99), `${name}: controls are 100% when awake and when paused (${ctl.awake},${ctl.paused})`);
   { // first tap on a resting control acts (not swallowed)
