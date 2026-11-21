@@ -1,7 +1,7 @@
 -- 24 Nights to Bethlehem, Nights 1–3 audio bedtime stories, scheduled for 7:00 PM WITA
 -- on Tue 1 Dec, Wed 2 Dec and Thu 3 Dec 2026 (2026-12-01T19:00:00+08:00 and the two days after).
 -- DRAFT: not run. Run it only after this PR is merged and live (the posts point at files this PR
--- adds under media/audio/). It changes no existing post, table or setting.
+-- adds under media/audio/ and media/printables/). It changes no existing post, table or setting.
 -- Visitors can't see a night before its publish_at; until then it shows only in the Studio, where
 -- it can be edited or deleted. Each insert is skipped if a post with that slug already exists.
 -- Story, verse, prayer, goodnight, questions and word-to-know are copied word for word from
@@ -34,6 +34,16 @@ select 'story', 'scheduled', '2026-12-01T19:00:00+08:00', 'A Promise of a Baby',
  "image_width": 1200,
  "image_height": 630,
  "image_file": "cover-1200x630-scene.jpg",
+ "printables": [
+  {
+   "title": "Colouring page",
+   "file": "media/printables/a-promise-of-a-baby-colouring-page.1e6b8577.pdf"
+  },
+  {
+   "title": "Memory verse and question cards",
+   "file": "media/printables/a-promise-of-a-baby-verse-and-question-cards.5bcf3b39.pdf"
+  }
+ ],
  "publish_date": "2026-12-01"
 }$json$::jsonb,
   'https://littlesaltandlight.com/media/audio/a-promise-of-a-baby.d06f122a.mp3',
@@ -67,6 +77,16 @@ select 'story', 'scheduled', '2026-12-02T19:00:00+08:00', 'God With Us', 'god-wi
  "image_width": 1200,
  "image_height": 630,
  "image_file": "cover-1200x630-scene.jpg",
+ "printables": [
+  {
+   "title": "Colouring page",
+   "file": "media/printables/god-with-us-colouring-page.7c4f384d.pdf"
+  },
+  {
+   "title": "Memory verse and question cards",
+   "file": "media/printables/god-with-us-verse-and-question-cards.1f23b95b.pdf"
+  }
+ ],
  "publish_date": "2026-12-02"
 }$json$::jsonb,
   'https://littlesaltandlight.com/media/audio/god-with-us.a84bca85.mp3',
@@ -100,10 +120,20 @@ select 'story', 'scheduled', '2026-12-03T19:00:00+08:00', 'Little Town, Big Plan
  "image_width": 1200,
  "image_height": 630,
  "image_file": "cover-1200x630-scene.jpg",
+ "printables": [
+  {
+   "title": "Colouring page",
+   "file": "media/printables/little-town-big-plan-colouring-page.ca0150eb.pdf"
+  },
+  {
+   "title": "Memory verse and question cards",
+   "file": "media/printables/little-town-big-plan-verse-and-question-cards.76bb59e8.pdf"
+  }
+ ],
  "publish_date": "2026-12-03"
 }$json$::jsonb,
   'https://littlesaltandlight.com/media/audio/little-town-big-plan.b13ea9bd.mp3',
   (select author_email from public.posts where id = 38)
 where not exists (select 1 from public.posts where slug = 'little-town-big-plan-bedtime-story')
 returning id, slug, status, publish_at;
--- Check: select id, slug, status, publish_at, fields->>'minutes', fields->>'episode' from public.posts where slug in ('a-promise-of-a-baby-bedtime-story', 'god-with-us-bedtime-story', 'little-town-big-plan-bedtime-story') order by publish_at;
+-- Check: select id, slug, status, publish_at, fields->>'minutes', fields->>'episode', jsonb_array_length(fields->'printables') from public.posts where slug in ('a-promise-of-a-baby-bedtime-story', 'god-with-us-bedtime-story', 'little-town-big-plan-bedtime-story') order by publish_at;
