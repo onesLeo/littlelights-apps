@@ -1,7 +1,7 @@
 // Offline support: the app shell is cached on install; fonts are cached the first time they load.
 // Pages are served stale-while-revalidate (see the fetch handler below).
 // Bump VERSION whenever a cached file changes so visitors get the new one.
-const VERSION = 'll-v105';
+const VERSION = 'll-v106';
 const SHELL = [
   './',
   'index.html',
@@ -33,6 +33,9 @@ const SHELL = [
   'media/audio/the-smallest-star-timings.json',
   'media/audio/jesus-calms-the-storm-timings.json',
   'media/audio/four-friends-on-the-roof-timings.json',
+  'media/audio/a-promise-of-a-baby-timings.json',
+  'media/audio/god-with-us-timings.json',
+  'media/audio/little-town-big-plan-timings.json',
 ];
 
 self.addEventListener('install', (event) => {
