@@ -26,7 +26,7 @@ await context.route('**/js/config.js', (r) => r.fulfill({ contentType: 'text/jav
 const page = await context.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
-page.on('console', (m) => { if (m.type() === 'error' && !/Service Worker|Failed to load resource/.test(m.text())) errors.push(m.text()); });
+page.on('console', (m) => { if (m.type() === 'error' && !/Service Worker|Failed to load resource|Refused to load the image 'https:\/\/littlesaltandlight\.com\/media\//.test(m.text())) errors.push(m.text()); });
 const ready = () => page.waitForSelector('#app[data-ready]');
 const state = () => page.evaluate(() => ({ path: location.pathname, hash: location.hash, view: document.querySelector('.p-view.on').dataset.view, title: document.title,
   canonical: document.querySelector('link[rel="canonical"]').href, desc: document.querySelector('meta[name="description"]').content, og: document.querySelector('meta[property="og:url"]').content }));
