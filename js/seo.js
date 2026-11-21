@@ -309,8 +309,9 @@
     return String(t || '').toLowerCase().replace(/[\u2018\u2019\u02bc]/g, "'").replace(/[^a-z0-9' ]+/g, ' ')
       .replace(/(^|\s)'+|'+(?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim();
   }
+  // Up to two closing quotes after the stop, e.g. a quote inside a quote: …forgiven you.’” Paralytic…
   function raSentences(text) {
-    return String(text || '').split(/(?<=[.!?\u2026][\u2019\u201d'"]?)\s+/).filter(function (x) { return x.trim(); });
+    return String(text || '').split(/(?<=[.!?\u2026][\u2019\u201d'"]{0,2})\s+/).filter(function (x) { return x.trim(); });
   }
   // parts: [{key, text}] in reading order. Returns {sentences:[{part, text, start, end, words|null}], count} or null.
   function raMatch(parts, timings) {

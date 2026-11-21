@@ -1,7 +1,7 @@
 // Offline support: the app shell is cached on install; fonts are cached the first time they load.
 // Pages are served stale-while-revalidate (see the fetch handler below).
 // Bump VERSION whenever a cached file changes so visitors get the new one.
-const VERSION = 'll-v103';
+const VERSION = 'll-v104';
 const SHELL = [
   './',
   'index.html',
@@ -26,10 +26,13 @@ const SHELL = [
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
-  // Bedtime story read-along timings (js/content.js bedtimeStories[].timings), so the highlight works offline.
+  // Bedtime story read-along timings (js/content.js bedtimeStories[].timings, and Studio story posts whose timings
+  // file is on the site), so the highlight works offline.
   'media/audio/jonah-and-the-whale-timings.json',
   'media/audio/elijah-still-small-voice-timings.json',
   'media/audio/the-smallest-star-timings.json',
+  'media/audio/jesus-calms-the-storm-timings.json',
+  'media/audio/four-friends-on-the-roof-timings.json',
 ];
 
 self.addEventListener('install', (event) => {
