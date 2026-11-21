@@ -310,8 +310,10 @@
       .replace(/(^|\s)'+|'+(?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim();
   }
   // Up to two closing quotes after the stop, e.g. a quote inside a quote: …forgiven you.’” Paralytic…
+  // Also split after a colon when the next word is an opening quote, e.g. The Bible says: "…", so a
+  // long verse that is one sentence can be timed separately from the lead-in.
   function raSentences(text) {
-    return String(text || '').split(/(?<=[.!?\u2026][\u2019\u201d'"]{0,2})\s+/).filter(function (x) { return x.trim(); });
+    return String(text || '').split(/(?<=[.!?\u2026][\u2019\u201d'"]{0,2})\s+|(?<=:)\s+(?=["\u201c\u2018])/).filter(function (x) { return x.trim(); });
   }
   // parts: [{key, text}] in reading order. Returns {sentences:[{part, text, start, end, words|null}], count} or null.
   function raMatch(parts, timings) {

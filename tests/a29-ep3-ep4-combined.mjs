@@ -32,7 +32,7 @@ check(fields.caption.includes('"Where am I?" Ema looks around — sandals, sheep
 check(!/Friday|Saturday|YouTube|#Shorts|\?src=yt|Full film/i.test(fields.caption), 'seed: caption has no Friday/Saturday teaser, YouTube or hashtag lines');
 check(!(await readFile(new URL('supabase/seed/20261108_a29_ep3_where_am_i_reel.sql', root), 'utf8')).includes('27b7520c'), 'does not edit the older ep3 seed');
 check(!(await readFile(new URL('supabase/seed/20261108_a29_ep4_who_walks_at_the_back_reel.sql', root), 'utf8')).includes('27b7520c'), 'does not edit the older ep4 seed');
-check(/const VERSION = 'll-v105'/.test(await readFile(new URL('sw.js', root), 'utf8')), 'service worker cache bumped to ll-v105');
+check(/const VERSION = 'll-v106'/.test(await readFile(new URL('sw.js', root), 'utf8')), 'service worker cache bumped to ll-v106');
 
 async function head(url) {
   const res = await fetch(url, { method: 'HEAD' });
