@@ -2,7 +2,7 @@
 // points only at files on the site, its timings pass the Studio validator and line up with the story text
 // (including verses with quotes, an ellipsis, and "The Bible says:" before a long quote), sw.js precaches
 // the timings, each post stays hidden until its 7:00 PM WITA publish time, and once due the page shows the
-// audio, read-along, verse, prayer, questions and cover (og:image, JSON-LD). No printables, no next-story
+// audio, read-along, verse, prayer, questions, cover (og:image, JSON-LD) and both printables. No next-story
 // teaser. The database is never touched: the posts are read from the seed file and Supabase answers are faked.
 // Run: npm test   (builds dist/ first)
 import { readFile, stat } from 'node:fs/promises';
@@ -44,20 +44,24 @@ const posts = NIGHTS.map((n, i) => {
 
 for (const [i, n] of NIGHTS.entries()) {
   const f = fieldsList[i];
-  const files = [posts[i].media_url.replace('https://littlesaltandlight.com/', ''), f.timings, f.image];
+  const files = [posts[i].media_url.replace('https://littlesaltandlight.com/', ''), f.timings, f.image, ...f.printables.map((p) => p.file), ...f.printables.flatMap((pr) => ['jpg', 'webp'].map((e) => pr.file.replace(/pdf$/, e)))];
   for (const file of files) { let ok = false; try { ok = (await stat(new URL(file, root))).size > 0; } catch {} check(ok, `file on the site: ${file}`); }
   const mp3 = posts[i].media_url.replace('https://littlesaltandlight.com/', '');
-  const h = createHash('sha256').update(await readFile(new URL(mp3, root))).digest('hex').slice(0, 8);
-  check(mp3.includes('.' + h + '.'), `content hash in the name matches (${mp3.split('/').pop()})`);
-  const size = (await stat(new URL(mp3, root))).size;
-  check(size > 0 && size < 25 * 1024 * 1024, `Night ${n.episode} MP3 is under the 25 MiB Pages limit (${(size / 1024 / 1024).toFixed(2)} MiB)`);
+  const hashed = [mp3, ...f.printables.map((pr) => pr.file)];
+  for (const file of hashed) {
+    const h = createHash('sha256').update(await readFile(new URL(file, root))).digest('hex').slice(0, 8);
+    check(file.includes('.' + h + '.'), `content hash in the name matches (${file.split('/').pop()})`);
+    const size = (await stat(new URL(file, root))).size;
+    check(size > 0 && size < 25 * 1024 * 1024, `${file.split('/').pop()} is under the 25 MiB Pages limit (${(size / 1024 / 1024).toFixed(2)} MiB)`);
+  }
   check(f.series === '24 Nights to Bethlehem' && f.episode === n.episode && f.narrator === 'Mr. Ginting', `Night ${n.episode}: series, episode, narrator`);
   check(f.ref === n.ref && f.translation === 'WEB' && f.minutes === n.minutes && f.seconds === n.seconds, `Night ${n.episode}: ${n.ref} (WEB), ${n.minutes}, ${n.seconds} s`);
-  check(!f.next_title && !f.next_when && !f.next_href && !f.printables, `Night ${n.episode}: no next-story teaser, no printables`);
+  check(!f.next_title && !f.next_when && !f.next_href, `Night ${n.episode}: no next-story teaser`);
+  check(Array.isArray(f.printables) && f.printables.length === 2 && f.printables[0].title === 'Colouring page' && f.printables[1].title === 'Memory verse and question cards', `Night ${n.episode}: two printables, colouring page and verse cards`);
   check((await readFile(new URL('sw.js', root), 'utf8')).includes("'" + n.timingsFile + "'"), `sw.js precaches Night ${n.episode} timings`);
 }
 
-check(/const VERSION = 'll-v106'/.test(await readFile(new URL('sw.js', root), 'utf8')), 'service worker cache bumped to ll-v106');
+check(/const VERSION = 'll-v107'/.test(await readFile(new URL('sw.js', root), 'utf8')), 'service worker cache bumped to ll-v107');
 check(!(await readFile(new URL('js/content.js', root), 'utf8')).includes('24 Nights to Bethlehem'), 'not a built-in series in js/content.js');
 for (const n of NIGHTS) check(!(await readFile(new URL('js/content.js', root), 'utf8')).includes(n.slug), `not a built-in story: ${n.slug}`);
 
@@ -93,7 +97,7 @@ async function storeAt(iso) {
     const m = SEO.raMatch(parts, T);
     check(!!m && m.count >= T.length - 1, `Night ${n.episode}: timings match the story text (${m && m.count} of ${T.length} sentences shown)`);
     check(x.story.length === 6 && x.questions.length === 3 && x.dur === n.seconds && x.series === '24 Nights to Bethlehem' && x.episode === n.episode, `Night ${n.episode}: six paragraphs, three questions, series and duration`);
-    check(!x.next && !x.printables, `Night ${n.episode}: story model has no next teaser and no printables`);
+    check(!x.next && x.printables && x.printables.length === 2, `Night ${n.episode}: story model has no next teaser and two printables`);
   }
 }
 
@@ -136,7 +140,7 @@ for (const [iso, liveEps] of moments) {
     check(html.includes(`<meta property="og:image" content="https://littlesaltandlight.com/${n.cover}">`), `edge page Night ${n.episode}: og:image is the cover`);
     const ld = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((mm) => mm[1]).join('\n');
     check(/"@type":"PodcastEpisode"/.test(ld) && ld.includes(`"episodeNumber":${n.episode}`) && ld.includes(n.cover.split('/').pop()) && ld.includes(post.media_url), `edge page Night ${n.episode}: PodcastEpisode JSON-LD with episode, cover and audio`);
-    check(!html.includes('/dl/media/printables/'), `edge page Night ${n.episode}: no printable links`);
+    check(html.includes('/dl/' + f.printables[0].file) && html.includes('/dl/' + f.printables[1].file), `edge page Night ${n.episode}: both printables link through /dl/`);
   }
 }
 
@@ -173,7 +177,11 @@ try {
       if (f.word) check(txt.toLowerCase().includes(f.word.toLowerCase()), `${tag} shows the word to know (${f.word})`);
       const shownStory = await page.$$eval('#pEpisode [data-ra^="story-"]', (e) => e.map((el) => el.textContent).join(' '));
       check(shownStory === f.story.split('\n\n').join(' '), `${tag}: story text on the page is word for word the seed's text`);
-      check(await page.$$('#pEpisode .p-print a[href^="/dl/"]').then((e) => e.length) === 0, `${tag}: no printable links`);
+      const links = await page.$$eval('#pEpisode .p-print a[href^="/dl/"]', (e) => e.map((a) => a.getAttribute('href')));
+      check(links.length === 2, `${tag}: two printable download links (${links.join(', ')})`);
+      for (const l of links) { const r = await page.request.get(base + l.replace('/dl/', '/')); check(r.ok() && ((r.headers()['content-type'] || '').includes('pdf') || (await r.body()).subarray(0, 5).toString() === '%PDF-'), `${tag}: printable file is a PDF: ${l}`); }
+      const thumbs = await page.$$eval('#pEpisode .p-print img', (e) => e.map((i) => i.naturalWidth));
+      check(thumbs.length === 2 && thumbs.every((w) => w > 0), `${tag}: printable page pictures load`);
       const cover = await page.request.get(base + '/' + n.cover);
       check(cover.ok() && (await cover.body()).length === n.coverBytes, `${tag}: cover image is served (1200x630)`);
       if (reduced) { check(await page.$eval('.p-sen', (e) => getComputedStyle(e).transitionDuration) === '0s', `${tag}: read-along has no fade`); continue; }
