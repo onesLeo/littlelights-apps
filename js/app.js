@@ -879,7 +879,7 @@
     var rSlug = SEO ? SEO.reelSlug(r) : (r.slug || r.title);
     var loveN = loveShown('reel', rSlug);
     var acts = '<button type="button" class="love p-ract p-love' + (isLoved('reel', rSlug) ? ' on' : '') + '" data-love="reel" data-love-slug="' + esc(rSlug) + '" aria-pressed="' + (isLoved('reel', rSlug) ? 'true' : 'false') + '" aria-label="Love this">' +
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + ((SEO && SEO.heartPath) ? SEO.heartPath() : 'M12 21s-6.5-4.35-9.33-8.18C.8 10.5 1.2 7.1 3.7 5.6c2-1.2 4.5-.7 5.9 1.1 1.4-1.8 3.9-2.3 5.9-1.1 2.5 1.5 2.9 4.9 1.03 7.22C18.5 16.65 12 21 12 21z') + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + ((SEO && SEO.heartPath) ? SEO.heartPath() : 'M14.4 20s-6.5-4.35-9.33-8.18C3.2 9.5 3.6 6.1 6.1 4.6c2-1.2 4.5-.7 5.9 1.1 1.4-1.8 3.9-2.3 5.9-1.1 2.5 1.5 2.9 4.9 1.03 7.22C20.9 15.65 14.4 20 14.4 20z') + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
       '<span class="p-love-n">' + (loveN ? loveN : 'Love') + '</span></button>' +
       '<button type="button" class="save p-ract' + (savedReels[i] ? ' saved' : '') + '" aria-label="Save">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
       '<button type="button" class="share p-ract" aria-label="Share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button>' +
@@ -918,7 +918,7 @@
   rSheet.innerHTML = '<div class="p-rsheet-in"><div class="bk-art" aria-hidden="true"></div><span class="bk-hair" aria-hidden="true"><i class="bk-led"></i></span><span class="handle" aria-hidden="true"></span>' +
     '<span class="bk-kick"></span><h3 id="pReelSheetT"></h3><i class="bk-rule" aria-hidden="true"></i><p></p>' +
     '<div class="bk-acts"><button type="button" class="bk-love" aria-pressed="false">' +
-    '<svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><path d="' + ((SEO && SEO.heartPath) ? SEO.heartPath() : '') + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>' +
+    '<svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><path d="' + ((SEO && SEO.heartPath) ? SEO.heartPath() : '') + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
     '<span class="p-love-n"></span><span>Love</span></button>' +
     '<button type="button" class="bk-save" aria-pressed="false">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
     '<button type="button" class="bk-share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button></div><div class="bk-about"></div>' +
@@ -1264,6 +1264,9 @@
       if (savedReels[i]) countEvent('reel', SEO.reelSlug(C.reels[i]), 'save');
     } else if (e.target.closest('.share')) {
       share(C.reels[i].title, C.reels[i].caption, location.origin + SEO.path('watch', SEO.reelSlug(C.reels[i])), 'reel', SEO.reelSlug(C.reels[i]));
+    } else if (e.target.closest('.love, [data-love]')) {
+      var lb = e.target.closest('[data-love]');
+      if (lb) toggleLove(lb.getAttribute('data-love'), lb.getAttribute('data-love-slug'));
     }
   });
   // ---------- Watch gallery: featured hero + thumbnail grid; the feed opens in a glass player ----------
@@ -1824,7 +1827,7 @@
       '<div class="hero" style="background:' + d.color + ';color:' + d.ink + '"><span class="p-kicker">' + esc(d.kicker) + '</span><h2>' + esc(d.title) + '</h2></div>' +
       '<div class="p-acts" style="padding-top:16px">' + (d.episode >= 0 ? '<button class="p-btn listen" type="button" data-ep="' + d.episode + '">▶ Listen to this devotion</button>' : '') +
       '<button type="button" class="p-btn p-love" data-love="devotion" data-love-slug="' + esc(d.slug) + '" aria-pressed="false" aria-label="Love this">' +
-        '<svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><path d="' + ((SEO && SEO.heartPath) ? SEO.heartPath() : '') + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><path d="' + ((SEO && SEO.heartPath) ? SEO.heartPath() : '') + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
         '<span class="p-love-n"></span><span class="p-love-t">Love</span></button>' +
       '<button class="p-btn ghost" type="button" data-share-dev="' + i + '" data-share="devotion" data-share-slug="' + esc(d.slug) + '" style="background:rgba(0,0,0,.08);color:inherit">Share</button></div>';
     var same = document.createElement('div'); same.innerHTML = d.html;

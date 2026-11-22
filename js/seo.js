@@ -109,13 +109,14 @@
   }
   // Love + Share under a bedtime story's audio (and reused by js/app.js for Read and Listen).
   // The public love number is filled in by the app; Share counts are only shown in Studio Insights.
-  function heartPath() { return 'M12 21s-6.5-4.35-9.33-8.18C.8 10.5 1.2 7.1 3.7 5.6c2-1.2 4.5-.7 5.9 1.1 1.4-1.8 3.9-2.3 5.9-1.1 2.5 1.5 2.9 4.9 1.03 7.22C18.5 16.65 12 21 12 21z'; }
+  // A plump heart centred in a 24×24 viewBox (the older path sat 2.4 units left and a little low).
+  function heartPath() { return 'M14.4 20s-6.5-4.35-9.33-8.18C3.2 9.5 3.6 6.1 6.1 4.6c2-1.2 4.5-.7 5.9 1.1 1.4-1.8 3.9-2.3 5.9-1.1 2.5 1.5 2.9 4.9 1.03 7.22C20.9 15.65 14.4 20 14.4 20z'; }
   function reactHtml(kind, slug) {
     kind = String(kind || ''); slug = String(slug || '');
     if (!kind || !slug) return '';
     return '<div class="p-acts" data-acts="' + esc(kind) + '" data-acts-slug="' + esc(slug) + '">' +
       '<button type="button" class="p-btn p-love" data-love="' + esc(kind) + '" data-love-slug="' + esc(slug) + '" aria-pressed="false" aria-label="Love this">' +
-        '<svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><path d="' + heartPath() + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><path d="' + heartPath() + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
         '<span class="p-love-n"></span><span class="p-love-t">Love</span></button>' +
       '<button type="button" class="p-btn ghost" data-share="' + esc(kind) + '" data-share-slug="' + esc(slug) + '">Share</button>' +
     '</div>';
