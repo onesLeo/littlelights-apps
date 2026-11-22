@@ -61,7 +61,7 @@ for (const [i, n] of NIGHTS.entries()) {
   check((await readFile(new URL('sw.js', root), 'utf8')).includes("'" + n.timingsFile + "'"), `sw.js precaches Night ${n.episode} timings`);
 }
 
-check(/const VERSION = 'll-v109'/.test(await readFile(new URL('sw.js', root), 'utf8')), 'service worker cache bumped to ll-v109');
+check(/const VERSION = 'll-v110'/.test(await readFile(new URL('sw.js', root), 'utf8')), 'service worker cache bumped to ll-v110');
 check(!(await readFile(new URL('js/content.js', root), 'utf8')).includes('24 Nights to Bethlehem'), 'not a built-in series in js/content.js');
 for (const n of NIGHTS) check(!(await readFile(new URL('js/content.js', root), 'utf8')).includes(n.slug), `not a built-in story: ${n.slug}`);
 

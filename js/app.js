@@ -879,10 +879,10 @@
     var rSlug = SEO ? SEO.reelSlug(r) : (r.slug || r.title);
     var loveN = loveShown('reel', rSlug);
     var acts = '<button type="button" class="love p-ract p-love' + (isLoved('reel', rSlug) ? ' on' : '') + '" data-love="reel" data-love-slug="' + esc(rSlug) + '" aria-pressed="' + (isLoved('reel', rSlug) ? 'true' : 'false') + '" aria-label="Love this">' +
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + ((SEO && SEO.heartPath) ? SEO.heartPath() : 'M14.4 20s-6.5-4.35-9.33-8.18C3.2 9.5 3.6 6.1 6.1 4.6c2-1.2 4.5-.7 5.9 1.1 1.4-1.8 3.9-2.3 5.9-1.1 2.5 1.5 2.9 4.9 1.03 7.22C20.9 15.65 14.4 20 14.4 20z') + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + ((SEO && SEO.heartPath) ? SEO.heartPath() : 'M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z') + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
       '<span class="p-love-n">' + (loveN ? loveN : 'Love') + '</span></button>' +
       '<button type="button" class="save p-ract' + (savedReels[i] ? ' saved' : '') + '" aria-label="Save">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
-      '<button type="button" class="share p-ract" aria-label="Share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button>' +
+      '<button type="button" class="share p-ract" aria-label="Share">' + rIcon((SEO && SEO.sharePath) ? SEO.sharePath() : 'M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13') + '<span>Share</span></button>' +
       (r.caption || aboutHtml(i) ? '<button type="button" class="more p-ract p-rcc" aria-label="Show caption" aria-expanded="false" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6" width="17" height="12" rx="3"/><text x="12" y="15.2" text-anchor="middle">CC</text></svg><span>Caption</span></button>' : '') +
       (r.read && indexBySlug(r.read) >= 0 ? '<button type="button" class="p-ract" data-read-slug="' + esc(r.read) + '" aria-label="Read the devotion">' + rIcon('M3 5h7a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H3zM21 5h-7a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h7z') + '<span>Read</span></button>' : '') +
       (r.listen ? '<button type="button" class="p-ract" data-listen-title="' + esc(r.listen) + '" aria-label="Listen">' + rIcon('M4 14v-2a8 8 0 0 1 16 0v2M4 14h3v6H4zM17 14h3v6h-3z') + '<span>Listen</span></button>' : '');
@@ -921,7 +921,7 @@
     '<svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><path d="' + ((SEO && SEO.heartPath) ? SEO.heartPath() : '') + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
     '<span class="p-love-n"></span><span>Love</span></button>' +
     '<button type="button" class="bk-save" aria-pressed="false">' + rIcon('M6 3h12v18l-6-4-6 4z') + '<span>Save</span></button>' +
-    '<button type="button" class="bk-share">' + rIcon('M4 12v7h16v-7M12 3v12M7 8l5-5 5 5') + '<span>Share</span></button></div><div class="bk-about"></div>' +
+    '<button type="button" class="bk-share">' + rIcon((SEO && SEO.sharePath) ? SEO.sharePath() : 'M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13') + '<span>Share</span></button></div><div class="bk-about"></div>' +
     '<button type="button" class="p-rsheet-x" aria-label="Close caption">' + rIcon('M6 6l12 12M18 6L6 18') + '</button></div>';
   $('#pWatchPlayer').appendChild(rSheet);
   var rSheetFrom = null;
@@ -1829,7 +1829,7 @@
       '<button type="button" class="p-btn p-love" data-love="devotion" data-love-slug="' + esc(d.slug) + '" aria-pressed="false" aria-label="Love this">' +
         '<svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><path d="' + ((SEO && SEO.heartPath) ? SEO.heartPath() : '') + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
         '<span class="p-love-n"></span><span class="p-love-t">Love</span></button>' +
-      '<button class="p-btn ghost" type="button" data-share-dev="' + i + '" data-share="devotion" data-share-slug="' + esc(d.slug) + '" style="background:rgba(0,0,0,.08);color:inherit">Share</button></div>';
+      '<button class="p-btn ghost" type="button" data-share-dev="' + i + '" data-share="devotion" data-share-slug="' + esc(d.slug) + '" style="background:rgba(0,0,0,.08);color:inherit">' + ((SEO && SEO.iconSvg && SEO.sharePath) ? SEO.iconSvg(SEO.sharePath()) : '') + 'Share</button></div>';
     var same = document.createElement('div'); same.innerHTML = d.html;
     if (pre && pre.innerHTML === same.innerHTML) {
       while (a.firstChild !== pre) a.removeChild(a.firstChild);
@@ -1927,7 +1927,7 @@
       '<button class="close" type="button" data-close aria-label="Close">✕</button>' +
       (single ? '' : '<div class="tap"><button type="button" data-step="-1" aria-label="Previous verse"></button><button type="button" data-step="1" aria-label="Next verse"></button></div>') +
       '<div class="tag">' + esc(v.topics[0]) + '</div><div class="verse">“' + esc(v.text) + '”</div><div class="ref">' + esc(v.ref.toUpperCase()) + ' · ' + esc(v.translation || 'WEB') + '</div>' +
-      '<div class="acts"><button class="p-btn" type="button" data-save-verse="' + i + '">Save image</button><button class="p-btn ghost" type="button" data-share-verse="' + i + '">Share</button></div>';
+      '<div class="acts"><button class="p-btn" type="button" data-save-verse="' + i + '">Save image</button><button class="p-btn ghost" type="button" data-share-verse="' + i + '">' + ((SEO && SEO.iconSvg && SEO.sharePath) ? SEO.iconSvg(SEO.sharePath()) : '') + 'Share</button></div>';
     clearTimeout(story.timer);
     if (!single) story.timer = setTimeout(function () { stepStory(1); }, 6000);
   }

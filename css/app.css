@@ -1781,15 +1781,16 @@ h2.p-wsub, .p-wsub { font: 700 12px var(--display); letter-spacing: .12em; text-
    A heart plus its public count, and a Share button, on bedtime stories, Read posts,
    Listen episodes and Watch reels. 44px tap targets. Love stays the dark pill in day
    and night (so night article/sheet button colours cannot turn it light) and the
-   filled heart is the site gold (#F2C46B), AA on that background. The 18px heart sits at the 13px button text's cap height; stroke 2 matches the Watch/Share icons.
+   filled heart is the site gold (#F2C46B), AA on that background. The 18px Lucide
+   heart and share icons sit at the 13px button text's cap height, stroke 2.
    No motion beyond the existing .p-btn press; calm mode and reduced-motion already zero that. */
 .p-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 4px; }
-.p-btn.p-love, .p-btn[data-share] { min-height: 44px; min-width: 44px; }
+.p-btn.p-love, .p-btn[data-share], .p-btn[data-share-verse] { min-height: 44px; min-width: 44px; }
 .p-btn.p-love { background: rgba(0,0,0,.82); color: #fff; }
 .p-app.night .p-article .p-btn.p-love,
 .p-app.night .p-sheet .p-btn.p-love { background: rgba(0,0,0,.82) !important; color: #fff !important; }
-.p-btn.p-love svg { flex: none; display: block; width: 18px; height: 18px; }
-.p-btn.p-love svg path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.p-btn.p-love svg, .p-btn[data-share] svg, .p-btn[data-share-verse] svg { flex: none; display: block; width: 18px; height: 18px; }
+.p-btn.p-love svg path, .p-btn[data-share] svg path, .p-btn[data-share-verse] svg path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .p-btn.p-love[aria-pressed="true"] svg path, .p-btn.p-love.on svg path { fill: #F2C46B; stroke: #F2C46B; }
 .p-btn.p-love .p-love-n:not(:empty) { font-variant-numeric: tabular-nums; min-width: 1ch; }
 /* Watch reels: Love is one of the floating right-hand buttons; it hides with them. */
