@@ -109,16 +109,21 @@
   }
   // Love + Share under a bedtime story's audio (and reused by js/app.js for Read and Listen).
   // The public love number is filled in by the app; Share counts are only shown in Studio Insights.
-  // A plump heart centred in a 24×24 viewBox (the older path sat 2.4 units left and a little low).
-  function heartPath() { return 'M14.4 20s-6.5-4.35-9.33-8.18C3.2 9.5 3.6 6.1 6.1 4.6c2-1.2 4.5-.7 5.9 1.1 1.4-1.8 3.9-2.3 5.9-1.1 2.5 1.5 2.9 4.9 1.03 7.22C20.9 15.65 14.4 20 14.4 20z'; }
+  // Lucide heart: two round lobes, a V notch, and a pointed tip, centred in 24×24.
+  function heartPath() { return 'M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z'; }
+  // Lucide "share" (iOS-style box and up arrow), the same icon already used on Watch reels.
+  function sharePath() { return 'M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13'; }
+  function iconSvg(d) {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><path d="' + d + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
   function reactHtml(kind, slug) {
     kind = String(kind || ''); slug = String(slug || '');
     if (!kind || !slug) return '';
     return '<div class="p-acts" data-acts="' + esc(kind) + '" data-acts-slug="' + esc(slug) + '">' +
       '<button type="button" class="p-btn p-love" data-love="' + esc(kind) + '" data-love-slug="' + esc(slug) + '" aria-pressed="false" aria-label="Love this">' +
-        '<svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><path d="' + heartPath() + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        iconSvg(heartPath()) +
         '<span class="p-love-n"></span><span class="p-love-t">Love</span></button>' +
-      '<button type="button" class="p-btn ghost" data-share="' + esc(kind) + '" data-share-slug="' + esc(slug) + '">Share</button>' +
+      '<button type="button" class="p-btn ghost" data-share="' + esc(kind) + '" data-share-slug="' + esc(slug) + '">' + iconSvg(sharePath()) + 'Share</button>' +
     '</div>';
   }
   function storyHtml(x, h) {
@@ -380,5 +385,5 @@
     }).filter(Boolean).join('').trim();
   }
 
-  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, reactHtml: reactHtml, heartPath: heartPath, storyRowsHtml: storyRowsHtml, printablesHtml: printablesHtml, printThumb: printThumb, posterCopy: posterCopy, dlHref: dlHref, dlKey: dlKey, tonightStory: tonightStory, tonightHtml: tonightHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml, SOCIAL: SOCIAL, followHtml: followHtml, footerHtml: footerHtml, footerStyle: footerStyle, FOOTER_STYLES: FOOTER_STYLES, FOOTER_DEFAULT: FOOTER_DEFAULT };
+  root.LL_SEO = { SITE: SITE, NAME: NAME, TAGLINE: TAGLINE, IMAGE: IMAGE, PAGES: PAGES, TABS: TABS, slugify: slugify, clip: clip, reelSlug: reelSlug, parse: parse, path: path, fromHash: fromHash, meta: meta, storyHtml: storyHtml, reactHtml: reactHtml, heartPath: heartPath, sharePath: sharePath, iconSvg: iconSvg, storyRowsHtml: storyRowsHtml, printablesHtml: printablesHtml, printThumb: printThumb, posterCopy: posterCopy, dlHref: dlHref, dlKey: dlKey, tonightStory: tonightStory, tonightHtml: tonightHtml, storyImage: storyImage, raNorm: raNorm, raSentences: raSentences, raMatch: raMatch, raHtml: raHtml, SOCIAL: SOCIAL, followHtml: followHtml, footerHtml: footerHtml, footerStyle: footerStyle, FOOTER_STYLES: FOOTER_STYLES, FOOTER_DEFAULT: FOOTER_DEFAULT };
 })(typeof window !== 'undefined' ? window : globalThis);

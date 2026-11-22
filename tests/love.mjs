@@ -29,6 +29,7 @@ const box = await love.boundingBox();
 check(box && box.height >= 44 && box.width >= 44, `Love tap target is at least 44px (${box && Math.round(box.width)}×${box && Math.round(box.height)})`);
 check(await love.getAttribute('aria-pressed') === 'false', 'Love starts off');
 check(await page.locator('#pEpisode [data-share="story"]').count() === 1, 'story page has a Share button');
+check(await page.locator('#pEpisode [data-share="story"] svg').count() === 1, 'Share has the share icon next to its label');
 
 posts.length = 0;
 await love.click();
