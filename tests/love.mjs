@@ -105,6 +105,28 @@ const place = await home.$eval('#pFeed', (feed) => {
 check(place.last && place.index === place.n - 1, 'the Today footer stays the last child of the feed after the app starts');
 await home.close();
 
+// Watch reels: the player stops clicks bubbling, so Love is handled next to Save and Share.
+const reel = await context.newPage();
+await reel.goto(base + '/watch/the-broken-crayon');
+await reel.waitForSelector('#app[data-ready]');
+await reel.waitForSelector('.p-ract.p-love');
+check(await reel.getAttribute('.p-ract.p-love', 'aria-pressed') === 'false', 'reel Love starts off');
+await reel.locator('.p-ract.p-love').click();
+await reel.waitForTimeout(400);
+check(await reel.getAttribute('.p-ract.p-love', 'aria-pressed') === 'true', 'reel Love is pressed after a tap');
+const fill = await reel.$eval('.p-ract.p-love path', (p) => getComputedStyle(p).fill);
+check(/242,\s*196,\s*107/.test(fill), 'loved reel heart is filled with the site gold');
+await reel.close();
+
+// The heart sits in the middle of its viewBox and lines up with the button label.
+const geo = await page.$eval('#pEpisode [data-love="story"]', (b) => {
+  const svg = b.querySelector('svg'), path = svg.querySelector('path');
+  const box = path.getBBox(), sb = svg.getBoundingClientRect(), tb = b.querySelector('.p-love-t').getBoundingClientRect();
+  return { cx: box.x + box.width / 2, cy: box.y + box.height / 2, midS: sb.y + sb.height / 2, midT: tb.y + tb.height / 2 };
+});
+check(Math.abs(geo.cx - 12) < 0.2 && Math.abs(geo.cy - 12) < 0.3, 'heart path is centred in the 24 viewBox');
+check(Math.abs(geo.midS - geo.midT) < 1, 'heart is vertically aligned with the Love label');
+
 await browser.close();
 server.close();
 if (failures) { console.error(`\n${failures} check(s) failed`); process.exit(1); }
