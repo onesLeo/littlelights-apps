@@ -333,8 +333,15 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .p-stop small { font-size: 11px; opacity: .7; }
 .p-stop .st { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; background: #dff0e3; color: #1f5a31; }
 .p-stop .st.wip { background: #f1e6c8; color: #7a5a2a; }
-.p-stores { display: flex; gap: 8px; padding: 4px 14px 24px; }
-.p-stores div { flex: 1; border: 2px dashed #d8c69a; border-radius: 12px; padding: 10px; font-size: 11px; font-weight: 700; text-align: center; color: #7a5a2a; }
+.p-stores { display: flex; justify-content: center; padding: 4px 14px 24px; }
+/* Official Google Play badge: unmodified artwork, intrinsic 646×250 (already includes the required ¼-height clear space). */
+.p-play-badge { display: inline-block; line-height: 0; border-radius: 6px; }
+.p-play-badge img { display: block; width: 162px; height: auto; aspect-ratio: 646 / 250; }
+.p-stores .p-play-badge img { width: min(258px, 100%); }
+.p-play-badge:focus { outline: none; }
+.p-play-badge:focus-visible { outline: 3px solid #2a1a05; outline-offset: 3px; }
+.p-app.night .p-play-badge:focus-visible { outline-color: #fff6d1; }
+.sc-game .p-play-badge { justify-self: start; }
 
 /* toast */
 .p-toast { position: absolute; top: 18px; left: 50%; translate: -50% -140%; z-index: 40; background: #fff; color: #1a1330; font-size: 12px; font-weight: 700; padding: 9px 14px; border-radius: 999px; box-shadow: 0 8px 24px rgba(0,0,0,.3); transition: translate .3s ease; max-width: 88%; text-align: center; }
@@ -431,7 +438,6 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .p-app.night .p-trust div { background: #1d2e24; }
 .p-app.night .p-stop { background: #1a2920; }
 .p-app.night .p-stop .n { color: #121d17; }
-.p-app.night .p-stores div { border-color: #33503f; color: #a8c8b2; }
 .p-app.night .v-play .p-sec, .p-app.night .v-play .p-kicker { color: #8fcf9f !important; }
 .p-app.night .p-gamehero { background: #1b3a28; }
 
@@ -784,19 +790,6 @@ html:not(.wm-touch) .wm:hover .wm-ember:not(.wm-e2):not(.wm-e3), .wm.flaring .wm
 .calm .p-soon-card { animation: none; }
 @media (prefers-reduced-motion: reduce) { .p-soon-card { animation: none; } }
 .p-tab[hidden], .p-ring[hidden], .p-btn[hidden] { display: none !important; }
-/* "Join the testers": big gold call-to-action (dark text on gold, contrast well above WCAG AA). */
-.p-stores .p-join { position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; margin-top: 12px; padding: 12px 28px; border-radius: 999px; background: linear-gradient(135deg, #ffe089 0%, #f7c23f 50%, #e0a820 100%); color: #2a1a05; font-size: 17px; font-weight: 800; letter-spacing: .01em; text-decoration: none; border: 2px solid #c98f12; box-shadow: 0 6px 18px rgba(224,168,32,.45), 0 0 0 4px rgba(247,194,63,.22); transition: transform .15s ease, box-shadow .15s ease; }
-.p-stores .p-join::after { content: "→"; font-size: 18px; }
-.p-stores .p-join:hover { transform: translateY(-1px); box-shadow: 0 9px 24px rgba(224,168,32,.55), 0 0 0 5px rgba(247,194,63,.3); }
-.p-stores .p-join:active { transform: translateY(1px); }
-.p-stores .p-join:focus-visible { outline: 3px solid #2a1a05; outline-offset: 3px; }
-.p-app.night .p-stores .p-join { color: #2a1a05; border-color: #ffe089; box-shadow: 0 0 22px rgba(247,194,63,.55), 0 0 0 4px rgba(247,194,63,.25); }
-@media (prefers-reduced-motion: no-preference) {
-  .p-stores .p-join::before { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.55) 50%, transparent 65%); transform: translateX(-120%); animation: p-join-shine 3.2s ease-in-out 1s infinite; pointer-events: none; }
-}
-@keyframes p-join-shine { 0%, 60% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
-.calm .p-stores .p-join::before { animation: none; display: none; }
-.calm .p-stores .p-join { transition: none; }
 /* Today grid when built-in cards were hidden in the Studio: fill the middle row, no empty cells. */
 @media (min-width: 900px) {
   .v-today #pFeed.mid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }

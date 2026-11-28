@@ -102,11 +102,21 @@ async function openApp(viewport, sw = true, versesOn = true) {
   check((await page.$eval('#pSoonMsg', (m) => m.textContent)) === '<img src=x> Soon!' && !(await page.$('#pSoonMsg img')), 'nav: custom message is shown as text');
   await page.click('[data-soon-close]');
 
-  // Approved copy (Oct 2026): free game, Android closed test, no dead sign-up form, no audio-less Listen button.
+  // Approved copy: free game, official Get it on Google Play badge, no dead sign-up form, no audio-less Listen button.
   const html = await page.content();
   check(html.includes('A free, gentle Bible adventure for ages 5–8</h2>') && html.includes('Little Light: Bible Journeys is completely free. No ads, no purchases, nothing to unlock.'), 'copy: short Play headline, the free-game details in the text below');
   check(!html.includes('App Store') && !html.includes('Play the free preview') && !html.includes('Free preview'), 'copy: no App Store badge, preview button or Free preview status');
-  check(html.includes('14-day closed test') && !!(await page.$('.p-stores a[href$="/join"]')), 'copy: store line explains the closed test and links to /join');
+  const playBadge = 'https://play.google.com/store/apps/details?id=com.littlesaltandlight.littlelight';
+  const badges = await page.$$eval('a.p-play-badge', (as) => as.map((a) => ({
+    href: a.getAttribute('href'), target: a.getAttribute('target'), rel: a.getAttribute('rel'),
+    alt: a.querySelector('img') && a.querySelector('img').getAttribute('alt'),
+    src: a.querySelector('img') && a.querySelector('img').getAttribute('src'),
+    w: a.querySelector('img') && a.querySelector('img').getAttribute('width'),
+    h: a.querySelector('img') && a.querySelector('img').getAttribute('height'),
+  })));
+  check(badges.length === 3 && badges.every((b) => b.href === playBadge && b.target === '_blank' && b.rel === 'noopener' && b.alt === 'Get it on Google Play' && b.src === '/media/store/get-it-on-google-play.f72611e2.png' && b.w === '646' && b.h === '250'), 'copy: three self-hosted Get it on Google Play badges (Play, Today slide, Today sidebar) with official alt text, size and a new-tab link');
+  check(!html.includes('14-day closed test') && !html.includes('Coming to Android') && !html.includes('Coming to Google Play'), 'copy: closed-test store lines are gone now that the game is on Google Play');
+  check(!(await page.$('.p-stores .p-join, .p-stores a[href$="/join"]')), 'copy: the Play page store row is the official badge, not Join the testers');
   check(new Set(await page.$$eval('#pMap .st', (s) => s.map((x) => x.textContent))).size === 1, 'copy: all journey statuses are the same');
   check(!(await page.$('#pNewsEmail')) && html.includes('Weekly encouragement for families is on its way. Check back soon.'), 'copy: newsletter form is replaced by a note');
   check(html.includes('>Add Salt and Light to your home screen<'), 'copy: install button label');
@@ -159,8 +169,11 @@ async function openApp(viewport, sw = true, versesOn = true) {
   await page.waitForSelector('#app[data-ready]');
   await page.click('.p-tab[data-tab="play"]');
   await page.waitForTimeout(150);
-  const join = await page.$eval('.p-stores .p-join', (a) => ({ h: a.getBoundingClientRect().height, bg: getComputedStyle(a).backgroundImage, c: getComputedStyle(a).color }));
-  check(join.h >= 48 && join.bg.includes('gradient') && join.c === 'rgb(42, 26, 5)', `copy: Join the testers is a big gold button (${Math.round(join.h)}px)`);
+  const badgeBox = await page.$eval('.p-stores .p-play-badge img', (img) => {
+    const r = img.getBoundingClientRect();
+    return { w: r.width, h: r.height, vis: r.height * 168 / 250 };
+  });
+  check(badgeBox.vis >= 28 && badgeBox.w >= 100, `copy: Play page badge meets Google's 28px minimum visible height (${badgeBox.vis.toFixed(1)}px visible, ${Math.round(badgeBox.w)}×${Math.round(badgeBox.h)} image)`);
   await page.click('.p-tab[data-tab="today"]');
 
   for (const tab of ['watch', 'listen', 'read', 'verses', 'play', 'today']) {
