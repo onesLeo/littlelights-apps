@@ -22,7 +22,7 @@
     verses: { path: '/verses', title: 'Verses: Bible verses for when you need them · ' + NAME,
       desc: 'Bible verses for families, grouped by what you need: when you are afraid, trust, friendship, mercy and light.' },
     play: { path: '/play', title: 'Play: Little Light, a free Bible game for ages 5–8 · ' + NAME,
-      desc: 'Little Light: Bible Journeys is a free, gentle Bible game for ages 5–8. No ads, no purchases, every line read aloud. Coming to Android.' }
+      desc: 'Little Light: Bible Journeys is a free, gentle Bible game for ages 5–8. No ads, no purchases, every line read aloud.' }
   };
   var TABS = ['today', 'watch', 'listen', 'read', 'verses', 'play'];
 

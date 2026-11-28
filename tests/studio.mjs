@@ -277,7 +277,7 @@ await app.waitForSelector('#app[data-ready]');
 await app.waitForTimeout(300);
 const firstSlide = await app.$eval('#pFeed .p-slide', (s) => s.textContent);
 check(firstSlide.includes('Psalm 23') || firstSlide.includes('Rest for the weary') || firstSlide.includes('Evening prayer'), 'app: Studio posts lead the Today feed');
-check(!(await app.$('#pFeed img')), 'app: text from the Studio is shown as text, never as HTML');
+check(!(await app.$('#pFeed img:not(.p-play-badge img)')), 'app: text from the Studio is shown as text, never as HTML');
 check(!(await app.isVisible('.p-tab[data-tab="verses"]')), 'menus: Verses is hidden by default');
 // The owner switches Verses on in the Studio.
 await page.click('.side [data-view="site"]');

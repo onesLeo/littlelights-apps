@@ -2125,6 +2125,7 @@
     var href = a.getAttribute('href') || '', path = '';
     try { path = new URL(href, location.href).pathname; } catch (x) { path = href; }
     if (path === '/join' || path.indexOf('/join/') === 0) countEvent('action', 'join', 'click');
+    if (a.classList.contains('p-play-badge')) countEvent('action', 'google-play', 'click');
     if (a.classList.contains('p-follow-a') || a.classList.contains('sf-soc') || (a.classList.contains('p-follow-a') === false && a.closest && a.closest('.p-follow, .p-sfoot, .sf-follow'))) {
       var label = ((a.getAttribute('aria-label') || '') + ' ' + (a.getAttribute('title') || '')).toLowerCase();
       var net = /instagram/.test(label) ? 'instagram' : /tiktok/.test(label) ? 'tiktok' : /youtube/.test(label) ? 'youtube' : '';
